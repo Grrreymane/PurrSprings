@@ -1,0 +1,20 @@
+[
+ "{}",
+ "null",
+ "[]",
+ "not json",
+ "{\"v\":1,\"stats\":null,\"tut\":7}",
+ "{\"money\":\"12\",\"unlocked\":{\"room2\":true},\"rooms\":{\"room1\":\"occupied\",\"room2\":\"reserved\"}}",
+ "{\"piles\":{\"desk\":5}}",
+ "{\"piles\":[3,4]}",
+ "{\"piles\":{\"room5\":9,\"onsen\":4,\"constructor\":2}}",
+ "{\"money\":1e999}",
+ "{\"money\":-5,\"earned\":\"x\"}",
+ "{\"money\":12,\"paid\":{\"room2\":40}}",
+ "{\"money\":0,\"paid\":{\"room2\":30}}",
+ "{\"unlocked\":{\"porter\":true},\"basket\":0}",
+ "{\"unlocked\":{\"sign\":true},\"done\":false}",
+ "{\"paid\":{\"sign\":600,\"foo\":5},\"money\":10}",
+ "{\"unlocked\":null,\"paid\":\"x\",\"piles\":null,\"rooms\":[1],\"stats\":{\"guests\":\"9\"}}",
+ "{\"unlocked\":{\"room1\":true,\"room2\":true,\"onsen\":true,\"room6\":true},\"rooms\":{\"room6\":\"messy\",\"room9\":\"clean\"},\"piles\":{\"room6\":7,\"milk\":3}}"
+]

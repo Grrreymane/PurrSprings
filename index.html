@@ -167,6 +167,12 @@ function eyeG(G, x, y, r, iris, pupil = 'round') {
 // ============================================================ ART
 // Three blocks, each replaced wholesale by art/<name>.js when the real art is merged. Core code only calls the
 // SPEC section 4 functions below (same names, parameters, canvas sizes, anchors).
+/*ART:stubs:BEGIN*/
+// ============================================================ ART: placeholders (SPEC_v2 12.4)
+// Flat-colour stand-ins (same size + anchor as SPEC_v2 section 12) for art that has not landed yet. Function
+// declarations ONLY: a later declaration of the same name (the real art block below, once merged) wins.
+// After a merge, delete the stubs the art blocks now provide.
+/*ART:stubs:END*/
 /*ART:chars:BEGIN*/
 // ============================================================ ART: characters (art/chars.js)
 // Chibi cats for 猫猫温泉旅馆. Every sprite is built once and cached with art(key, ...).
@@ -1743,6 +1749,8 @@ function inputVec() {
 }
 
 // ============================================================ audio (synthesised, no files)
+// Replaced wholesale by audio/engine.js at merge time (SPEC_v2 13).
+/*AUDIO:BEGIN*/
 let AC = null, NB = null, MB = null, muted = load('mute', false);
 function initAudio() {
   try {
@@ -1835,6 +1843,7 @@ function musicTick() {
     }
   } catch (e) {}
 }
+/*AUDIO:END*/
 function vib(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
 document.addEventListener('visibilitychange', () => {
   try { if (document.hidden && state !== 'title') saveNow(); } catch (e) {}

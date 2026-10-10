@@ -1,0 +1,42 @@
+{
+ "v": 1,
+ "money": 17,
+ "earned": 217,
+ "unlocked": {
+  "room1": true,
+  "room2": true,
+  "room3": true,
+  "shoes1": true,
+  "onsen": true,
+  "recep": true
+ },
+ "paid": {
+  "room2": 25,
+  "room3": 35,
+  "shoes1": 35,
+  "onsen": 50,
+  "recep": 55
+ },
+ "basket": 8,
+ "piles": {
+  "recep": 0,
+  "room1": 0,
+  "room2": 5,
+  "room3": 0,
+  "onsen": 9
+ },
+ "rooms": {
+  "room1": "clean",
+  "room2": "messy",
+  "room3": "occupied"
+ },
+ "stats": {
+  "guests": 13,
+  "angry": 0,
+  "time": 165.1999999999932
+ },
+ "tut": {
+  "moved": true
+ },
+ "done": false
+}

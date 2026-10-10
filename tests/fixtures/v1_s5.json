@@ -1,0 +1,83 @@
+{
+ "v": 1,
+ "money": 738,
+ "earned": 7408,
+ "unlocked": {
+  "room1": true,
+  "room2": true,
+  "room3": true,
+  "shoes1": true,
+  "onsen": true,
+  "recep": true,
+  "basket1": true,
+  "maid1": true,
+  "room4": true,
+  "milk": true,
+  "room5": true,
+  "shoes2": true,
+  "room6": true,
+  "porter": true,
+  "basket2": true,
+  "room7": true,
+  "room8": true,
+  "shoes3": true,
+  "maid2": true,
+  "bigbath": true,
+  "sign": true
+ },
+ "paid": {
+  "room2": 25,
+  "room3": 35,
+  "shoes1": 35,
+  "onsen": 50,
+  "recep": 55,
+  "basket1": 80,
+  "maid1": 120,
+  "room4": 180,
+  "milk": 200,
+  "room5": 320,
+  "shoes2": 340,
+  "room6": 370,
+  "porter": 430,
+  "basket2": 370,
+  "room7": 500,
+  "room8": 570,
+  "shoes3": 570,
+  "maid2": 600,
+  "bigbath": 720,
+  "sign": 1100
+ },
+ "basket": 9,
+ "piles": {
+  "recep": 25,
+  "room1": 20,
+  "room2": 20,
+  "room3": 18,
+  "onsen": 0,
+  "room4": 34,
+  "milk": 0,
+  "room5": 0,
+  "room6": 42,
+  "room7": 42,
+  "room8": 18
+ },
+ "rooms": {
+  "room1": "clean",
+  "room2": "messy",
+  "room3": "occupied",
+  "room4": "reserved",
+  "room5": "occupied",
+  "room6": "reserved",
+  "room7": "clean",
+  "room8": "messy"
+ },
+ "stats": {
+  "guests": 193,
+  "angry": 0,
+  "time": 1159.8999999996024
+ },
+ "tut": {
+  "moved": true
+ },
+ "done": true
+}
