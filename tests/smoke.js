@@ -13,6 +13,8 @@ function check(tag) {
   for (const k in S.piles) if (!Number.isFinite(S.piles[k]) || S.piles[k] < 0) bad(tag, 'pile ' + k + ' ' + S.piles[k]);
   if (S.basket < 0 || S.basket > 10) bad(tag, 'basket ' + S.basket);
   if (boxHit(P.x, P.y)) bad(tag, 'player inside a wall at ' + R(P.x) + ',' + R(P.y));
+  if (!Number.isFinite(S.hearts) || S.hearts < 0 || S.hearts !== Math.floor(S.hearts)) bad(tag, 'hearts ' + S.hearts);
+  if (star() < S.peak) bad(tag, 'star below peak');
 }
 // tiny guide follower
 let path = [], key = '', think = 0;
@@ -20,7 +22,7 @@ function drive(dt) {
   think -= dt;
   if (think <= 0) {
     think = .3;
-    const t = S.tut.moved ? guideTarget() : { tx: 7, ty: 24 };
+    const t = S.tut.moved ? guideTarget() : { tx: 17, ty: 24 };
     if (!t || t.here) { path = []; key = ''; }
     else if (t.tx + ',' + t.ty !== key) { key = t.tx + ',' + t.ty; const [sx, sy] = tileOf(P); path = findPath(sx, sy, t.tx, t.ty) || []; }
   }
@@ -56,8 +58,9 @@ const back = { money: S.money, unlocked: Object.keys(S.unlocked).sort().join(','
 if (back.money !== mid.money || back.unlocked !== mid.unlocked) bad('roundtrip', JSON.stringify(mid) + ' -> ' + JSON.stringify(back));
 run(300, 'after-load');
 // old / odd save shapes load without throwing
-// (+ shapes the game never writes: unknown / array / locked pile keys, Infinity, a part payment above a lowered price)
-for (const raw of ['{}', '{"money":"12","unlocked":{"room2":true},"rooms":{"room1":"occupied","room2":"reserved"}}', '{"v":1,"stats":null,"tut":7}', 'not json',
+// (+ shapes the game never writes: unknown / array / locked pile keys, Infinity, a part payment above a lowered price;
+//  the full v1 fixture set is exercised by tests/migrate_v1.js)
+for (const raw of ['{"v":2,"decor":{"room1:A":"d_scroll","zz":1},"equip":{"hat":"h_gold"},"album":{"photos":"x"},"clock":9}','{}', '{"money":"12","unlocked":{"room2":true},"rooms":{"room1":"occupied","room2":"reserved"}}', '{"v":1,"stats":null,"tut":7}', 'not json',
   '{"piles":{"desk":5}}', '{"piles":[3,4]}', '{"piles":{"room5":9,"onsen":4,"constructor":2}}', '{"money":1e999}', '{"money":12,"paid":{"room2":40}}']) {
   try {
     localStorage.setItem(SAVE + 'state', raw); const s = loadState();

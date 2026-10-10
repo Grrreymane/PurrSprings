@@ -16,7 +16,7 @@ const DT = 1 / 30;
 newGame();
 let path = [], key = '', think = 0, mode = 'follow', episode = 0, stuckT = 0, lastPos = [P.x, P.y], ignoring = false, afkFrom = null, afkTo = null;
 function randomTile() {
-  for (let k = 0; k < 200; k++) { const tx = Math.floor(Math.random() * 15), ty = Math.floor(Math.random() * 34); if (walkable(tx, ty)) { const [sx, sy] = tileOf(P), p = findPath(sx, sy, tx, ty); if (p) return p; } }
+  for (let k = 0; k < 200; k++) { const tx = Math.floor(Math.random() * MW), ty = Math.floor(Math.random() * MH); if (walkable(tx, ty)) { const [sx, sy] = tileOf(P), p = findPath(sx, sy, tx, ty); if (p) return p; } }
   return [];
 }
 function drive(dt) {
@@ -37,7 +37,7 @@ function drive(dt) {
     if (PROF.ignore && Math.random() < PROF.ignore) { ignoring = true; path = randomTile(); key = 'rand'; }
     else {
       ignoring = false;
-      const t = S.tut.moved ? guideTarget() : { tx: 7, ty: 24 };
+      const t = S.tut.moved ? guideTarget() : { tx: 17, ty: 24 };
       if (!t || t.here) { path = []; key = ''; }
       else if (t.tx + ',' + t.ty !== key || !path.length) { key = t.tx + ',' + t.ty; const [sx, sy] = tileOf(P); path = findPath(sx, sy, t.tx, t.ty) || []; }
     }
@@ -52,7 +52,7 @@ function drive(dt) {
 }
 // ---------------------------------------------------------------- bookkeeping per segment (★1..★5, post = after ★5)
 const seg = {};
-const segOf = () => S.unlocked.sign ? 'post' : '★' + star();
+const segOf = () => (star() >= 5) ? 'post' : '★' + star();
 const SEG = k => seg[k] || (seg[k] = { t: 0, buys: [], act: {}, src: { room: 0, tip: 0, bath: 0, milk: 0 }, money: 0, piles: 0, drought: 0, affordIdle: 0, choice: 0, pickups: 0, pickupSum: 0, visPads: 0, padsSpentTime: 0, phys: {} });
 let prevPiles = {}, prevUnl = new Set(Object.keys(S.unlocked)), lastBuyT = 0, finT = null, prevEarned = 0;
 const src = id => id === 'recep' ? 'room' : id === 'onsen' ? 'bath' : id === 'milk' ? 'milk' : 'tip';
@@ -95,7 +95,7 @@ for (let i = 0; i < steps; i++) {
   const need = vis.length ? Math.min(...vis.map(padNeed)) : Infinity;
   if (S.money + pileSum < need) s.drought += DT;        // nothing affordable even after picking up every pile
   else if (S.money < need) s.affordIdle += DT;          // affordable only after picking up
-  if (S.unlocked.sign && finT === null) finT = t;
+  if ((star() >= 5) && finT === null) finT = t;
   if (finT !== null && t > finT + POSTMIN * 60) break;
 }
 const R = Math.round, mmss = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');

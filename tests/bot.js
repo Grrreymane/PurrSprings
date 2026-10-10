@@ -5,7 +5,9 @@
 // (findPath) there through botMove. 'eager' = 0.3 s reaction, always on task; 'casual' = 1 s reaction and
 // 30% of the time wandering or standing still. Records the game time of every unlock, the angry-guest rate
 // after the receptionist is hired, the longest stretch without earning, and checks the SPEC 7 invariants
-// every simulated second. Extra args: [profile] [max minutes] [json]
+// every simulated second (+ the SPEC_v2 14.3 ones that exist so far). Ends at star 5. Extra args: [profile] [max minutes] [json]
+// v2 note: until the stage-2 systems land (calls, dining, VIPs, decor, clerk) the v2 economy has no active income, so
+// the timing checks are informational; green = invariants OK and star 5 reached.
 const PROFILE = ARGS[0] || 'eager', MAXMIN = +ARGS[1] || 50, JSONOUT = ARGS.includes('json');
 const PROF = { eager: { react: .3, distract: 0 }, casual: { react: 1, distract: .3 } }[PROFILE] || { react: .3, distract: 0 };
 const DT = 1 / 30;
@@ -14,7 +16,7 @@ newGame();
 // ---------------------------------------------------------------- driver
 let path = [], key = '', think = 0, mode = 'follow', episode = 0, stuckT = 0, lastPos = [P.x, P.y], stuckN = 0;
 function randomTile() {
-  for (let k = 0; k < 200; k++) { const tx = Math.floor(Math.random() * 15), ty = Math.floor(Math.random() * 34); if (walkable(tx, ty)) { const [sx, sy] = tileOf(P), p = findPath(sx, sy, tx, ty); if (p) return p; } }
+  for (let k = 0; k < 200; k++) { const tx = Math.floor(Math.random() * MW), ty = Math.floor(Math.random() * MH); if (walkable(tx, ty)) { const [sx, sy] = tileOf(P), p = findPath(sx, sy, tx, ty); if (p) return p; } }
   return [];
 }
 function drive(dt) {
@@ -28,7 +30,7 @@ function drive(dt) {
   think -= dt;
   if (think <= 0 && mode === 'follow') {
     think = PROF.react;
-    const t = S.tut.moved ? guideTarget() : { tx: 7, ty: 24 };   // first steps: walk up into the lobby (the hand hint)
+    const t = S.tut.moved ? guideTarget() : { tx: 17, ty: 24 };   // first steps: walk up into the lobby (the hand hint)
     if (!t || t.here) { path = []; key = ''; }
     else if (t.tx + ',' + t.ty !== key || !path.length) { key = t.tx + ',' + t.ty; const [sx, sy] = tileOf(P); path = findPath(sx, sy, t.tx, t.ty) || []; }
   }
@@ -43,7 +45,7 @@ function drive(dt) {
 }
 // ---------------------------------------------------------------- bookkeeping
 const unlockT = {}, inv = {}, flag = (k, m) => { inv[k] = inv[k] || { n: 0, first: m }; inv[k].n++; };
-let lastEarned = 0, lastEarnAt = 0, maxGap = 0, maxGapAt = 0, recepAt = null, base = null, renderErr = 0, peakQueue = 0;
+let lastHearts = 0, lastEarned = 0, lastEarnAt = 0, maxGap = 0, maxGapAt = 0, recepAt = null, base = null, renderErr = 0, peakQueue = 0;
 const t0 = () => S.stats.time;
 function checkSecond() {
   const t = t0();
@@ -61,6 +63,20 @@ function checkSecond() {
   for (const rm of ROOMS) if (RT[rm.id].guest && !GUESTS.includes(RT[rm.id].guest)) flag('room-leak', mmss(t) + ' ' + rm.id);
   if (S.basket < 0 || S.basket > 10 || S.basket !== Math.floor(S.basket)) flag('basket', mmss(t) + ' ' + S.basket);
   if (boxHit(P.x, P.y)) flag('player-in-wall', mmss(t) + ' ' + R(P.x) + ',' + R(P.y));
+  // SPEC_v2 14.3 (the parts that exist in stage 1)
+  if (!Number.isFinite(S.hearts) || S.hearts < 0 || S.hearts !== Math.floor(S.hearts)) flag('hearts', mmss(t) + ' ' + S.hearts);
+  if (S.hearts < lastHearts) flag('hearts-drop', mmss(t) + ' ' + lastHearts + ' -> ' + S.hearts); lastHearts = S.hearts;
+  for (const k in S.piles) if (!Number.isFinite(S.piles[k]) || S.piles[k] < 0 || S.piles[k] !== Math.floor(S.piles[k])) flag('pile', k + ' ' + S.piles[k]);
+  if (star() < S.peak) flag('star<peak', mmss(t));
+  const prog = [...PADPOS.keys()].filter(id => !UNLOCK[id].decor && !UNLOCK[id].booth).length;
+  if (prog > PAD_MAX) flag('pads>4', mmss(t) + ' ' + [...PADPOS.keys()].join(','));
+  for (const [id, xy] of PADPOS) if (!findPath(DESK_SPOT[0], DESK_SPOT[1], xy[0], xy[1])) flag('pad-unreachable', mmss(t) + ' ' + id);
+  for (const e of GUESTS.concat(STAFF)) {
+    const [tx, ty] = tileOf(e), a = areaAt(tx, ty);
+    if (e.y < MAPH && a && !areaOpen(a)) flag('in-locked-area', mmss(t) + ' ' + (e.st || e.role) + ' ' + tx + ',' + ty);
+    if (e.y < MAPH && !e.moving && BLOCK[ty * MW + tx] && e.st !== 'bathing') flag('on-block', mmss(t) + ' ' + (e.st || e.role) + ' ' + tx + ',' + ty);
+  }
+  if (GUIDE && !GUIDE.here) { const [sx, sy] = tileOf(P); if (!findPath(sx, sy, GUIDE.tx, GUIDE.ty)) flag('guide-unreachable', mmss(t) + ' ' + GUIDE.kind + ' ' + GUIDE.tx + ',' + GUIDE.ty); }
   try { render(); } catch (e) { renderErr++; flag('render', String(e && e.message || e)); }
   peakQueue = Math.max(peakQueue, Q.length);
 }
@@ -77,7 +93,7 @@ for (let i = 0; i < steps; i++) {
   if (S.earned > lastEarned) { lastEarned = S.earned; lastEarnAt = t; }
   if (!fin && t - lastEarnAt > maxGap) { maxGap = t - lastEarnAt; maxGapAt = lastEarnAt; }
   if (Math.floor(t) !== lastSec) { lastSec = Math.floor(t); checkSecond(); }
-  if (S.unlocked.sign && !fin) { fin = t; break; }
+  if (star() >= 5 && !fin) { fin = t; break; }
 }
 // ---------------------------------------------------------------- report
 const order = UNLOCKS.filter(u => unlockT[u.id] !== undefined).sort((a, b) => unlockT[a.id] - unlockT[b.id]);
@@ -86,8 +102,8 @@ for (const u of order) { const gp = unlockT[u.id] - prev; if (unlockT[u.id] <= 3
 const ga = base ? S.stats.guests - base.g : 0, aa = base ? S.stats.angry - base.a : 0, angryRate = ga + aa ? aa / (ga + aa) : 0;
 const r2 = unlockT.room2;
 const checks = PROFILE === 'eager'
-  ? [['room2 30-60s', r2 !== undefined && r2 >= 30 && r2 <= 60], ['gaps<=60 first 5m', gapEarly <= 60], ['gaps<=120 after', gapLate <= 120], ['5star 15-25m', fin && fin >= 900 && fin <= 1500], ['angry<10% w/ recep', angryRate < .1]]
-  : [['5star <=40m', fin && fin <= 2400], ['earn gap <90s', maxGap < 90]];
+  ? [['room2 30-60s', r2 !== undefined && r2 >= 30 && r2 <= 60], ['gaps<=60 first 5m', gapEarly <= 60], ['gaps<=120 after', gapLate <= 120], ['5star 21-27m (v2 target)', fin && fin >= 1260 && fin <= 1620], ['angry<10% w/ recep', angryRate < .1]]
+  : [['5star <=36m (v2 target)', fin && fin <= 2160], ['earn gap <90s', maxGap < 90]];
 const invOk = Object.keys(inv).length === 0;
 if (JSONOUT) console.log(JSON.stringify({ profile: PROFILE, fin, unlockT, gapEarly, gapLate, angryRate, maxGap, inv, stuckN }));
 else {
@@ -96,4 +112,4 @@ else {
   console.log('  checks: ' + checks.map(([n, ok]) => (ok ? 'ok ' : 'NO ') + n).join(' | '));
   for (const k in inv) console.log('  INVARIANT ' + k + ' x' + inv[k].n + ' first: ' + inv[k].first);
 }
-if (!invOk) process.exitCode = 1;
+if (!invOk || !fin) process.exitCode = 1;

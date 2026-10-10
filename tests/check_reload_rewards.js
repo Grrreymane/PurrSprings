@@ -6,7 +6,7 @@ const DT = 1 / 30, total = () => S.money + Object.values(S.piles).reduce((a, b) 
 newGame(); S.tut.moved = true;
 S.unlocked.room2 = true; S.paid.room2 = 25; S.rooms.room2 = 'clean'; resetWorld(); go('play');
 // two guests: check both in from the desk, let one reach its futon
-Object.assign(P, { x: 3 * TILE + 8, y: 24 * TILE + 8 });
+Object.assign(P, { x: DESK_SPOT[0] * TILE + 8, y: DESK_SPOT[1] * TILE + 8 });
 let n = 0; while (S.stats.guests < 2 && n++ < 30 * 60) update(DT);
 n = 0; while (!Object.values(S.rooms).includes('occupied') && n++ < 30 * 60) update(DT);
 console.log('rooms', JSON.stringify(S.rooms), '| piles', JSON.stringify(S.piles), '| money', S.money);
@@ -15,7 +15,7 @@ const reload = () => { S = loadState(); resetWorld(); go('play'); return total()
 const r1 = reload(); console.log('reload 1: rooms', JSON.stringify(S.rooms), 'fish', saved, '->', r1, '(+ one tip ' + STARS[star()].tip + ')');
 const r2 = reload(); console.log('reload 2 without saving: fish', r2, '(same, not stacked)');
 saveNow(); const r3 = reload(); console.log('save + reload 3: fish', r3, '| rooms', JSON.stringify(S.rooms));
-Object.assign(P, { x: 3 * TILE + 8, y: 24 * TILE + 8 }); update(DT);
+Object.assign(P, { x: DESK_SPOT[0] * TILE + 8, y: DESK_SPOT[1] * TILE + 8 }); update(DT);
 const room = ROOMS.find(rm => S.piles[rm.id] > 0);
 if (room) { Object.assign(P, { x: room.pile[0] * TILE + 8, y: room.pile[1] * TILE + 8 }); update(DT); }
 saveNow(); const r4 = reload(); console.log('collect, save, reload 4: fish', r4, '| piles', JSON.stringify(S.piles));

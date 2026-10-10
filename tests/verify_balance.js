@@ -10,7 +10,7 @@ const DT = 1 / 30;
 newGame();
 let path = [], key = '', think = 0, mode = 'follow', episode = 0, stuckT = 0, lastPos = [P.x, P.y], ignoring = false;
 function randomTile() {
-  for (let k = 0; k < 200; k++) { const tx = Math.floor(Math.random() * 15), ty = Math.floor(Math.random() * 34); if (walkable(tx, ty)) { const [sx, sy] = tileOf(P), p = findPath(sx, sy, tx, ty); if (p) return p; } }
+  for (let k = 0; k < 200; k++) { const tx = Math.floor(Math.random() * MW), ty = Math.floor(Math.random() * MH); if (walkable(tx, ty)) { const [sx, sy] = tileOf(P), p = findPath(sx, sy, tx, ty); if (p) return p; } }
   return [];
 }
 function drive(dt) {
@@ -27,7 +27,7 @@ function drive(dt) {
     if (PROF.ignore && Math.random() < PROF.ignore) { ignoring = true; path = randomTile(); key = 'rand'; }
     else {
       ignoring = false;
-      const t = S.tut.moved ? guideTarget() : { tx: 7, ty: 24 };
+      const t = S.tut.moved ? guideTarget() : { tx: 17, ty: 24 };
       if (!t || t.here) { path = []; key = ''; }
       else if (t.tx + ',' + t.ty !== key || !path.length) { key = t.tx + ',' + t.ty; const [sx, sy] = tileOf(P); path = findPath(sx, sy, t.tx, t.ty) || []; }
     }
@@ -97,7 +97,7 @@ for (let i = 0; i < steps; i++) {
     try { render(); } catch (e) { flag('render', String(e && e.message)); }
     if (TRACE && t >= TRACE[0] && t <= TRACE[1]) console.log(mmss(t), GUIDE ? GUIDE.kind + (GUIDE.here ? '*' : '') : '-', 'm' + S.money, JSON.stringify(S.piles).replace(/"/g, ''), 'Q' + Q.length, ROOMS.filter(r => S.unlocked[r.id]).map(r => S.rooms[r.id][0]).join(''), 'b' + S.basket, mode, 'need', (() => { let n = 1e9, id = ''; for (const u of UNLOCKS) if (padVisible(u) && padNeed(u) < n) { n = padNeed(u); id = u.id; } return id + ':' + n; })(), 'trap', R(trapRun));
   }
-  if (S.unlocked.sign && !fin) { fin = t; break; }
+  if ((star() >= 5) && !fin) { fin = t; break; }
 }
 const order = UNLOCKS.filter(u => unlockT[u.id] !== undefined).sort((a, b) => unlockT[a.id] - unlockT[b.id]);
 let prev = 0, gapEarly = 0, gapLate = 0, gapEarlyAt = '', gapLateAt = '';

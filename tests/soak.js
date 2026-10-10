@@ -23,7 +23,7 @@ newGame();
 // ---------------------------------------------------------------- driver (as bot.js)
 let path = [], key = '', think = 0, mode = 'follow', episode = 0, stuckT = 0, lastPos = [P.x, P.y], stuckN = 0;
 function randomTile() {
-  for (let k = 0; k < 200; k++) { const tx = Math.floor(Math.random() * 15), ty = Math.floor(Math.random() * 34); if (walkable(tx, ty)) { const [sx, sy] = tileOf(P), p = _findPath(sx, sy, tx, ty); if (p) return p; } }
+  for (let k = 0; k < 200; k++) { const tx = Math.floor(Math.random() * MW), ty = Math.floor(Math.random() * MH); if (walkable(tx, ty)) { const [sx, sy] = tileOf(P), p = _findPath(sx, sy, tx, ty); if (p) return p; } }
   return [];
 }
 function drive(dt) {
@@ -37,7 +37,7 @@ function drive(dt) {
   think -= dt;
   if (think <= 0 && mode === 'follow') {
     think = PROF.react;
-    const t = S.tut.moved ? guideTarget() : { tx: 7, ty: 24 };
+    const t = S.tut.moved ? guideTarget() : { tx: 17, ty: 24 };
     if (!t || t.here) { path = []; key = ''; }
     else if (t.tx + ',' + t.ty !== key || !path.length) { key = t.tx + ',' + t.ty; const [sx, sy] = tileOf(P); path = _findPath(sx, sy, t.tx, t.ty) || []; }
   }

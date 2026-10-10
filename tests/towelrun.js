@@ -5,12 +5,12 @@ const PROFILE = ARGS[0] || 'eager', PROF = { eager: { react: .3, distract: 0 }, 
 const mmss = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
 newGame();
 let path = [], key = '', think = 0, mode = 'follow', episode = 0;
-function randomTile() { for (let k = 0; k < 200; k++) { const tx = Math.floor(Math.random() * 15), ty = Math.floor(Math.random() * 34); if (walkable(tx, ty)) { const [sx, sy] = tileOf(P), p = findPath(sx, sy, tx, ty); if (p) return p; } } return []; }
+function randomTile() { for (let k = 0; k < 200; k++) { const tx = Math.floor(Math.random() * MW), ty = Math.floor(Math.random() * MH); if (walkable(tx, ty)) { const [sx, sy] = tileOf(P), p = findPath(sx, sy, tx, ty); if (p) return p; } } return []; }
 function drive(dt) {
   episode -= dt;
   if (episode <= 0) { episode = 3 + Math.random() * 5; const was = mode; mode = Math.random() < PROF.distract ? (Math.random() < .5 ? 'wander' : 'idle') : 'follow'; if (mode !== was) { path = []; key = ''; think = 0; if (mode === 'wander') path = randomTile(); } }
   think -= dt;
-  if (think <= 0 && mode === 'follow') { think = PROF.react; const t = S.tut.moved ? guideTarget() : { tx: 7, ty: 24 }; if (!t || t.here) { path = []; key = ''; } else if (t.tx + ',' + t.ty !== key || !path.length) { key = t.tx + ',' + t.ty; const [sx, sy] = tileOf(P); path = findPath(sx, sy, t.tx, t.ty) || []; } }
+  if (think <= 0 && mode === 'follow') { think = PROF.react; const t = S.tut.moved ? guideTarget() : { tx: 17, ty: 24 }; if (!t || t.here) { path = []; key = ''; } else if (t.tx + ',' + t.ty !== key || !path.length) { key = t.tx + ',' + t.ty; const [sx, sy] = tileOf(P); path = findPath(sx, sy, t.tx, t.ty) || []; } }
   if (path.length) { const [tx, ty] = path[0], cx = tx * 16 + 8, cy = ty * 16 + 8, dx = cx - P.x, dy = cy - P.y, d = Math.hypot(dx, dy); if (d < 1.5) path.shift(); botMove = d > .01 ? { x: dx / d * Math.min(1, d / 3), y: dy / d * Math.min(1, d / 3) } : null; } else botMove = null;
 }
 const runs = []; let cur = null, lastKind = null;

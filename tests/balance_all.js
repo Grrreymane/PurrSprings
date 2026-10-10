@@ -27,7 +27,7 @@ const R = Math.round;
     const rs = all.filter(r => r.profile === p);
     const errs = rs.filter(r => r.error); if (errs.length) { console.log(p + ' ERRORS: ' + errs.map(e => e.error).join(' / ')); continue; }
     const fins = rs.map(r => r.fin === null ? Infinity : r.fin);
-    const ids = ['room2', 'room3', 'shoes1', 'onsen', 'recep', 'basket1', 'room4', 'milk', 'maid1', 'room5', 'shoes2', 'room6', 'porter', 'basket2', 'room7', 'room8', 'shoes3', 'maid2', 'bigbath', 'sign'];
+    const ids = Object.keys(rs.reduce((o, r) => Object.assign(o, r.unlockT || {}), {}));
     const tl = ids.map(id => ({ id, t: med(rs.map(r => r.unlockT[id])) })).filter(x => x.t !== null).sort((a, b) => a.t - b.t);
     const cnt = (arr) => { const c = {}; arr.forEach(x => { c[x] = (c[x] || 0) + 1; }); return Object.entries(c).sort((a, b) => b[1] - a[1]).map(([k, v]) => k + (v > 1 ? '×' + v : '')).join(' '); };
     console.log(`\n== ${p}: ★5 med ${mmss(med(fins))} [${mmss(mn(fins))}-${fins.some(f => !Number.isFinite(f)) ? 'NOT' : mmss(mx(fins))}]  reached ${fins.filter(Number.isFinite).length}/${rs.length}`);

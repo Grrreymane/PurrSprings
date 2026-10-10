@@ -1,4 +1,6 @@
 // Balance / pacing bot (pasted into the game closure by _workflow/tools/headless.js). Extends tests/bot.js.
+// v2 stage 1: runs on the 40x36 map and ends at star 5 (roten); the old cfg price sets (A / F / F2 / B) name v1 pads
+// (sign ...) and no longer apply - use cfg=base. SPEC_v2 14.1 profiles + 14.2 metrics come with stage 3.
 //   node D:/Minigame/_workflow/tools/headless.js D:/Minigame/Hotelgame tests/bot_balance.js --seed 1 -- eager 60 json cfg=base
 //   profiles: eager | casual (same driver as bot.js) | novice (2 s reaction, 50% idle/wander, ignores the arrow 30%)
 //             | afk (eager until recep + maid1, then 10 min hands off, then eager again)
@@ -70,7 +72,7 @@ patchFn('guideTarget', [['towelCap()', '__towelCap()'], ['S.basket <= 2', 'S.bas
   ['  // 6. the biggest fish pile', `  if (__C.cleanAhead) { let bm = null, bd = 1e9; for (const rm of ROOMS) if (S.rooms[rm.id] === 'messy' && !RT[rm.id].claim) { const c = futonC(rm), d = dist(P.x, P.y, c[0], c[1]); if (d < bd) { bd = d; bm = rm; } } if (bm) return T_CLEAN(bm, false); }
   // 6. the biggest fish pile`]]);
 patchFn('updStaff', [['s.carry < 6', 's.carry < __C.porterCarry'], ['s.carry >= 6', 's.carry >= __C.porterCarry'], ['S.basket <= 6', 'S.basket <= __C.porterRefill'], ['MAID_CLEAN_T', '__C.maidCleanT']]);
-patchFn('spawnGuests', [['rooms + 3', 'rooms + __C.spawnSlack']]);
+patchFn('spawnGuests', [['guestRoomsOpen() + 3', 'guestRoomsOpen() + __C.spawnSlack']]);
 const __bathOk = () => !__C.skipBath || S.basket > GUESTS.filter(x => x.st === 'toBath').length;
 patchFn('checkIn', [["setSt(gu, 'toRoom')", "setSt(gu, S.unlocked.onsen && !__C.bathLast && __bathOk() ? 'toBath' : 'toRoom')"]]);
 patchFn('updGuest', [["if (S.unlocked.onsen) { setSt(gu, 'toBath');", "if (__C.bathLast && S.unlocked.onsen && __bathOk()) { setSt(gu, 'toBath');"]]);
@@ -89,7 +91,7 @@ newGame();
 let path = [], key = '', think = 0, mode = 'follow', episode = 0, stuckT = 0, lastPos = [P.x, P.y], stuckN = 0, ignoring = false;
 let afkFrom = null, afkTo = null;
 function randomTile() {
-  for (let k = 0; k < 200; k++) { const tx = Math.floor(Math.random() * 15), ty = Math.floor(Math.random() * 34); if (walkable(tx, ty)) { const [sx, sy] = tileOf(P), p = findPath(sx, sy, tx, ty); if (p) return p; } }
+  for (let k = 0; k < 200; k++) { const tx = Math.floor(Math.random() * MW), ty = Math.floor(Math.random() * MH); if (walkable(tx, ty)) { const [sx, sy] = tileOf(P), p = findPath(sx, sy, tx, ty); if (p) return p; } }
   return [];
 }
 function drive(dt) {
@@ -112,7 +114,7 @@ function drive(dt) {
     if (PROF.ignore && Math.random() < PROF.ignore) { ignoring = true; path = randomTile(); key = 'rand'; }
     else {
       ignoring = false;
-      const t = S.tut.moved ? guideTarget() : { tx: 7, ty: 24 };   // first steps: walk up into the lobby (the hand hint)
+      const t = S.tut.moved ? guideTarget() : { tx: 17, ty: 24 };   // first steps: walk up into the lobby (the hand hint)
       if (!t || t.here) { path = []; key = ''; }
       else if (t.tx + ',' + t.ty !== key || !path.length) { key = t.tx + ',' + t.ty; const [sx, sy] = tileOf(P); const pp = findPath(sx, sy, t.tx, t.ty); if (!pp) unreach++; path = pp || []; }
     }
@@ -219,7 +221,7 @@ for (let i = 0; i < steps; i++) {
       console.log(mmss(t), (GUIDE ? GUIDE.kind + (GUIDE.here ? '*' : '') : '-').padEnd(7), 'P' + tileOf(P), 'm' + S.money, 'piles', JSON.stringify(S.piles).replace(/"/g, ''), 'Q' + Q.length + (Q[0] && Q[0].ready ? 'r' : ''), 'rooms', ROOMS.filter(r => S.unlocked[r.id]).map(r => S.rooms[r.id][0] + (RT[r.id].guest ? '+' : '')).join(''), 'basket', S.basket, 'tw', P.towels, JSON.stringify(gs).replace(/"/g, ''), mode);
     }
   }
-  if (S.unlocked.sign && !fin) { fin = t; break; }
+  if (star() >= 5 && !fin) { fin = t; break; }
 }
 // ---------------------------------------------------------------- report
 const order = UNLOCKS.filter(u => unlockT[u.id] !== undefined).sort((a, b) => unlockT[a.id] - unlockT[b.id]);

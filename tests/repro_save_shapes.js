@@ -27,7 +27,7 @@ const gt = guideTarget(), [sx, sy] = tileOf(P);
 console.log('locked-room pile: guideTarget =', JSON.stringify(gt), '| path from player =', JSON.stringify(findPath(sx, sy, gt.tx, gt.ty)));
 // paid > price with 0 money: standing on the pad never unlocks it (pour() returns on money <= 0 before the unlock check)
 localStorage.setItem(SAVE + 'state', '{"money":0,"paid":{"room2":30}}'); S = loadState(); resetWorld(); go('play'); S.tut.moved = true;
-Object.assign(P, { x: 8 * TILE + 8, y: 20 * TILE + 8 });
+Object.assign(P, { x: 18 * TILE + 8, y: 20 * TILE + 8 });
 for (let i = 0; i < 150; i++) update(DT);
 console.log('paid 30 > price 25, money 0, stood on the room2 pad 5 s: unlocked =', !!S.unlocked.room2, '| pad label would read', fmt(padNeed(UNLOCK.room2)));
 S.money = 3; for (let i = 0; i < 30; i++) update(DT);

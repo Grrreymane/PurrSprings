@@ -1,5 +1,6 @@
 _test.html
 _bot.js
-.shots/
+.shots/*
+!.shots/stage.js
 __pycache__/
 .claude/

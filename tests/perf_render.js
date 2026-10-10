@@ -9,7 +9,7 @@ function drive(dt) {
   think -= dt;
   if (think <= 0) {
     think = .3;
-    const t = S.tut.moved ? guideTarget() : { tx: 7, ty: 24 };
+    const t = S.tut.moved ? guideTarget() : { tx: 17, ty: 24 };
     if (!t || t.here) { path = []; key = ''; }
     else if (t.tx + ',' + t.ty !== key || !path.length) { key = t.tx + ',' + t.ty; const [sx, sy] = tileOf(P); path = findPath(sx, sy, t.tx, t.ty) || []; }
   }
@@ -20,12 +20,12 @@ function drive(dt) {
   } else botMove = null;
 }
 newGame();
-for (let i = 0; i < 30 * 60 * 30 && !S.unlocked.sign; i++) { drive(DT); update(DT); if (state === 'celebrate') { S.done = true; go('play'); } }
+for (let i = 0; i < 30 * 60 * 30 && star() < 5; i++) { drive(DT); update(DT); if (state === 'celebrate') { S.done = true; go('play'); } }
 S.done = true; if (state !== 'play') go('play');
 let created = 0, clears = 0, bfs = 0, bfsMax = 0, framesWithNew = 0;
 const _ts = textSprite; textSprite = function (t) { const k = t.s + '|' + t.size + '|' + t.col + '|' + t.stroke + '|' + K; if (!TXC.has(k)) { created++; if (TXC.size > 400) clears++; } return _ts(t); };
 const _fp = findPath; findPath = function (a, b, c, d) { bfs++; return _fp(a, b, c, d); };
-const N = 5 * 60 * 30;
+const N = 5 * 60 * 30, w0 = Date.now();
 for (let i = 0; i < N; i++) {
   drive(DT); const c0 = created, b0 = bfs;
   update(DT); render();
@@ -37,4 +37,4 @@ const k = 6.5 / K;   // 390-css-px-wide phone at DPR 3: K = 1170 / 180 = 6.5
 console.log(`after ★5 (${R(S.stats.time / 60)} min), 5 min rendered every frame at 30 fps:`);
 console.log(`  new text sprites ${created} (${(created / 5).toFixed(0)}/min), frames that created at least one: ${framesWithNew}/${N} (${(framesWithNew / N * 100).toFixed(1)}%), TXC full clears ${clears}`);
 console.log(`  TXC now ${TXC.size} entries = ${(px * 4 / 1e6).toFixed(1)} MB at K=${K}; ~${(px * 4 * k * k / 1e6).toFixed(0)} MB at K=6.5 (scaled)`);
-console.log(`  BFS calls: ${bfs} total, max ${bfsMax} in one frame`);
+console.log(`  BFS calls: ${bfs} total, max ${bfsMax} in one frame | update + render ${((Date.now() - w0) / N).toFixed(3)} ms per frame (headless: canvas calls are no-ops)`);
