@@ -1,4 +1,4 @@
-// SPEC_v2 14.4 music_check: reads MUSIC_DBG (audio/engine.js, spliced between /*AUDIO:BEGIN*/ and /*AUDIO:END*/) while
+// SPEC_v2 14.4 music_check: reads MUSIC_DBG (the audio engine, merged into index.html's AUDIO block in stage M) while
 // the innkeeper walks around the real game. Headless has no AudioContext, so the engine runs "dry" on musicTick(dt)
 // (the game calls audioTick -> musicWant + musicTick every frame). Checks (9 / 13 / 14.4):
 //   - song changes per minute (any 60 s window) <= 4 while walking between areas (the title and the star-5 fest switch at
@@ -11,7 +11,7 @@
 //   node D:/Minigame/_workflow/tools/headless.js D:/Minigame/Hotelgame tests/music_check.js --seed 1 [-- strict]
 // Until the engine is spliced in there is no MUSIC_DBG: prints MUSIC CHECK SKIPPED and exits 0 (exit 1 with 'strict').
 if (typeof MUSIC_DBG === 'undefined') {
-  console.log('MUSIC CHECK SKIPPED: no MUSIC_DBG (audio/engine.js is not spliced into index.html yet)');
+  console.log('MUSIC CHECK SKIPPED: no MUSIC_DBG (no v2 audio engine in index.html)');
   if (ARGS.includes('strict')) process.exitCode = 1;
 } else {
   const DT = 1 / 30, errs = [], bad = m => { if (errs.length < 20) errs.push(m); };

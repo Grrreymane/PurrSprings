@@ -24,8 +24,9 @@
   const ff = (sec, bot) => { for (let i = 0, n = Math.round(sec / DT); i < n; i++) { if (bot) drive(DT); update(DT); if (state === 'celebrate' && bot) { S.done = true; go('play'); } } botMove = null; };
   const unl = ids => { ids.forEach(id => { S.unlocked[id] = true; S.paid[id] = UNLOCK[id].price; for (const rm of ROOMS) if (rm.open === id) S.rooms[rm.id] = S.rooms[rm.id] || 'clean'; }); S.peak = Math.max(S.peak, starOf(S)); };
   const place = (x, y, dir) => { Object.assign(P, { x: x * TILE + 8, y: y * TILE + 8, dir: dir || 'down', moving: false }); updCam(0, true); };
-  const guest = (o) => { addGuest('regular'); const gu = GUESTS[GUESTS.length - 1]; Q.splice(Q.indexOf(gu), 1); Object.assign(gu, o); return gu; };
-  const party = (type, o) => { addGuest(type); const gu = GUESTS[GUESTS.length - 1]; Q.splice(Q.indexOf(gu), 1); Object.assign(gu, o); if (gu.mate) { gu.mate.x = gu.x; gu.mate.y = gu.y + 9; } return gu; };
+  // placed guests are already indoors (inside = true), or they say their arrival line on the first frame
+  const guest = (o) => { addGuest('regular'); const gu = GUESTS[GUESTS.length - 1]; Q.splice(Q.indexOf(gu), 1); Object.assign(gu, o); if (!o || o.inside === undefined) gu.inside = gu.y < 29 * TILE; return gu; };
+  const party = (type, o) => { addGuest(type); const gu = GUESTS[GUESTS.length - 1]; Q.splice(Q.indexOf(gu), 1); Object.assign(gu, o); if (!o || o.inside === undefined) gu.inside = gu.y < 29 * TILE; if (gu.mate) { gu.mate.x = gu.x; gu.mate.y = gu.y + 9; } return gu; };
   const bathe = (slot, room) => { const gu = guest({ st: 'bathing', t: 0, tt: 60, slot, room, x: SLOTS[slot].x * TILE + 8, y: 4 * TILE + 8 }); SLOT_OCC[slot] = gu; RT[room].guest = gu; S.rooms[room] = 'reserved'; return gu; };
   const sleepIn = (room) => { const rm = ROOM[room]; const gu = guest({ st: 'sleep', t: 0, tt: 60, room, x: rm.stand[0] * TILE + 8, y: rm.stand[1] * TILE + 8 }); RT[room].guest = gu; S.rooms[room] = 'occupied'; return gu; };
   const ALL = UNLOCKS.filter(u => !u.need5 && u.id !== 'maid4').map(u => u.id);
@@ -48,7 +49,21 @@
     document.body.appendChild(out); document.title = 'MAP READY';
     update = dt => {}; render = () => {};
   };
+  // icon check (stage M): every pad icon at 1x / 3x / 6x on a light and a dark floor (window.ICONS = [kinds] to pick)
+  const iconSheet = () => {
+    const kinds = window.ICONS || ['room', 'onsen', 'recep', 'maid', 'porter', 'shoes', 'basket', 'milk', 'bath', 'sign', 'tea', 'shop', 'net', 'dining', 'waiter', 'chef', 'tray', 'table', 'west', 'garden', 'cottage', 'suite', 'roten', 'clerk', 'shishi', 'sakura', 'maple', 'koi', 'hat', 'pet', 'statue', 'decor'];
+    const cw = 120, out = mk(cw * 4, 110 * Math.ceil(kinds.length / 4)), o = out.getContext('2d'); o.imageSmoothingEnabled = false;
+    kinds.forEach((k, i) => {
+      const x = (i % 4) * cw, y = ((i / 4) | 0) * 110, ic = padIcon(k);
+      o.fillStyle = i & 1 ? '#c8a070' : '#3a3046'; o.fillRect(x, y, cw, 110);
+      o.drawImage(ic, x + 4, y + 4, 72, 72); o.drawImage(ic, x + 80, y + 4, 36, 36); o.drawImage(ic, x + 92, y + 46, 12, 12);
+      o.fillStyle = '#fff'; o.font = '12px monospace'; o.fillText(k, x + 4, y + 96);
+    });
+    document.body.innerHTML = ''; out.style.cssText = 'position:fixed;left:0;top:0;image-rendering:pixelated'; document.body.appendChild(out); document.title = 'ICONS READY';
+    update = dt => {}; render = () => {};
+  };
   const sc = {
+    icons() { iconSheet(); },
     title() { go('title'); },
     fresh() { newGame(); ff(20, false); },
     desk() { newGame(); S.tut.moved = true; ff(52, true); },
@@ -143,12 +158,13 @@
     vip_wishboard() {   // seated in 月见亭: the wish board over the door (tea done, bath current), filling its tub
       newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); resetWorld(); go('play'); spawnT = 1e9;
       vipArrive(); const v = VIPG, rm = ROOM.c3; v.x = tcx(rm.stand); v.y = tcy(rm.stand); v.suite = 'c3'; RT.c3.guest = v; setSt(v, 'seated'); v.dir = 'up'; v.wi = 1;
+      firstDone('vip'); vipWishStart();   // as if walked here: the escort card is done, the bath wish brings its own card
       place(rm.tap[0], rm.tap[1], 'right'); ff(.8, false); FREEZE_AT();
     },
     vip_soak() {   // soaking in the hinoki tub
       newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); resetWorld(); go('play'); spawnT = 1e9;
-      vipArrive(); const v = VIPG, rm = ROOM.c3; v.x = tcx(rm.stand); v.y = tcy(rm.stand); v.suite = 'c3'; RT.c3.guest = v; setSt(v, 'soak'); v.tt = 99; v.wi = 1;
-      place(26, 14, 'up'); ff(.5, false); FREEZE_AT();
+      vipArrive(); const v = VIPG, rm = ROOM.c3; v.x = tcx(rm.stand); v.y = tcy(rm.stand); v.suite = 'c3'; RT.c3.guest = v; setSt(v, 'soak'); v.tt = 99; v.wi = 1; firstDone('vip');
+      place(28, 13, 'up'); ff(.5, false); FREEZE_AT();
     },
     chest_clerk() {   // the clerk carries a bag home to the glowing cash box; the HUD bar under the fish number
       newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); S.money = 300; S.piles.recep = 1400; S.gifts = ['kawa', 'ozeki', 'sakura'];
@@ -185,7 +201,7 @@
     },
     boutique_mirror() {   // wearing the flower hat at the mirror, the duck at your feet
       newGame(); S.tut.moved = true; unl(ALL.concat(['h_straw', 'h_flower', 'p_duck'])); S.equip = { hat: 'h_flower', pet: 'p_duck' }; S.done = true; resetWorld(); go('play'); spawnT = 1e9;
-      place(4, 32, 'left'); ff(.6, false); FREEZE_AT();
+      place(2, 33, 'left'); ff(.6, false); FREEZE_AT();
     },
     statue() {   // the covered golden statue, 40 % poured: the cloth has slid down
       newGame(); S.tut.moved = true; unl(ALL); S.done = true; S.paid.statue = 400000; S.money = 20000; resetWorld(); go('play'); spawnT = 1e9; ff(2, false);
@@ -300,7 +316,7 @@
     },
     night_info() {   // at night: the info card, the ghost preview and the pad frame stay bright over the night tint
       newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen', 'recep', 'maid1', 'room4']); S.stats.time = 400; S.money = 300; resetWorld(); go('play'); spawnT = 1e9; ff(1, false);
-      S.clock = .9; place(17, 13, 'up'); ff(.5, false); FREEZE_AT();
+      S.clock = .9; place(18, 27, 'right'); ff(.5, false); FREEZE_AT();
     },
     input_menu() {   // real input events: tap the HUD menu button -> menu; Esc closes; P opens; tap 声音; M = music + sfx off
       sc.late(); setMusicOn(true); setSfxOn(true); update(1 / 30); render();
@@ -315,11 +331,11 @@
     arrow_deliver() { sc.calls(); GUIDE = guideTarget(); FREEZE_AT(); },
     arrow_pile() {
       newGame(); S.tut.moved = true; unl(['room2']); S.money = 0; S.piles.room2 = 30; resetWorld(); go('play'); spawnT = 1e9;
-      place(15, 22, 'up'); ff(.3, false); GUIDE = guideTarget(); FREEZE_AT();
+      place(16, 22, 'up'); ff(.3, false); GUIDE = guideTarget(); FREEZE_AT();
     },
     arrow_edge() {   // the biggest pile is up at the onsen, you are at the desk
       newGame(); S.tut.moved = true; unl(['room2', 'room3', 'shoes1', 'onsen', 'recep']); S.money = 0; S.piles.onsen = 60; resetWorld(); go('play'); spawnT = 1e9;
-      place(14, 25, 'up'); ff(.3, false); GUIDE = guideTarget(); FREEZE_AT();
+      place(15, 25, 'up'); ff(.3, false); GUIDE = guideTarget(); FREEZE_AT();
     },
     arrow_clean() {   // a guest waits at the counter, both rooms messy, no maid
       newGame(); S.tut.moved = true; unl(['room2']); resetWorld(); go('play'); spawnT = 1e9;
@@ -328,15 +344,38 @@
     },
     arrow_vip() {   // the VIP waits on the red carpet, a clean suite
       newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); resetWorld(); go('play'); spawnT = 1e9;
-      vipArrive(); ff(8, false); place(19, 22, 'left'); ff(.3, false); GUIDE = guideTarget(); FREEZE_AT();
+      vipArrive(); ff(8, false); place(19, 24, 'left'); ff(.3, false); GUIDE = guideTarget(); FREEZE_AT();
     },
     arrow_slot() {   // you own decor and a room has none: its A slot
-      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen', 'recep', 'shop', 'd_scroll']); S.money = 0; resetWorld(); go('play'); spawnT = 1e9;
+      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen', 'recep', 'shop', 'd_scroll']); S.money = 0; resetWorld(); go('play'); spawnT = 1e9; S.basket = BASKET_MAX;
       place(17, 21, 'up'); ff(.3, false); GUIDE = guideTarget(); FREEZE_AT();
     },
     arrow_pad() {   // money for a pad
       newGame(); S.tut.moved = true; unl(['room2', 'room3']); S.money = 40; resetWorld(); go('play'); spawnT = 1e9;
       place(15, 24, 'up'); ff(.3, false); GUIDE = guideTarget(); FREEZE_AT();
+    },
+    // ---- stage M (SPEC_v2 14.4): the scenes the list names that had no script yet
+    lobby_queue() {   // star 2 lobby: every room taken, guests walk in and line up at the desk, the receptionist, tips on the desk
+      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'shoes1', 'onsen', 'recep', 'tea', 'basket1']); S.money = 48; S.stats.time = 300; resetWorld(); go('play'); spawnT = 1e9; ff(1, false);
+      sleepIn('room1'); sleepIn('room2'); S.rooms.room3 = 'messy'; S.piles.recep = 36; S.piles.room1 = 8;
+      for (const t of ['regular', 'couple', 'regular', 'elder']) { addGuest(t); ff(1.6, false); }
+      place(16, 25, 'left'); ff(7, false); FREEZE_AT();
+    },
+    onsen_busy() {   // star 3 onsen: five bathers (big bath open), a couple in one slot, a towel guest, milk, the porter
+      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'shoes1', 'onsen', 'recep', 'tea', 'basket1', 'maid1', 'room4', 'milk', 'room5', 'porter', 'basket2', 'bigbath']);
+      S.basket = 7; S.money = 140; S.stats.time = 900; resetWorld(); go('play'); spawnT = 1e9; ff(2, false);
+      bathe(0, 'room2'); bathe(2, 'room3'); bathe(3, 'room4'); bathe(4, 'room5');
+      const c = party('couple', { st: 'bathing', t: 0, tt: 60, slot: 1, x: SLOTS[1].x * TILE + 8, y: 4 * TILE + 8, inside: true }); SLOT_OCC[1] = c; c.mate.mode = 'park';
+      S.piles.onsen = 44; S.piles.milk = 12;
+      const gm = guest({ st: 'milk', tt: 60, x: MILK_SPOT[0] * TILE + 8, y: MILK_SPOT[1] * TILE + 8, dir: 'up', room: 'room1' }); gm.look = { fur: gm.look.fur, outfit: 'yukata' }; RT.room1.guest = gm; S.rooms.room1 = 'reserved';
+      guest({ st: 'towel', wait: 9, x: TOWEL_SPOT[0] * TILE + 8, y: TOWEL_SPOT[1] * TILE + 8, dir: 'left', room: null });
+      place(20, 5, 'left'); P.towels = 4; ff(.4, false); FREEZE_AT();
+    },
+    west_wing() {   // star 3 west wing: the quiet corridor, 茶 / 藤 / 兰 rooms, a night-snack call, the third maid
+      newGame(); S.tut.moved = true; unl(ALL.filter(id => UNLOCKS.findIndex(u => u.id === id) <= UNLOCKS.findIndex(u => u.id === 'w3')).concat(['maid3']));
+      S.money = 260; S.stats.time = 1000; S.decor['w1:A'] = 'd_bonsai'; resetWorld(); go('play'); spawnT = 1e9; ff(2, false);
+      sleepIn('w1'); sleepIn('w3').call = { k: 'tea', t: 26, max: 40 }; S.rooms.w2 = 'messy'; S.piles.w1 = 12;
+      place(8, 14, 'up'); P.tray = ['tea']; ff(.4, false); FREEZE_AT();
     },
     share_v2() {
       newGame(); S.tut.moved = true; unl(ALL.concat(['h_straw', 'h_beret', 'p_duck'])); S.done = true; S.equip = { hat: 'h_beret', pet: 'p_duck' }; S.hearts = 3200; S.stats.guests = 1840; S.earned = 412000; S.album.vip = { kawa: 3, ozeki: 2, sakura: 1 };

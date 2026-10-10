@@ -1,0 +1,107 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>audio render</title></head>
+<body>
+<pre id="log">rendering...</pre>
+<script>
+// shims for the two game helpers the engine reads (settings keys)
+function load(k, d) { return d; }
+function save() {}
+</script>
+<script src="engine_from_index.js"></script>
+<script>
+// Offline renders of the music engine (driven by tools/audio/render.py). Each job runs in a fresh page load, so engine
+// state never leaks between files. The engine runs exactly as in the game: musicWant() + musicTick() every frame,
+// with AC = an OfflineAudioContext that is suspended at every frame time.
+const FPS = 30;
+const want = (o) => () => musicWant(o);
+const SONG40 = (song, area, night, extra) => ({ sec: 40, tl: [[0, want(Object.assign({ song, night, star: 5, area }, extra || {}))]] });
+const SFX_LIST = ['click', 'coin', 'coinBig', 'tick', 'pop', 'bell', 'sweep', 'splash', 'milk', 'meow', 'hmph', 'unlock', 'ring', 'take', 'serve', 'eat', 'cook',
+  'vip', 'shutter', 'gong', 'swap', 'tryon', 'levelup', 'rankup', 'dawn', 'dusk', 'areaOpen', 'menuOpen', 'menuClose', 'page', 'quack', 'woof'];
+function sfxReel() {
+  const tl = [[0, want({ song: null, area: null })]]; let t = .5;
+  for (const k of SFX_LIST) {
+    const f = k === 'menuOpen' ? () => SFX.menu(true) : k === 'menuClose' ? () => SFX.menu(false) : k === 'coin' ? () => SFX.coin(0) : k === 'tick' ? () => { SFX.tick(.2); } : () => SFX[k]();
+    tl.push([t, f]);
+    if (k === 'tick') for (let i = 1; i < 8; i++) tl.push([t + i * .09, () => SFX.tick(i / 8)]);
+    if (k === 'coin') for (let i = 1; i < 5; i++) tl.push([t + i * .12, () => SFX.coin(i)]);
+    t += k === 'dusk' ? 3.2 : k === 'unlock' || k === 'areaOpen' || k === 'gong' ? 1.9 : k === 'coin' || k === 'tick' ? 1.1 : 1.0;
+  }
+  return { sec: Math.ceil(t + 1), tl };
+}
+const JOBS = {
+  lobby_day: SONG40('lobby', 'lobby', 0),
+  lobby_night: SONG40('lobby', 'main', 1),
+  onsen_day: SONG40('onsen', 'onsen', 0),
+  onsen_night: SONG40('onsen', 'roten', 1),
+  dining_day: SONG40('dining', 'dining', 0),
+  dining_night: SONG40('dining', 'dining', 1),
+  garden_day: Object.assign(SONG40('garden', 'garden', 0, { shishi: true }), { each: t => ambWant('garden', { shishi: true, shishiT: t + 14 }) }),
+  garden_night: Object.assign(SONG40('garden', 'garden', 1, { shishi: true }), { each: t => ambWant('garden', { shishi: true, shishiT: t + 14 }) }),
+  fest: SONG40('fest', null, 0),
+  front_day: SONG40('lobby', 'front', 0),
+  title: SONG40('title', null, 0),
+  // star layering: lobby, the star goes up 1 -> 5 just before each new section (layers change on section starts)
+  lobby_stars: { sec: 128, tl: [[0, want({ song: 'lobby', night: 0, star: 1, area: 'lobby' })], [22, want({ star: 2 })], [47, want({ star: 3 })], [73, want({ star: 4 })], [98, want({ star: 5 })]] },
+  // the anti-repetition at work: lobby section A four times in a row = passes 0-3 (V0 / ornaments + swapped lead / echo / shifted phrase)
+  lobby_A_x4: { sec: 102, tl: [[0, want({ song: 'lobby', night: 0, star: 5, area: 'lobby' })], [.2, () => { const p = _auCur(); p.sd = Object.assign({}, p.sd, { form: ['A'] }); }]] },
+  sfx_reel: sfxReel(),
+  // ~2.5 min walk: lobby -> onsen -> dining -> garden -> lobby at night (switches land on the next bar line)
+  bgm_tour: { sec: 152, tl: [
+    [0, want({ song: 'lobby', night: 0, star: 5, area: 'lobby' })],
+    [28.5, want({ song: 'onsen', area: 'onsen' })],
+    [58.5, want({ song: 'dining', area: 'dining' })],
+    [88.5, want({ song: 'garden', area: 'garden', shishi: true })],
+    [118.5, want({ song: 'lobby', area: 'main', night: 1 })]],
+    each: t => { if (t >= 88.5 && t < 118.5) ambWant('garden', { shishi: true, shishiT: t - 88.5 + 12 }); } },
+};
+// instrument calibration: the same 4 s phrase (lobby m1) on every melody instrument, trims applied, 5 s apart
+const CAL_INST = ['koto', 'shamisen', 'flute', 'shakuhachi', 'fue', 'musicbox', 'glock'];
+JOBS.inst_cal = { sec: CAL_INST.length * 5 + 1, tl: [[0, want({ song: null })], [.1, () => {
+  const sd = _auSong('lobby'), out = MB, dt = .25; let i = 0;
+  for (const ins of CAL_INST) {
+    let s = 0; const t0 = .5 + 5 * i++;
+    for (const [d, l] of sd.mot.m1) {
+      const m = _auDeg(sd, d + (_auSHIFT[ins] || 0)), f = _auHz(m), t = t0 + s * dt, v = .8 * (_auTRIM[ins] || 1);
+      if (ins === 'koto') _auKoto(out, f, t, v, l * dt > .8 ? 2 : 1.5); else if (ins === 'shamisen') _auShami(out, f, t, v);
+      else if (ins === 'musicbox') _auMbox(out, f, t, v); else if (ins === 'glock') { _auSine(out, f * 2, t, v, .002, .6); _auSine(out, f * 5.4, t, v * .3, .002, .3); }
+      else _auWind(out, f, t, l * dt * .94, v, ins);
+      s += l;
+    }
+  }
+}]] };
+// bus test: pause menu on/off, ducks, music off/on, a bfcache-style context swap is not possible offline
+JOBS.bus_test = { sec: 30, tl: [[0, want({ song: 'lobby', night: 0, star: 5, area: 'front' })], [5, want({ menu: true })], [9, want({ menu: false })],
+  [12, () => musicDuck(1.5)], [13, () => musicDuck(1.5)], [15, () => SFX.gong()], [17, () => SFX.vip()], [20, () => setMusicOn(false)], [24, () => setMusicOn(true)]] };
+const ORDER = Object.keys(JOBS).filter(n => n !== 'inst_cal' && n !== 'bus_test');   // calibration only on request (--only inst_cal)
+(async () => {
+  const q = new URLSearchParams(location.search), only = (q.get('only') || '').split(',').filter(Boolean);
+  const list = only.length ? Object.keys(JOBS).filter(n => only.indexOf(n) >= 0) : ORDER, i = +(q.get('i') || 0), name = list[i];
+  const go = () => { location.href = 'render.html?i=' + (i + 1) + (only.length ? '&only=' + only.join(',') : '') + (q.get('solo') ? '&solo=' + q.get('solo') : '') + '&t=' + Date.now(); };
+  if (!name) { await fetch('/__done', { method: 'POST', body: '' }); return; }
+  const job = JOBS[name], sr = 44100, N = Math.round(job.sec * FPS), solo = q.get('solo');
+  if (solo) _auSolo = solo.split('+');
+  const ctx = new OfflineAudioContext(2, Math.ceil(job.sec * sr), sr);
+  AC = ctx;
+  const switches = [];
+  let ti = 0, lastSw = 0;
+  const frame = k => {
+    const t = k / FPS;
+    while (ti < job.tl.length && job.tl[ti][0] <= t + 1e-6) { job.tl[ti][1](); ti++; }
+    if (job.each) job.each(t);
+    musicTick(1 / FPS);
+    if (MUSIC_DBG.switches !== lastSw) { lastSw = MUSIC_DBG.switches; const p = _auCur(); switches.push(+(p ? p.start : t).toFixed(3)); }
+  };
+  let k = 0;
+  frame(0);
+  const tick = () => { k++; frame(k); if (k + 1 < N) ctx.suspend((k + 1) / FPS).then(tick); ctx.resume(); };
+  ctx.suspend(1 / FPS).then(tick);
+  const buf = await ctx.startRendering();
+  const L = buf.getChannelData(0), R = buf.getChannelData(1), out = new Float32Array(L.length * 2);
+  for (let j = 0; j < L.length; j++) { out[2 * j] = L[j]; out[2 * j + 1] = R[j]; }
+  const meta = { name: name + (solo ? '__' + solo : ''), sr, switches, voicesMax: MUSIC_DBG.voicesMax, sig: MUSIC_DBG.sig };
+  await fetch('/__wav?meta=' + encodeURIComponent(JSON.stringify(meta)), { method: 'POST', body: out.buffer });
+  go();
+})().catch(e => fetch('/__log', { method: 'POST', body: 'ERR ' + (e && e.stack || e) }));
+window.addEventListener('error', e => fetch('/__log', { method: 'POST', body: 'ERR ' + e.message + ' @' + e.lineno }));
+</script>
+</body></html>

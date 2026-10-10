@@ -1,0 +1,156 @@
+<!doctype html>
+<!-- Listening preview of the audio engine (read from the AUDIO block of ../../index.html by engine_from_index.js).
+     python -m http.server 8773 --directory D:/Minigame/Hotelgame  ->  http://localhost:8773/tools/audio/preview.html -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Purr Springs audio preview</title>
+<style>
+  :root { --bg: #1d1a26; --panel: #2a2536; --ink: #f3ead8; --dim: #a99e8a; --acc: #f0a048; --on: #6fbf73; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 12px 16px 40px; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
+  h1 { font-size: 18px; margin: 4px 0 10px; } h2 { font-size: 14px; margin: 18px 0 6px; color: var(--acc); }
+  button { background: var(--panel); color: var(--ink); border: 1px solid #4a4258; border-radius: 6px; padding: 6px 9px; margin: 2px; cursor: pointer; font: inherit; }
+  button:hover { border-color: var(--acc); } button.on { background: #4a3a22; border-color: var(--acc); }
+  table { border-collapse: collapse; } td, th { padding: 2px 3px; text-align: center; } th { color: var(--dim); font-weight: 500; }
+  td.n { text-align: left; padding-right: 8px; } .night { background: #1a2140; }
+  #dbg { white-space: pre-wrap; background: #120f18; padding: 8px; border-radius: 6px; font: 12px/1.45 ui-monospace, Consolas, monospace; min-height: 7em; }
+  label { margin-right: 10px; white-space: nowrap; } .row { margin: 4px 0; } .note { color: var(--dim); font-size: 12px; }
+  .wrap { max-width: 980px; } .scroll { overflow-x: auto; }
+</style></head>
+<body><div class="wrap">
+<h1>Purr Springs v2 &middot; audio preview</h1>
+<div class="row"><button id="startBtn" class="on">&#9654; start audio (tap first)</button>
+  <button id="stopBtn">&#9632; silence</button>
+  <label><input type="checkbox" id="instant" checked> instant song change (skip the 1.5 s / 15 s rules)</label></div>
+
+<h2>Songs &times; day / night &times; stars</h2>
+<div class="note">Click a cell: that song starts from section A with the chosen arrangement. Pass picks the variation (0-11; 12 passes before an exact repeat).</div>
+<div class="row">pass <select id="pass"></select> &nbsp; start at section <select id="sec"></select></div>
+<div class="scroll"><table id="grid"></table></div>
+
+<h2>Area walk (real rules: 1.5 s debounce, 15 s between changes, crossfade on the old song's bar line)</h2>
+<div class="row" id="areas"></div>
+<div class="row"><button id="tourBtn">auto tour (an area every 20 s)</button>
+  <label><input type="checkbox" id="shishi" checked> garden shishi-odoshi bought</label></div>
+
+<h2>Live controls</h2>
+<div class="row">star <input type="range" id="star" min="1" max="5" value="5"> <span id="starV">5</span>
+  &nbsp; night <input type="range" id="night" min="0" max="100" value="0"> <span id="nightV">0</span>
+  <span class="note">(arrangement flips at the next 8-bar section; &gt;0.6 night, &lt;0.4 day)</span></div>
+<div class="row"><label><input type="checkbox" id="menu"> pause menu (50 % + paper-door lowpass)</label>
+  <button id="duckBtn">musicDuck(1.5)</button>
+  <label><input type="checkbox" id="musicOn" checked> music</label><label><input type="checkbox" id="sfxOn" checked> sfx</label></div>
+<div class="row">solo layers: <span id="solo"></span></div>
+
+<h2>Sound effects</h2>
+<div class="row" id="sfx"></div>
+
+<h2>MUSIC_DBG</h2>
+<div id="dbg">tap "start audio"</div>
+</div>
+<script>
+// the engine reads the game's load / save for its two settings keys
+function load(k, d) { try { const v = localStorage.getItem('purrAudioPreview_' + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+function save(k, v) { try { localStorage.setItem('purrAudioPreview_' + k, JSON.stringify(v)); } catch (e) {} }
+</script>
+<script src="engine_from_index.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const AREA_MUSIC = { front: 'lobby', lobby: 'lobby', main: 'lobby', shop: 'lobby', west: 'lobby', onsen: 'onsen', roten: 'onsen', dining: 'dining', garden: 'garden' };
+const SONG_IDS = ['lobby', 'onsen', 'dining', 'garden', 'fest', 'title'];
+const SFX_NAMES = Object.keys(SFX);
+const W = { song: null, star: 5, night: 0, menu: false, area: null };
+let tour = null;
+
+// ---- song grid
+(function () {
+  const g = $('grid');
+  let h = '<tr><th></th>' + [1, 2, 3, 4, 5].map(s => '<th>day &#9733;' + s + '</th>').join('') + [1, 2, 3, 4, 5].map(s => '<th class="night">night &#9733;' + s + '</th>').join('') + '</tr>';
+  for (const id of SONG_IDS) {
+    h += '<tr><td class="n">' + id + '</td>';
+    for (const n of [0, 1]) for (let s = 1; s <= 5; s++) h += '<td' + (n ? ' class="night"' : '') + '><button data-song="' + id + '" data-n="' + n + '" data-s="' + s + '">' + (n ? '&#9790;' : '&#9728;') + s + '</button></td>';
+    h += '</tr>';
+  }
+  g.innerHTML = h;
+  g.addEventListener('click', e => { const b = e.target.closest('button'); if (b) playCell(b.dataset.song, +b.dataset.n, +b.dataset.s); });
+  for (let i = 0; i < 12; i++) $('pass').add(new Option('pass ' + i + (i < 4 ? '' : ' (colour ' + Math.floor(i / 4) + ')'), i));
+  for (const s of ['A (first)', '2nd', '3rd', '4th']) $('sec').add(new Option(s, $('sec').length));
+})();
+function ensure() { initAudio(); }
+function playCell(song, night, star) {
+  ensure(); stopTour();
+  W.song = song; W.star = star; W.night = night; $('star').value = star; $('night').value = night * 100;
+  _auNight = !!night;   // preview only: apply the arrangement right away
+  restart(song, +$('pass').value, +$('sec').value);
+}
+function restart(song, pass, sec) {   // preview helper: drop every player, start 'song' at (pass, section) now
+  const now = AC ? AC.currentTime : 0;
+  for (const p of _auPl) _auStop(p, now, .08);
+  _auPass[song] = pass; _auPend = null; _auSwT = -1e9;
+  musicWant({ song, night: W.night, star: W.star, menu: W.menu, area: W.area });
+  _auSwitch(now);   // starts the player now, before any note of it is scheduled
+  const p = _auCur();
+  if (p && p.song === song) p.secIdx = Math.min(sec, p.sd.form.length - 1);
+}
+$('startBtn').onclick = () => { ensure(); if (!W.song) { W.song = 'title'; } };
+$('stopBtn').onclick = () => { stopTour(); W.song = null; _auPend = null; _auSwT = -1e9; };
+
+// ---- areas
+for (const a of Object.keys(AREA_MUSIC)) {
+  const b = document.createElement('button'); b.textContent = a + ' (' + AREA_MUSIC[a] + ')'; b.dataset.area = a;
+  b.onclick = () => { ensure(); stopTour(); goArea(a); }; $('areas').appendChild(b);
+}
+function goArea(a) {
+  W.area = a; W.song = AREA_MUSIC[a];
+  if ($('instant').checked) { _auSwT = -1e9; if (_auPend !== W.song) { _auPend = W.song; _auPendT = -1e9; } }
+  for (const b of $('areas').children) b.classList.toggle('on', b.dataset.area === a);
+}
+function stopTour() { if (tour) { clearInterval(tour); tour = null; $('tourBtn').classList.remove('on'); } }
+$('tourBtn').onclick = () => {
+  ensure(); if (tour) return stopTour();
+  const seq = ['lobby', 'onsen', 'dining', 'garden', 'front', 'roten', 'west']; let i = 0;
+  $('instant').checked = false; goArea(seq[0]); tour = setInterval(() => goArea(seq[++i % seq.length]), 20000); $('tourBtn').classList.add('on');
+};
+
+// ---- live controls
+$('star').oninput = () => { W.star = +$('star').value; $('starV').textContent = W.star; };
+$('night').oninput = () => { W.night = $('night').value / 100; $('nightV').textContent = W.night.toFixed(2); };
+$('menu').onchange = () => { W.menu = $('menu').checked; if (sfxOn) SFX.menu(W.menu); };
+$('duckBtn').onclick = () => { ensure(); musicDuck(1.5); };
+$('musicOn').checked = musicOn; $('sfxOn').checked = sfxOn;
+$('musicOn').onchange = () => setMusicOn($('musicOn').checked);
+$('sfxOn').onchange = () => setSfxOn($('sfxOn').checked);
+const LAYERS = ['lead', 'bass', 'pad', 'counter', 'perc', 'sparkle', 'star', 'amb'];
+for (const l of LAYERS) {
+  const lab = document.createElement('label'); lab.innerHTML = '<input type="checkbox" checked data-l="' + l + '"> ' + l; $('solo').appendChild(lab);
+}
+$('solo').onchange = () => {
+  const on = [...$('solo').querySelectorAll('input')].filter(x => x.checked).map(x => x.dataset.l);
+  _auSolo = on.length === LAYERS.length ? null : on;
+};
+
+// ---- sfx
+for (const k of SFX_NAMES) {
+  const b = document.createElement('button'); b.textContent = k;
+  b.onclick = () => { ensure(); if (k === 'menu') SFX.menu(!W.menu); else if (k === 'coin') SFX.coin(0); else if (k === 'tick') SFX.tick(.5); else SFX[k](); };
+  $('sfx').appendChild(b);
+}
+
+// ---- frame loop (the game calls these two every frame)
+function frame() {
+  musicWant({ song: W.song, night: W.night, star: W.star, menu: W.menu, area: W.area, shishi: $('shishi').checked, shishiT: performance.now() / 1000 });
+  musicTick();
+  const D = MUSIC_DBG, now = AC ? AC.currentTime : 0;
+  const wait = _auPend ? Math.max(0, 1.5 - (now - _auPendT), AU_MINGAP - (now - _auSwT)) : 0;
+  $('dbg').textContent = AC ? [
+    'song ' + D.song + '   section ' + D.section + '   bar ' + (D.bar + 1) + '/8   pass ' + D.pass + '   ' + (D.night ? 'NIGHT' : 'day') + ' arrangement',
+    'layers ' + (D.layers || []).join(' + '),
+    'voices/s ' + D.voicesPerSec + ' (max ' + D.voicesMax + ')   players ' + D.players + '   switches ' + D.switches,
+    'ambience ' + (D.amb.join(', ') || '-') + '   area ' + W.area,
+    _auPend !== null ? 'pending -> ' + _auPend + ' in ~' + wait.toFixed(1) + ' s (then on the next bar line)' : '',
+    'sig ' + D.sig,
+  ].join('\n') : 'tap "start audio"';
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body></html>

@@ -1,5 +1,5 @@
 // SPEC_v2 12 art contract: every art function the core calls exists, takes the documented arguments, returns a canvas
-// of the documented size, and does not use Math.random. Passes on the stubs now; run it again after merging art/*.js.
+// of the documented size, and does not use Math.random (the merged art since stage M; it also passed on the stubs).
 //   node D:/Minigame/_workflow/tools/headless.js D:/Minigame/Hotelgame tests/sys_art.js
 const errs = [], ok = (c, m) => { if (!c) errs.push(m); };
 for (const k in ART) delete ART[k];   // build everything fresh
@@ -14,8 +14,8 @@ function sz(name, fn, w, h) {
 const looks = [{}, { fur: 'calico', outfit: 'kimono' }, { fur: 'white', outfit: 'apron', hat: 'ribbon', trim: 2 }, { fur: 'black', outfit: 'chef', trim: 1 }, { fur: 'cow', outfit: 'waiter' },
   { fur: 'tabby', outfit: 'clerk' }, { fur: 'tabby', outfit: 'shop' }, { fur: 'gray', outfit: 'haori', acc: 'cane' }, { fur: 'graytabby', outfit: 'robe', robe: '#b88a5a', hat: 'beret' },
   { fur: 'orange', outfit: 'happi', hat: 'goldband' }, { fur: 'siamese', outfit: 'guest', shirt: '#5a9ae0', bag: true, hat: 'straw' }];
-for (const v of ['down', 'up', 'side']) for (const f of [0, 1, 2]) for (const l of looks) sz('catSprite ' + v + f + ' ' + JSON.stringify(l), () => catImg(v, f, l), 16, 24);
-for (const h of [null, 'straw', 'flower', 'beret', 'captain', 'shades', 'foxmask', 'crown', 'goldband', 'topknot', 'ribbon']) for (const f of [0, 1]) sz('catBow ' + h + f, () => bowImg('orange', f, h), 16, 24);
+for (const v of ['down', 'up', 'side']) for (const f of [0, 1, 2]) for (const l of looks) sz('catSprite ' + v + f + ' ' + JSON.stringify(l), () => catSprite(v, f, l), 16, 24);
+for (const h of [null, 'straw', 'flower', 'beret', 'captain', 'shades', 'foxmask', 'crown', 'goldband', 'topknot', 'ribbon']) for (const f of [0, 1]) sz('catBow ' + h + f, () => catBow('orange', f, h), 16, 24);
 for (const f of [0, 1, 2]) sz('catSit ' + f, () => catSit(f, { fur: 'calico', outfit: 'yukata' }), 16, 24);
 for (const v of ['down', 'up', 'side']) for (const f of [0, 1, 2]) sz('kittenSprite ' + v + f, () => kittenSprite(v, f, 'cream'), 10, 14);
 sz('kittenSit', () => kittenSit('white'), 10, 12);
@@ -25,7 +25,7 @@ sz('catCurl', () => catCurl('orange'), 14, 10);
 for (const fur of Object.keys(FURS)) { sz('catBathing ' + fur, () => catBathing(fur, 1), 18, 12); sz('catSleepHead ' + fur, () => catSleepHead(fur), 12, 9); }
 // ---- scenery
 const chars = new Set(MAP.join('')); chars.delete('D');
-for (const c of chars) sz('tile ' + c, () => tileImg(c, 5, 5, { u: c, d: c, l: c, r: c }), 16, 16);
+for (const c of chars) sz('tile ' + c, () => tileArt(c, 5, 5, { u: c, d: c, l: c, r: c }, 0), 16, 16);
 for (const d of DOORS) for (const o of [false, true]) sz('doorArt ' + d.kind + ' ' + d.at + ' ' + o, () => doorArt(d.kind, o, d.col || null, d.emb || null, !!d.gold), 16, 16);
 for (const f of [0, 1, 2, 3]) { sz('pondArt ' + f, () => pondArt(f, 28, 16), 16, 16); sz('waterfallArt ' + f, () => waterfallArt(f), 32, 40); sz('waterArt ' + f, () => waterArt(f, 14, 2), 16, 16); }
 for (const k of ['giftshelf', 'photo', 'menu', 'lantern', 'bell']) sz('wallDecorArt ' + k, () => wallDecorArt(k), 16, 16);

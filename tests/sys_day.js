@@ -1,8 +1,8 @@
 // SPEC_v2 4.10: day and night. A day is 360 s; S.clock runs only while you play (not under the star-5 celebration, not on
 // the title); a new save starts at 0.12, the first dusk comes at about 3:20. Sunrise (0.10): the next day, a banner with
 // yesterday's guests / hearts (+ trophy on a new record), line S03, birdsong; dusk (0.68): the temple bell. The tint keys
-// are mixed smoothly (no steps, nothing blinks). Light pass: one multiply tint over the view (thin plain tint where
-// multiply is missing), additive lamp glows (<= 16, nearest the view centre), each room's andon r10 empty / r18 taken, the
+// are mixed smoothly (no steps, nothing blinks). Light pass: one multiply of the tint layer DARK over the view (lamps cut
+// soft holes into it first; a thin plain tint where multiply is missing), additive lamp glows (<= 16, nearest the view centre), each room's andon r10 empty / r18 taken, the
 // hand lantern at night, fish-pile glints, 8-12 slow stars on the star-view bath; pad frames stay bright on top.
 //   node D:/Minigame/_workflow/tools/headless.js D:/Minigame/Hotelgame tests/sys_day.js --seed 5
 const errs = [], ok = (c, m) => { if (!c) errs.push(m); };
@@ -61,8 +61,8 @@ setup();
 // ---- the light pass
 setup(ALL); P.x = 17 * 16 + 8; P.y = 13 * 16 + 8; updCam(0, true);
 { S.clock = .3; let L = frame(); ok(!L.some(e => e[0] === 'multiply' || e[0] === 'lighter'), 'daytime: no light pass'); eq(LIGHT_N, 0, 'no lamps by day');
-  S.clock = .9; L = frame(); const tint = L.find(e => e[0] === 'multiply' && e[1] === 'rect');
-  ok(tint && Math.abs(tint[2] - .42) < 1e-9 && tint[3] === '#2a3468' && tint[4] === 0 && tint[5] === 0 && tint[6] === W && tint[7] === H, 'night: one full-view multiply tint .42 #2a3468');
+  S.clock = .9; L = frame(); const tint = L.find(e => e[0] === 'multiply' && e[1] === 'img');
+  ok(tint && Math.abs(tint[2] - .42) < 1e-9 && tint[3] === DARK && tint[4] === 0 && tint[5] === 0 && DARK.width === W && DARK.height === H && DARK.getContext('2d').fillStyle === '#2a3468', 'night: one full-view multiply tint .42 #2a3468 (the DARK layer)');
   eq(L.filter(e => e[0] === 'multiply').length, 1, 'exactly one multiply fill');
   const glows = L.filter(e => e[0] === 'lighter'); ok(LIGHT_N > 8 && LIGHT_N <= LIGHT_MAX, 'lamps drawn in the main corridor: ' + LIGHT_N);
   ok(glows.length >= LIGHT_N, 'additive glows ' + glows.length);
@@ -88,7 +88,7 @@ setup(ALL); P.x = 17 * 16 + 8; P.y = 13 * 16 + 8; updCam(0, true);
   // multiply missing: a thin plain tint instead
   const real = ctx.globalCompositeOperation; let op = 'source-over';
   Object.defineProperty(ctx, 'globalCompositeOperation', { configurable: true, get: () => op, set: v => { if (v !== 'multiply') op = v; } });
-  L = frame(); const t2 = L.find(e => e[1] === 'rect' && e[3] === '#2a3468'); ok(t2 && t2[0] === 'source-over' && Math.abs(t2[2] - .42 * .55) < 1e-9, 'fallback tint: plain .23');
+  L = frame(); const t2 = L.find(e => e[1] === 'img' && e[3] === DARK); ok(t2 && t2[0] === 'source-over' && Math.abs(t2[2] - .42 * .55) < 1e-9, 'fallback tint: plain .23');
   delete ctx.globalCompositeOperation; ctx.globalCompositeOperation = real; }
 // ---- the HUD sky dial: from star 2; the sun by day, the moon by night
 { const seen = []; const _sun = sunIcon, _moon = moonIcon; sunIcon = () => { seen.push('sun'); return _sun(); }; moonIcon = () => { seen.push('moon'); return _moon(); };
