@@ -66,6 +66,13 @@ function checkSecond() {
   // rooms <-> guests
   for (const rm of ROOMS) {
     const rt = RT[rm.id], st = S.rooms[rm.id];
+    if (rm.vip) {   // stage 2B: a suite holds only the VIP (it stays 'clean' while used, 'messy' after - 10.1)
+      if (rt.guest && (rt.guest !== VIPG || VIPG.suite !== rm.id)) flag('suite-guest', at + ' ' + rm.id);
+      if (rt.guest && st !== 'clean') flag('suite-guest-dirty', at + ' ' + rm.id + ' ' + st);
+      if (st === 'reserved' || st === 'occupied') flag('suite-state', at + ' ' + rm.id + ' ' + st);
+      if (rt.claim && (!STAFF.includes(rt.claim) || rt.claim.job !== rm.id)) flag('claim-leak', at + ' ' + rm.id);
+      continue;
+    }
     if (rt.guest && !GUESTS.includes(rt.guest)) flag('room-leak', at + ' ' + rm.id + ' guest gone');
     if (rt.guest && rt.guest.room !== rm.id) flag('room-backlink', at + ' ' + rm.id + ' guest.room=' + rt.guest.room);
     if ((st === 'reserved' || st === 'occupied') && !rt.guest) flag('room-held-no-guest', at + ' ' + rm.id + ' ' + st);

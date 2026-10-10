@@ -55,8 +55,8 @@ for (let i = 0; i < 30 * 120; i++) {
 ok(S.stats.guests >= 6, 'guests checked in by 小樱: ' + S.stats.guests);
 ok(gotTip && bathed && milked && S.piles.onsen > 0 && S.piles.milk > 0 && S.piles.recep > 0, 'tip / bath / milk earned: ' + JSON.stringify(S.piles));
 ok(Object.values(S.rooms).every(v => v !== 'messy') || STAFF.some(s => s.job), 'the maid keeps the rooms clean');
-// roten slots used once the roten opens (onsen slots full)
-st(UNLOCKS.slice(0, UNLOCKS.findIndex(u => u.id === 'roten') + 1).map(u => u.id)); S.basket = 10;
+// roten slots used once the roten opens (at night they come first; by day only once the onsen is full - too rare to test)
+st(UNLOCKS.slice(0, UNLOCKS.findIndex(u => u.id === 'roten') + 1).map(u => u.id)); S.basket = 10; S.clock = .9;   // night: the roten first (4.12)
 let roten = 0;
 for (let i = 0; i < 30 * 150; i++) { update(DT); for (const gu of GUESTS) if (gu.st === 'bathing' && SLOTS[gu.slot].roten) roten++; }
 ok(roten > 0 && (S.piles.roten || 0) + S.earned > 0, 'guests bathe in the roten too (' + roten + ' frames)');

@@ -29,6 +29,8 @@
   const bathe = (slot, room) => { const gu = guest({ st: 'bathing', t: 0, tt: 60, slot, room, x: SLOTS[slot].x * TILE + 8, y: 4 * TILE + 8 }); SLOT_OCC[slot] = gu; RT[room].guest = gu; S.rooms[room] = 'reserved'; return gu; };
   const sleepIn = (room) => { const rm = ROOM[room]; const gu = guest({ st: 'sleep', t: 0, tt: 60, room, x: rm.stand[0] * TILE + 8, y: rm.stand[1] * TILE + 8 }); RT[room].guest = gu; S.rooms[room] = 'occupied'; return gu; };
   const ALL = UNLOCKS.filter(u => !u.need5 && u.id !== 'maid4').map(u => u.id);
+  // freeze the scene now (or after `after` more seconds of play): the next frames only render (14.4 shot scenes)
+  const FREEZE_AT = after => { if (after) ff(after, false); update = dt => {}; };
   // the whole world at 2x (debug overview): the phone-sized view is rendered window by window and pasted together
   const mapView = () => {
     const big = mk(MAPW, MAPH), bx = big.getContext('2d'); bx.imageSmoothingEnabled = false;
@@ -111,6 +113,53 @@
       const f = party('family', { st: 'bathing', t: 0, tt: 60, slot: 1, x: SLOTS[1].x * TILE + 8, y: 4 * TILE + 8, inside: true }); SLOT_OCC[1] = f; f.mate.mode = 'park';
       f.call = { k: 'milk', t: 25, max: 50 };
       place(18, 5, 'up'); ff(.1, false);
+    },
+    // ---- stage 2B (SPEC_v2 4.4 / 4.5 / 4.8): decor + combos, the VIP, the clerk + the cash box
+    shop_decor() {   // the shop: two decor pads (with their piece), owned pieces on the display shelf, the owner
+      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen', 'recep', 'shop', 'd_scroll', 'd_ikebana', 'dining', 'd_tank']); S.money = 120; resetWorld(); go('play'); spawnT = 1e9;
+      ff(2, false); place(5, 32, 'left'); ff(.3, false);
+    },
+    decor_room() {   // the main corridor: 松 a combo room (noren + plate), 梅 decor without combo (star), standing on 竹's slot
+      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'room4', 'onsen', 'recep', 'shop', 'd_scroll', 'd_ikebana', 'd_bonsai', 'd_screen']);
+      S.decor['room1:A'] = 'd_scroll'; S.decor['room1:B'] = 'd_ikebana'; S.decor['room3:A'] = 'd_bonsai'; S.decor['room4:A'] = 'd_bonsai'; S.decor['room4:B'] = 'd_screen'; S.combos.c_ga = 1; S.combos.c_zen = 1;
+      resetWorld(); go('play'); spawnT = 1e9; sleepIn('room1');
+      place(20, 19, 'right'); ff(.5, false); FREEZE_AT();
+    },
+    combo_banner() {   // the moment a combo is made: sparkles + 组合！
+      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen', 'recep', 'shop', 'd_scroll', 'd_ikebana']); S.decor['room1:A'] = 'd_scroll'; resetWorld(); go('play'); spawnT = 1e9;
+      place(12, 21, 'up'); ff(1.0, false); FREEZE_AT();
+    },
+    vip_carpet() {   // 猫川先生 on the red carpet (gold card), the innkeeper greeting (gold ring)
+      newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); resetWorld(); go('play'); spawnT = 1e9;
+      vipArrive(); ff(8, false); place(17, 25, 'down'); P.y += 6; ff(.3, false); FREEZE_AT();
+    },
+    vip_escort() {   // it follows the innkeeper through the garden, glints behind it
+      newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); resetWorld(); go('play'); spawnT = 1e9;
+      vipArrive(); ff(8, false); place(17, 26, 'right'); ff(.7, false);
+      const [sx, sy] = tileOf(P); let path = findPath(sx, sy, 25, 20) || [];
+      for (let i = 0; i < 30 * 12 && path.length; i++) { const [tx, ty] = path[0], dx = tx * 16 + 8 - P.x, dy = ty * 16 + 8 - P.y, d = Math.hypot(dx, dy); if (d < 1.5) { path.shift(); continue; } botMove = { x: dx / d, y: dy / d }; update(1 / 30); }
+      botMove = null; ff(.05, false); FREEZE_AT();
+    },
+    vip_wishboard() {   // seated in 月见亭: the wish board over the door (tea done, bath current), filling its tub
+      newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); resetWorld(); go('play'); spawnT = 1e9;
+      vipArrive(); const v = VIPG, rm = ROOM.c3; v.x = tcx(rm.stand); v.y = tcy(rm.stand); v.suite = 'c3'; RT.c3.guest = v; setSt(v, 'seated'); v.dir = 'up'; v.wi = 1;
+      place(rm.tap[0], rm.tap[1], 'right'); ff(.8, false); FREEZE_AT();
+    },
+    vip_soak() {   // soaking in the hinoki tub
+      newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); resetWorld(); go('play'); spawnT = 1e9;
+      vipArrive(); const v = VIPG, rm = ROOM.c3; v.x = tcx(rm.stand); v.y = tcy(rm.stand); v.suite = 'c3'; RT.c3.guest = v; setSt(v, 'soak'); v.tt = 99; v.wi = 1;
+      place(26, 14, 'up'); ff(.5, false); FREEZE_AT();
+    },
+    chest_clerk() {   // the clerk carries a bag home to the glowing cash box; the HUD bar under the fish number
+      newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); S.money = 300; S.piles.recep = 1400; S.gifts = ['kawa', 'ozeki', 'sakura'];
+      S.album.photos = [{ v: 'kawa', d: 3, h: null, p: null }, { v: 'ozeki', d: 4, h: null, p: null }, { v: 'sakura', d: 5, h: null, p: null }]; resetWorld(); go('play'); spawnT = 1e9;
+      const c = STAFF.find(s => s.role === 'clerk'); c.bag = 120; c.x = 19 * TILE + 8; c.y = 26 * TILE + 8; c.path = []; c.goal = null;
+      place(17, 27, 'up'); ff(.1, false); FREEZE_AT();
+    },
+    netring() { newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen', 'recep', 'maid1', 'shoes1', 'tea', 'basket1', 'shop']); S.money = 90; resetWorld(); go('play'); spawnT = 1e9; place(21, 28, 'up'); ff(1.9, false); FREEZE_AT(.2); },
+    combo_plate() {   // walking past a combo room: its 1-char plate over the door (within 3 tiles)
+      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen', 'recep', 'shop', 'd_scroll', 'd_ikebana']); S.decor['room1:A'] = 'd_scroll'; S.decor['room1:B'] = 'd_ikebana'; S.combos.c_ga = 1;
+      resetWorld(); go('play'); spawnT = 1e9; sleepIn('room1'); place(17, 21, 'left'); ff(.3, false); FREEZE_AT();
     },
     map() { newGame(); S.tut.moved = true; if (window.MAPU) unl(window.MAPU); resetWorld(); go('play'); ff(25, false); place(17, 27, 'up'); mapView(); },
     mapAll() { newGame(); S.tut.moved = true; unl(ALL.concat(['maid4'])); S.done = true; resetWorld(); go('play'); ff(40, false); place(17, 27, 'up'); mapView(); },

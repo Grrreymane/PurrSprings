@@ -20,3 +20,14 @@ const room = ROOMS.find(rm => S.piles[rm.id] > 0);
 if (room) { Object.assign(P, { x: room.pile[0] * TILE + 8, y: room.pile[1] * TILE + 8 }); update(DT); }
 saveNow(); const r4 = reload(); console.log('collect, save, reload 4: fish', r4, '| piles', JSON.stringify(S.piles));
 console.log(r1 - saved === STARS[star()].tip && r2 === r1 && r3 === r1 && r4 === r1 ? 'OK: reload pays the sleeping guest\'s tip once, never again' : 'MISMATCH');
+// stage 2B (10.1): a VIP being served pays half of its unpaid gift into the cash box on load - once; and the next VIP then
+// needs the full gap, so reloading never beats serving
+for (const id of ['room3', 'onsen', 'recep', 'maid1', 'room4', 'room5', 'room6', 'dining', 'w1', 'room7', 'garden']) S.unlocked[id] = true;
+S.peak = starOf(S); for (const rm of ROOMS) if (roomOpen(rm) && !S.rooms[rm.id]) S.rooms[rm.id] = 'clean'; resetWorld(); go('play');
+vipArrive(); setSt(VIPG, 'seated'); VIPG.suite = 'c3'; RT.c3.guest = VIPG; VIPG.paid = R(VIPG.G * .25); S.vipOwe = VIPG.G - VIPG.paid;
+const owe = S.vipOwe; saveNow(); const v0 = total();
+const v1 = reload(), gap1 = vipT - S.stats.time; const v2 = reload(); saveNow(); const v3 = reload();
+console.log('VIP owed ' + owe + ': fish ' + v0 + ' -> ' + v1 + ' (+' + (v1 - v0) + '), again ' + v2 + ', save + reload ' + v3 + ' | next VIP in ' + R(gap1) + ' s');
+const vipOk = v1 - v0 === R(owe * .5) && v2 === v1 && v3 === v1 && gap1 >= 180 - .1;
+console.log(vipOk ? 'OK: an interrupted VIP pays half its unpaid gift once; the next VIP needs the full gap' : 'MISMATCH (VIP)');
+if (!vipOk || !(r1 - saved === STARS[1].tip && r2 === r1 && r3 === r1 && r4 === r1)) process.exitCode = 1;

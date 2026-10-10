@@ -61,6 +61,23 @@ const back = { money: S.money, unlocked: Object.keys(S.unlocked).sort().join(','
 if (back.money !== mid.money || back.unlocked !== mid.unlocked) bad('roundtrip', JSON.stringify(mid) + ' -> ' + JSON.stringify(back));
 if (P.tray.length || PASS.n || callCount() || SEAT_OCC.some(Boolean)) bad('roundtrip', 'tray / counter / calls / seats not empty after loading');
 run(300, 'after-load');
+// stage 2B (14.4): a VIP mid-service + decor + a clerk's bag -> save -> load. Nothing of the VIP is saved but half of its
+// unpaid gift (into the cash box, once); decor stays; the bag's fish were already in the cash box.
+{ for (const id of ['room4', 'room5', 'room6', 'maid1', 'dining', 'w1', 'room7', 'clerk', 'chef', 'porter', 'milk', 'garden', 'd_ikebana']) if (!S.unlocked[id]) { S.unlocked[id] = true; S.paid[id] = UNLOCK[id].price; }
+  for (const rm of ROOMS) if (roomOpen(rm) && !S.rooms[rm.id]) S.rooms[rm.id] = 'clean';
+  S.peak = Math.max(S.peak, starOf(S)); S.decor['room1:A'] = 'd_scroll'; S.decor['room1:B'] = 'd_ikebana'; resetWorld(); go('play');
+  vipArrive(); const v = VIPG; v.x = tcx(ROOM.c3.stand); v.y = tcy(ROOM.c3.stand); v.suite = 'c3'; RT.c3.guest = v; setSt(v, 'seated'); S.vipOwe = v.G;
+  const ck = STAFF.find(x => x.role === 'clerk'); if (ck) ck.bag = 40;
+  try { render(); } catch (e) { bad('vip', 'render threw ' + (e && e.stack || e)); }
+  const recep = S.piles.recep || 0, owe = S.vipOwe; saveNow();
+  if (/"st":"seated"|"suite":"c3"/.test(JSON.stringify(S))) bad('vip-roundtrip', 'VIP runtime state leaked into the save');
+  continueGame();
+  if (VIPG) bad('vip-roundtrip', 'a VIP after loading');
+  if ((S.piles.recep || 0) - recep !== R(owe * .5)) bad('vip-roundtrip', 'refund ' + ((S.piles.recep || 0) - recep) + ' want ' + R(owe * .5));
+  if (S.vipOwe) bad('vip-roundtrip', 'vipOwe not cleared');
+  if (S.decor['room1:A'] !== 'd_scroll' || !roomCombo(ROOM.room1)) bad('vip-roundtrip', 'decor lost');
+  if (STAFF.some(x => x.bag)) bad('vip-roundtrip', 'a bag after loading');
+  run(120, 'after-vip-load'); }
 // old / odd save shapes load without throwing
 // (+ shapes the game never writes: unknown / array / locked pile keys, Infinity, a part payment above a lowered price;
 //  the full v1 fixture set is exercised by tests/migrate_v1.js)

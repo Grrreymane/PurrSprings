@@ -6,8 +6,8 @@
 // 30% of the time wandering or standing still. Records the game time of every unlock, the angry-guest rate
 // after the receptionist is hired, the longest stretch without earning, and checks the SPEC 7 invariants
 // every simulated second (+ the SPEC_v2 14.3 ones that exist so far). Ends at star 5. Extra args: [profile] [max minutes] [json]
-// v2 note: until the stage-2 systems land (calls, dining, VIPs, decor, clerk) the v2 economy has no active income, so
-// the timing checks are informational; green = invariants OK and star 5 reached.
+// v2 note: the timing checks print against the v2 targets (SPEC_v2 14.2) but stay informational until the balance stage;
+// green = invariants OK and star 5 reached. Every guide kind the bot sees must be one it knows (SPEC_v2 6 / WORKFLOW 5).
 const PROFILE = ARGS[0] || 'eager', MAXMIN = +ARGS[1] || 50, JSONOUT = ARGS.includes('json');
 const PROF = { eager: { react: .3, distract: 0 }, casual: { react: 1, distract: .3 } }[PROFILE] || { react: .3, distract: 0 };
 const DT = 1 / 30;
@@ -45,6 +45,9 @@ function drive(dt) {
 }
 // ---------------------------------------------------------------- bookkeeping
 const unlockT = {}, inv = {}, flag = (k, m) => { inv[k] = inv[k] || { n: 0, first: m }; inv[k].n++; };
+// every arrow kind the bot can walk to (stage 2B: slot / vip / suite / tap / photo); an unknown kind is an invariant failure
+const KINDS = new Set(['desk', 'clean', 'basket', 'shelf', 'pad', 'pile', 'deliver', 'urn', 'milk', 'pass', 'stove', 'slot', 'vip', 'suite', 'tap', 'photo']);
+const kindN = {}; let firstCombo = null, vipMaxSt = 0, vipStT = 0, vipStK = '';
 let lastHearts = 0, lastEarned = 0, lastEarnAt = 0, maxGap = 0, maxGapAt = 0, recepAt = null, base = null, renderErr = 0, peakQueue = 0;
 const t0 = () => S.stats.time;
 function checkSecond() {
@@ -70,7 +73,23 @@ function checkSecond() {
   for (const k in perRoom) if (perRoom[k] > 1) flag('room-shared', mmss(t) + ' ' + k);
   for (const k in perSlot) if (perSlot[k] > 1) flag('slot-shared', mmss(t) + ' ' + k);
   for (let i = 0; i < SLOT_OCC.length; i++) if (SLOT_OCC[i] && !GUESTS.includes(SLOT_OCC[i])) flag('slot-leak', mmss(t) + ' slot ' + i);
-  for (const rm of ROOMS) if (RT[rm.id].guest && !GUESTS.includes(RT[rm.id].guest)) flag('room-leak', mmss(t) + ' ' + rm.id);
+  for (const rm of ROOMS) if (RT[rm.id].guest && !GUESTS.includes(RT[rm.id].guest) && RT[rm.id].guest !== VIPG) flag('room-leak', mmss(t) + ' ' + rm.id);
+  // stage 2B (14.3): decor only bought pieces in open rooms; one VIP, any of its states <= 300 s, a following VIP within 200 px
+  // or halted; a suite holds at most the VIP; the clerk's bag is never counted twice (fish conservation is in soak.js)
+  for (const k in S.decor) { const [rid] = k.split(':'); if (!S.unlocked[S.decor[k]] || !UNLOCK[S.decor[k]].decor || !roomOpen(ROOM[rid]) || ROOM[rid].vip) flag('decor', mmss(t) + ' ' + k + '=' + S.decor[k]); }
+  if (VIPG) {
+    const v = VIPG, key = v.st + ':' + v.wi; if (key !== vipStK) { vipStK = key; vipStT = t; }
+    if (t - vipStT > 300) flag('vip-state>300s', mmss(t) + ' ' + v.st);
+    if (v.st === 'follow' && !v.halt && dist(P.x, P.y, v.x, v.y) > 200) flag('vip-far', mmss(t) + ' ' + R(dist(P.x, P.y, v.x, v.y)));
+    if (!Number.isFinite(v.x) || !Number.isFinite(v.y)) flag('vip-nan', mmss(t));
+    const [tx, ty] = tileOf(v), a = areaAt(tx, ty);
+    if (v.y < MAPH && a && !areaOpen(a)) flag('vip-locked-area', mmss(t) + ' ' + v.st);
+    if (v.y < MAPH && !v.moving && BLOCK[ty * MW + tx] && v.st !== 'soak') flag('vip-on-block', mmss(t) + ' ' + v.st + ' ' + tx + ',' + ty);
+    if (v.suite && RT[v.suite].guest !== v && v.st !== 'leave') flag('vip-suite', mmss(t) + ' ' + v.st);
+  } else vipStK = '';
+  for (const rm of SUITES) { const o = RT[rm.id].guest; if (o && o !== VIPG) flag('suite-not-vip', mmss(t) + ' ' + rm.id); }
+  if (GUIDE) { kindN[GUIDE.here ? 'here' : GUIDE.kind] = (kindN[GUIDE.here ? 'here' : GUIDE.kind] || 0) + 1; if (!KINDS.has(GUIDE.kind)) flag('unknown-kind', mmss(t) + ' ' + GUIDE.kind); }
+  if (firstCombo === null && Object.keys(S.combos).length) firstCombo = t;
   if (S.basket < 0 || S.basket > 10 || S.basket !== Math.floor(S.basket)) flag('basket', mmss(t) + ' ' + S.basket);
   if (boxHit(P.x, P.y)) flag('player-in-wall', mmss(t) + ' ' + R(P.x) + ',' + R(P.y));
   // SPEC_v2 14.3 (the parts that exist in stage 1)
@@ -120,6 +139,9 @@ else {
   console.log(`${PROFILE} ★5 ${fin ? mmss(fin) : 'NOT REACHED (' + mmss(t0()) + ', ' + Object.keys(S.unlocked).length + ' unlocked)'} | room2 ${r2 !== undefined ? mmss(r2) : '-'} | gap≤5m ${R(gapEarly)}s(${gapEarlyAt}) >5m ${R(gapLate)}s(${gapLateAt}) | angry ${(angryRate * 100).toFixed(1)}% (${aa}/${ga + aa} after recep; total ${S.stats.angry}/${S.stats.guests + S.stats.angry}) | earn-gap ${R(maxGap)}s@${mmss(maxGapAt)} | peakQ ${peakQueue} | stuck ${stuckN} | inv ${invOk ? 'OK' : 'FAIL'}`);
   console.log('  ' + order.map(u => mmss(unlockT[u.id]) + ' ' + u.id).join(', '));
   console.log(`  2A: calls ${RUN.calls} made, ${S.stats.calls} served (${S.stats.callsFast} fast), ${RUN.callsMissed} missed | diners ${RUN.seated} seated, ${S.stats.diners} fed, ${RUN.hungry} hungry | ♥ ${S.hearts} | types ${Object.keys(S.album.types).join(',') || '-'}`);
+  const med = a => a.length ? a.slice().sort((x, y) => x - y)[a.length >> 1] : 0, combosNow = GUEST_ROOMS.filter(rm => roomOpen(rm) && roomCombo(rm)).length;
+  console.log(`  2B: decor ${Object.keys(S.decor).length} placed, combo rooms ${combosNow}, combos found ${Object.keys(S.combos).join(',') || '-'} (first ${firstCombo === null ? '-' : mmss(firstCombo)}) | VIPs ${RUN.vips} came, ${RUN.vipDone} done, ${RUN.vipLeft} left, med ${R(med(RUN.vipUsed))}s f ${med(RUN.vipF).toFixed(2)}, paid ${RUN.vipPaid} (${(RUN.vipPaid / Math.max(1, S.earned) * 100).toFixed(1)}% of income) | clerk ${RUN.clerk} | Q ${qualityQ().toFixed(2)}`);
+  console.log('  arrow: ' + Object.entries(kindN).sort((a, b) => b[1] - a[1]).map(([k, n]) => k + ' ' + n).join(', '));
   console.log('  checks: ' + checks.map(([n, ok]) => (ok ? 'ok ' : 'NO ') + n).join(' | '));
   for (const k in inv) console.log('  INVARIANT ' + k + ' x' + inv[k].n + ' first: ' + inv[k].first);
 }
