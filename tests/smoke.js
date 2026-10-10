@@ -1,0 +1,64 @@
+// Headless smoke test (pasted into the game closure by _workflow/tools/headless.js):
+//   node D:/Minigame/_workflow/tools/headless.js D:/Minigame/Hotelgame tests/smoke.js --seed 1
+// New game -> 5 minutes of game time with a guide-following driver -> render every few frames, check no
+// errors / NaN; then every screen renders (title, celebration, share card); then a save round trip
+// (save -> fresh load -> 5 more minutes) keeps money and unlocks.
+const DT = 1 / 30, errs = [];
+const bad = (tag, m) => { if (errs.length < 30) errs.push(tag + ': ' + m); };
+function check(tag) {
+  if (!Number.isFinite(S.money) || S.money < 0 || S.money !== Math.floor(S.money)) bad(tag, 'money ' + S.money);
+  if (!Number.isFinite(P.x) || !Number.isFinite(P.y)) bad(tag, 'player NaN');
+  for (const gu of GUESTS) if (!Number.isFinite(gu.x) || !Number.isFinite(gu.y)) bad(tag, 'guest NaN ' + gu.st);
+  for (const s of STAFF) if (!Number.isFinite(s.x) || !Number.isFinite(s.y)) bad(tag, 'staff NaN ' + s.role);
+  for (const k in S.piles) if (!Number.isFinite(S.piles[k]) || S.piles[k] < 0) bad(tag, 'pile ' + k + ' ' + S.piles[k]);
+  if (S.basket < 0 || S.basket > 10) bad(tag, 'basket ' + S.basket);
+  if (boxHit(P.x, P.y)) bad(tag, 'player inside a wall at ' + R(P.x) + ',' + R(P.y));
+}
+// tiny guide follower
+let path = [], key = '', think = 0;
+function drive(dt) {
+  think -= dt;
+  if (think <= 0) {
+    think = .3;
+    const t = S.tut.moved ? guideTarget() : { tx: 7, ty: 24 };
+    if (!t || t.here) { path = []; key = ''; }
+    else if (t.tx + ',' + t.ty !== key) { key = t.tx + ',' + t.ty; const [sx, sy] = tileOf(P); path = findPath(sx, sy, t.tx, t.ty) || []; }
+  }
+  if (path.length) {
+    const [tx, ty] = path[0], cx = tx * 16 + 8, cy = ty * 16 + 8, dx = cx - P.x, dy = cy - P.y, d = Math.hypot(dx, dy);
+    if (d < 1.5) path.shift();
+    botMove = d > .01 ? { x: dx / d * Math.min(1, d / 3), y: dy / d * Math.min(1, d / 3) } : null;
+  } else botMove = null;
+}
+function run(sec, tag) {
+  const n = Math.round(sec / DT);
+  for (let i = 0; i < n; i++) {
+    drive(DT);
+    try { update(DT); } catch (e) { bad(tag, 'update threw ' + (e && e.stack || e)); return; }
+    if (i % 3 === 0) try { render(); } catch (e) { bad(tag, 'render threw ' + (e && e.stack || e)); return; }
+    if (i % 30 === 0) check(tag + '@' + Math.round(i * DT));
+  }
+}
+// title renders before anything
+try { render(); } catch (e) { bad('title', String(e && e.stack || e)); }
+newGame();
+run(300, 'play');
+const mid = { money: S.money, unlocked: Object.keys(S.unlocked).sort().join(','), guests: S.stats.guests };
+// every screen renders
+try {
+  const keep = state; go('celebrate'); st = 1; render(); makeShare(); go('title'); render(); go(keep);
+} catch (e) { bad('screens', String(e && e.stack || e)); }
+// save round trip: save -> load into a fresh world -> keep playing
+saveNow();
+S = defaults(); resetWorld();
+continueGame();
+const back = { money: S.money, unlocked: Object.keys(S.unlocked).sort().join(','), guests: S.stats.guests };
+if (back.money !== mid.money || back.unlocked !== mid.unlocked) bad('roundtrip', JSON.stringify(mid) + ' -> ' + JSON.stringify(back));
+run(300, 'after-load');
+// old / odd save shapes load without throwing
+for (const raw of ['{}', '{"money":"12","unlocked":{"room2":true},"rooms":{"room1":"occupied","room2":"reserved"}}', '{"v":1,"stats":null,"tut":7}', 'not json']) {
+  try { localStorage.setItem(SAVE + 'state', raw); const s = loadState(); if (!Number.isFinite(s.money) || !s.unlocked.room1) bad('oldsave', raw); S = s; resetWorld(); go('play'); run(5, 'oldsave'); }
+  catch (e) { bad('oldsave ' + raw, String(e && e.stack || e)); }
+}
+console.log(errs.length ? 'SMOKE FAIL\n  ' + errs.join('\n  ') : 'SMOKE OK  money ' + mid.money + ', guests ' + mid.guests + ', unlocked [' + mid.unlocked + '] after 5 min; round trip + 5 min OK');
+if (errs.length) process.exitCode = 1;
