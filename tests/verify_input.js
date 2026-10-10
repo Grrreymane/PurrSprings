@@ -24,15 +24,15 @@
   out.push('2 thumb switch (new down, old up, new drags up): JOY.on=' + JOY.on + ' ' + iv());
   pe('pointerup', 2, 60, 220);
   // 3) mute hit test: in-canvas icon, top bar above icon, top bar left, right side bar top strip far from canvas
-  const tap = (raw, label) => { const m = muted; pe('pointerdown', 9, 0, 0, raw); pe('pointerup', 9, 0, 0, raw); out.push(label + ': ' + (muted !== m ? 'TOGGLED' : 'no')); muted = m; };
+  const tap = (raw, label) => { const m = musicOn; pe('pointerdown', 9, 0, 0, raw); pe('pointerup', 9, 0, 0, raw); out.push(label + ': ' + (musicOn !== m ? 'TOGGLED' : 'no')); musicOn = sfxOn = m; };
   tap(cl(172, 8), '3a icon in canvas');
   if (b.top > 20) { tap({ clientX: b.right - 10, clientY: b.top / 2 }, '3b top bar just above icon'); tap({ clientX: b.left + 30, clientY: b.top / 2 }, '3c top bar left'); }
   if (innerWidth - b.right > 40) tap({ clientX: innerWidth - 20, clientY: b.top + 10 }, '3d right side bar, top strip, ' + R(innerWidth - 20 - b.right) + 'px right of canvas');
   // 4) M held
-  let flips = 0; const m1 = muted;
-  for (let i = 0; i < 6; i++) { const w = muted; window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyM', key: 'm', repeat: i > 0, bubbles: true })); if (muted !== w) flips++; }
+  let flips = 0; const m1 = musicOn;
+  for (let i = 0; i < 6; i++) { const w = musicOn; window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyM', key: 'm', repeat: i > 0, bubbles: true })); if (musicOn !== w) flips++; }
   window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyM', key: 'm', bubbles: true }));
-  out.push('4 M held (1+5 repeats): toggles=' + flips); muted = m1;
+  out.push('4 M held (1+5 repeats): toggles=' + flips); musicOn = sfxOn = m1;
   // 5) celebrate + keys; does WASD do anything there?
   go('celebrate'); st = 2;
   for (const code of ['Enter', 'Space', 'Escape']) window.dispatchEvent(new KeyboardEvent('keydown', { code, key: code, bubbles: true }));

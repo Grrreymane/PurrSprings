@@ -207,6 +207,114 @@
       fetch('tests/fixtures/v1_s5.json').then(r => r.text()).then(t => { localStorage.setItem(SAVE + 'state', t); continueGame(); updCam(0, true); });
     },
     ['b' + 'ot']() { newGame(); ff(+(window.SECS || 300), true); updCam(0, true); },
+    // ---- stage 3 (SPEC_v2 7 / 8): HUD, info card + preview, banners, "new" tags, first-time cards, lines, menu, share card
+    start() { newGame(); ff(1.5, false); FREEZE_AT(); },
+    infocard() {   // near the 竹 pad: the info card at the bottom, a ghost futon / table / andon in the dark room, the gold frame
+      newGame(); S.tut.moved = true; S.stats.time = 100; S.money = 30; resetWorld(); go('play'); spawnT = 1e9; ff(1, false); place(17, 20, 'right'); ff(.6, false); FREEZE_AT();
+    },
+    infocard_staff() {   // near the 前台 pad: 小樱's ghost behind the counter; not enough fish yet (no tick)
+      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen']); S.stats.time = 200; S.money = 40; resetWorld(); go('play'); spawnT = 1e9; ff(1, false); place(18, 26, 'up'); ff(.6, false); FREEZE_AT();
+    },
+    infocard_decor() {   // in the shop by the decor pads: a big decor icon on the card
+      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen', 'recep', 'shop']); S.stats.time = 300; S.money = 70; resetWorld(); go('play'); spawnT = 1e9; ff(1, false); place(3, 33, 'up'); ff(.6, false); FREEZE_AT();
+    },
+    infocard_gate() {   // by the dining gate: the stove, counter, tables and cushions float faintly in the dark hall
+      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen', 'recep', 'maid1', 'room4', 'room5', 'shoes1']); S.stats.time = 400; S.money = 300; resetWorld(); go('play'); spawnT = 1e9; ff(1, false); place(11, 27, 'up'); ff(.6, false); FREEZE_AT();
+    },
+    infocard_shoes() {   // by the shoes pad: a small sign over the head (shoe + up)
+      newGame(); S.tut.moved = true; unl(['room2', 'room3']); S.stats.time = 120; S.money = 50; resetWorld(); go('play'); spawnT = 1e9; ff(1, false); place(18, 27, 'right'); ff(.6, false); FREEZE_AT();
+    },
+    infocard_net() {   // by the net pad: the new reach as a dotted ring round the feet
+      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen', 'recep', 'maid1']); S.stats.time = 300; S.money = 100; resetWorld(); go('play'); spawnT = 1e9; ff(1, false); place(21, 27, 'down'); ff(.6, false); FREEZE_AT();
+    },
+    banner_buy() {   // just bought 竹: "new! [room] 客房 . 开「竹」房", +3 hearts over the head, 好耶！, furniture popping in
+      newGame(); S.tut.moved = true; S.stats.time = 100; S.money = 30; resetWorld(); go('play'); spawnT = 1e9; ff(1, false); place(18, 21, 'up'); unlock('room2'); ff(.45, false); FREEZE_AT();
+    },
+    banner_area() {   // the onsen gate: area banner with the gold rim + star, the HUD star popping, 升星啦！
+      newGame(); S.tut.moved = true; unl(['room2', 'room3']); S.stats.time = 130; resetWorld(); go('play'); spawnT = 1e9; ff(1, false); place(17, 8, 'up'); unlock('onsen'); ff(.5, false); FREEZE_AT();
+    },
+    edge_new() {   // the onsen just opened: new pads appear far below -> "new" tags on the bottom edge (no camera move)
+      newGame(); S.tut.moved = true; unl(['room2', 'room3']); S.stats.time = 130; resetWorld(); go('play'); spawnT = 1e9; ff(1, false); place(17, 8, 'up'); unlock('onsen'); ff(3.5, false); FREEZE_AT();
+    },
+    banner_combo() {
+      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen', 'recep', 'shop', 'd_scroll', 'd_ikebana']); S.stats.time = 400; S.decor['room1:A'] = 'd_scroll'; resetWorld(); go('play'); spawnT = 1e9;
+      place(12, 21, 'up'); ff(.2, false); setDecor(DSLOT_AT[ROOM.room1.slotB[1] * MW + ROOM.room1.slotB[0]], 'd_ikebana'); ff(.5, false); FREEZE_AT();
+    },
+    banner_rank() { newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen']); S.stats.time = 300; S.hearts = 29; resetWorld(); go('play'); spawnT = 1e9; place(17, 26, 'down'); ff(.3, false); addHearts(1); ff(.5, false); FREEZE_AT(); },
+    banner_day() { newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen', 'recep']); S.stats.time = 600; S.dayLog = { g: 48, h: 31, best: 40 }; resetWorld(); go('play'); spawnT = 1e9; place(16, 26, 'down'); S.clock = .098; ff(1.2, false); FREEZE_AT(); },
+    banner_level() {
+      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen', 'recep', 'maid1']); S.stats.time = 300; S.staff.maid1 = 19; resetWorld(); go('play'); spawnT = 1e9;
+      const m = STAFF.find(s => s.id === 'maid1'); m.x = tcx(REST[0]); m.y = tcy(REST[0]); place(19, 27, 'up'); ff(.2, false); gainXp(m, 1); ff(.6, false); FREEZE_AT();
+    },
+    banner_gold() { newGame(); S.tut.moved = true; unl(ALL); S.done = true; S.stats.time = 2000; S.hearts = 1499; resetWorld(); go('play'); spawnT = 1e9; place(17, 26, 'down'); ff(.3, false); addHearts(1); ff(.6, false); FREEZE_AT(); },
+    banner_milestone() {
+      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen', 'recep']); S.stats.time = 900; S.stats.guests = 99; resetWorld(); go('play'); spawnT = 1e9; place(15, 26, 'up');
+      const gu = guest({ st: 'queue', x: tcx(QSPOTS[0]), y: tcy(QSPOTS[0]), ready: true }); Q.unshift(gu); ff(.1, false); checkIn(gu, ROOM.room2); ff(.6, false); FREEZE_AT();
+    },
+    new_staff() {   // 前台 just hired: 小樱 walks in from the front door, says 欢迎光临！ at the desk, a red "new" tag over her head
+      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen']); S.stats.time = 200; resetWorld(); go('play'); spawnT = 1e9; place(17, 26, 'left'); unlock('recep');
+      for (let i = 0; i < 30 * 12 && !(LINE && LINE.id === 'S01'); i++) update(1 / 30); ff(.4, false); FREEZE_AT();
+    },
+    line_guest() {   // a guest's line in a white bubble (one on screen)
+      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen', 'recep']); S.stats.time = 300; resetWorld(); go('play'); spawnT = 1e9; ff(3, false); place(15, 25, 'right');
+      const gu = guest({ st: 'queue', x: tcx(QSPOTS[1]), y: tcy(QSPOTS[1]), ready: true, inside: true }); Q.push(gu); ff(.1, false); say(gu, 'G05'); ff(.5, false); FREEZE_AT();
+    },
+    line_player() { newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen']); S.stats.time = 300; P.towels = 4; resetWorld(); go('play'); spawnT = 1e9; place(17, 22, 'down'); P.towels = 3; ff(.2, false); say(P, 'P01'); ff(.6, false); FREEZE_AT(); },
+    firstcard_call() {
+      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen', 'recep', 'tea']); S.stats.time = 300; resetWorld(); go('play'); spawnT = 1e9; ff(1, false);
+      sleepIn('room2').call = { k: 'tea', t: 30, max: 40 }; firstTime('call'); place(16, 22, 'up'); ff(.5, false); FREEZE_AT();
+    },
+    firstcard_dine() { newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen', 'recep', 'maid1', 'room4', 'room5', 'dining']); S.stats.time = 500; resetWorld(); go('play'); spawnT = 1e9; ff(1, false); firstTime('dine'); place(6, 24, 'up'); ff(.5, false); FREEZE_AT(); },
+    firstcard_vip() { newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); S.stats.time = 900; resetWorld(); go('play'); spawnT = 1e9; ff(1, false); vipArrive(); ff(6, false); place(17, 24, 'down'); ff(.3, false); FREEZE_AT(); },
+    firstcard_tryon() { newGame(); S.tut.moved = true; unl(ALL); S.done = true; S.stats.time = 2000; resetWorld(); go('play'); spawnT = 1e9; ff(1, false); firstTime('tryon'); place(12, 31, 'down'); ff(.5, false); FREEZE_AT(); },
+    menu_main() { sc.late(); S.stats.time = 900; S.hearts = 260; S.day = 4; openMenu(); ff(.3, false); FREEZE_AT(); },
+    menu_sound() { sc.late(); openMenu(); MENU.page = 'sound'; setSfxOn(false); ff(.3, false); FREEZE_AT(); },
+    book_vip() {
+      newGame(); S.tut.moved = true; unl(ALL); S.done = true; S.album.vip = { kawa: 3, ozeki: 2, sakura: 1, captain: 1 }; S.gifts = ['kawa', 'ozeki', 'sakura'];
+      S.album.photos = [{ v: 'kawa', d: 5, h: null, p: null }, { v: 'ozeki', d: 7, h: 'h_straw', p: null }, { v: 'sakura', d: 9, h: 'h_flower', p: 'p_duck' }];
+      resetWorld(); go('play'); spawnT = 1e9; ff(1, false); openMenu(); MENU.page = 'book'; MENU.tab = 0; ff(.3, false); FREEZE_AT();
+    },
+    book_vip_photo() { sc.book_vip(); MENU.sel = 'sakura'; S.unlocked.h_flower = S.unlocked.p_duck = true; },
+    book_combo() {
+      newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'd_daruma')); S.done = true; S.combos = { c_ga: 3, c_zen: 6, s_tea: 9 };
+      S.decor = { 'room1:A': 'd_scroll', 'room1:B': 'd_ikebana', 'room3:A': 'd_scroll', 'room3:B': 'd_ikebana', 'room4:A': 'd_bonsai', 'room4:B': 'd_screen', 'room5:A': 'd_scroll', 'room5:B': 'd_bonsai' };
+      resetWorld(); go('play'); spawnT = 1e9; ff(1, false); openMenu(); MENU.page = 'book'; MENU.tab = 1; ff(.3, false); FREEZE_AT();
+    },
+    book_guest() {
+      newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); S.album.furs = { calico: true, white: true, black: true, tabby: true, gray: true, cow: true }; S.album.types = { elder: true, couple: true };
+      resetWorld(); go('play'); spawnT = 1e9; ff(1, false); openMenu(); MENU.page = 'book'; MENU.tab = 2; ff(.3, false); FREEZE_AT();
+    },
+    book_staff() {
+      newGame(); S.tut.moved = true; unl(ALL.filter(id => UNLOCKS.findIndex(u => u.id === id) <= UNLOCKS.findIndex(u => u.id === 'clerk'))); S.staff = { recep: 150, maid1: 320, maid2: 70, porter: 25, chef: 12, waiter1: 61 };
+      resetWorld(); go('play'); spawnT = 1e9; ff(1, false); openMenu(); MENU.page = 'book'; MENU.tab = 3; ff(.3, false); FREEZE_AT();
+    },
+    bought() { sc.late(); openMenu(); MENU.page = 'bought'; ff(.3, false); FREEZE_AT(); },
+    inn_rank() { sc.late(); S.hearts = 420; S.day = 6; S.dayLog = { g: 31, h: 22, best: 57 }; openMenu(); MENU.page = 'inn'; ff(.3, false); FREEZE_AT(); },
+    buy_shoes() {   // shoes bought while walking: speed lines at the feet, the speed + hearts pops over the line bubble
+      newGame(); S.tut.moved = true; unl(['room2', 'room3']); S.stats.time = 120; resetWorld(); go('play'); spawnT = 1e9; ff(1, false); place(18, 26, 'right');
+      unlock('shoes1'); botMove = { x: -1, y: 0 }; ff(.5, false); botMove = null; P.moving = true; FREEZE_AT();
+    },
+    buy_tray() {   // a tray bought with two portions on it: the new slot flashes once
+      newGame(); S.tut.moved = true; unl(ALL.filter(id => UNLOCKS.findIndex(u => u.id === id) <= UNLOCKS.findIndex(u => u.id === 'dining'))); S.stats.time = 600; resetWorld(); go('play'); spawnT = 1e9; ff(1, false);
+      place(6, 22, 'down'); P.tray = ['rice', 'tea']; unlock('tray1'); ff(.25, false); FREEZE_AT();
+    },
+    night_info() {   // at night: the info card, the ghost preview and the pad frame stay bright over the night tint
+      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen', 'recep', 'maid1', 'room4']); S.stats.time = 400; S.money = 300; resetWorld(); go('play'); spawnT = 1e9; ff(1, false);
+      S.clock = .9; place(17, 13, 'up'); ff(.5, false); FREEZE_AT();
+    },
+    input_menu() {   // real input events: tap the HUD menu button -> menu; Esc closes; P opens; tap 声音; M = music + sfx off
+      sc.late(); setMusicOn(true); setSfxOn(true); update(1 / 30); render();
+      const r = cv.getBoundingClientRect(), cl = (x, y) => ({ clientX: r.left + x / W * r.width, clientY: r.top + y / H * r.height, pointerId: 7, bubbles: true });
+      const tap = (x, y) => { window.dispatchEvent(new PointerEvent('pointerdown', cl(x, y))); window.dispatchEvent(new PointerEvent('pointerup', cl(x, y))); };
+      const key = c => { window.dispatchEvent(new KeyboardEvent('keydown', { code: c, bubbles: true })); window.dispatchEvent(new KeyboardEvent('keyup', { code: c, bubbles: true })); };
+      const log = []; tap(156, 8); log.push(state); key('Escape'); log.push(state); key('KeyP'); log.push(state); tap(90, 114); log.push(MENU.page); key('KeyM'); log.push('music ' + musicOn, 'sfx ' + sfxOn);
+      const d = document.createElement('div'); d.textContent = log.join(' | '); d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;background:#000;color:#0f0;font:14px monospace;padding:4px;z-index:9';
+      document.body.appendChild(d); FREEZE_AT();
+    },
+    share_v2() {
+      newGame(); S.tut.moved = true; unl(ALL.concat(['h_straw', 'h_beret', 'p_duck'])); S.done = true; S.equip = { hat: 'h_beret', pet: 'p_duck' }; S.hearts = 3200; S.stats.guests = 1840; S.earned = 412000; S.album.vip = { kawa: 3, ozeki: 2, sakura: 1 };
+      S.album.photos = [{ v: 'kawa', d: 5, h: null, p: null }, { v: 'ozeki', d: 11, h: 'h_straw', p: 'p_duck' }]; S.combos = { c_ga: 3, c_zen: 6 }; S.album.furs = { calico: true, white: true }; resetWorld(); go('play'); ff(.5, false); makeShare();
+    },
   };
   (sc[window.SHOT] || sc.title)();
   if (window.HOLD) { update = dt => { T += dt; }; }

@@ -127,13 +127,14 @@ function checkSecond() {
   if (VIPG && SUITES.some(rm => RT[rm.id].guest && RT[rm.id].guest !== VIPG)) flag('suite-guest', at);
   if (GUIDE && GUIDE.id === 'statue') flag('guide-statue', at);
   try { render(); } catch (e) { flag('render', String(e && e.message || e)); }
+  if (LINE && LINE_NEXT && LINE_NEXT.q > LINE_WAIT + .1) flag('line-queue', at);   // one line on screen, one waiting <= 1 s (8.1)
   if (LIGHT_N > LIGHT_MAX) flag('lights>16', at + ' ' + LIGHT_N);
   peak.guests = Math.max(peak.guests, GUESTS.length); peak.fx = Math.max(peak.fx, FX.length); peak.pops = Math.max(peak.pops, POPS.length);
   peak.txc = Math.max(peak.txc, TXC.size); peak.art = Math.max(peak.art, Object.keys(ART).length); peak.flips = Math.max(peak.flips, FLIPS.size); peak.rots = Math.max(peak.rots, ROTS.size); peak.q = Math.max(peak.q, Q.length);
 }
 // ---------------------------------------------------------------- run
 const steps = Math.round(MAXMIN * 60 / DT);
-let lastSec = -1, signAt = null, reloads = 0, nextReload = 240, upd = 0, updMax = 0, frames = 0;
+let lastSec = -1, signAt = null, reloads = 0, nextReload = 240, upd = 0, updMax = 0, frames = 0, nextMenu = 150, menus = 0;
 const artAt = {};
 for (let i = 0; i < steps; i++) {
   drive(DT);
@@ -146,6 +147,15 @@ for (let i = 0; i < steps; i++) {
   const t = S.stats.time;
   if (Math.floor(t) !== lastSec) { lastSec = Math.floor(t); checkSecond(); }
   if (Math.floor(t / 600) * 600 === Math.floor(t) && !artAt[Math.floor(t)]) artAt[Math.floor(t)] = { art: Object.keys(ART).length, txc: TXC.size, txNew, guests: GUESTS.length, fx: FX.length, money: S.money };
+  // stage 3 (14.3): every ~5 min the menu opens for 3 s: time played, the clock, money and guests stay put; every page renders
+  if (t >= nextMenu) {
+    nextMenu += 280 + Math.random() * 60;
+    const snap = () => JSON.stringify([S.stats.time, S.clock, S.money, GUESTS.length, GUESTS.map(g => g.st + g.t.toFixed(3))]);
+    openMenu(); const a = snap();
+    for (let k = 0; k < 90; k++) { update(DT); if (k % 15 === 0) { MENU.page = ['home', 'sound', 'book', 'bought', 'inn'][(k / 15) % 5]; MENU.tab = k % 4; try { render(); } catch (e) { flag('menu-render', String(e && e.message || e)); } } }
+    if (snap() !== a) flag('menu-not-paused', mmss(t)); menus++;
+    closeMenu(); if (state !== 'play') flag('menu-close', mmss(t) + ' ' + state);
+  }
   if (RELOAD && t >= nextReload) {
     nextReload += 200 + Math.random() * 100;
     const before = { money: S.money, unlocked: Object.keys(S.unlocked).sort().join(','), earned: S.earned };
@@ -156,7 +166,7 @@ for (let i = 0; i < steps; i++) {
   }
 }
 const invOk = Object.keys(inv).length === 0;
-console.log(`${PROFILE} ${MAXMIN}m | ★5 ${signAt ? mmss(signAt) : '-'} | unlocked ${Object.keys(S.unlocked).length}/${UNLOCKS.length + 1} | money ${S.money} earned ${S.earned} | guests ${S.stats.guests} angry ${S.stats.angry} | reloads ${reloads} | stuck ${stuckN} | inv ${invOk ? 'OK' : 'FAIL'}`);
+console.log(`${PROFILE} ${MAXMIN}m | ★5 ${signAt ? mmss(signAt) : '-'} | unlocked ${Object.keys(S.unlocked).length}/${UNLOCKS.length + 1} | money ${S.money} earned ${S.earned} | guests ${S.stats.guests} angry ${S.stats.angry} | reloads ${reloads} | menus ${menus} | lines ${RUN.lines} | stuck ${stuckN} | inv ${invOk ? 'OK' : 'FAIL'}`);
 console.log(`  peaks: guests ${peak.guests} Q ${peak.q} FX ${peak.fx} POPS ${peak.pops} TXC ${peak.txc} ART ${peak.art} FLIPS ${peak.flips} ROTS ${peak.rots} | new text sprites ${txNew} (${(txNew / MAXMIN).toFixed(1)}/min) | BFS/frame max ${bfsMax} avg ${(bfsTotal / frames).toFixed(3)} | update() avg ${(upd / frames).toFixed(3)}ms max ${updMax.toFixed(2)}ms`);
 console.log('  every 10 min: ' + Object.entries(artAt).map(([k, v]) => mmss(+k) + ' art' + v.art + ' txc' + v.txc + ' txNew' + v.txNew + ' g' + v.guests + ' fx' + v.fx).join(' | '));
 console.log(`  2C: ♥ ${S.hearts} #${rankOf(S.hearts)} gold ${goldStars()} | day ${S.day} (best ${S.dayLog.best} guests) | staff Lv ${STAFF.filter(s => s.role !== 'owner').map(s => s.name + staffLv(s)).join(' ')} | equip ${S.equip.hat || '-'} / ${S.equip.pet || '-'} | boutique ${UNLOCKS.filter(u => u.booth && S.unlocked[u.id]).map(u => u.id).join(',') || '-'} | statue paid ${S.paid.statue || 0}`);

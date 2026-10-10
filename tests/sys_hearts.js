@@ -25,8 +25,9 @@ setup([], 25);
 { addHearts(10); let b = ranks(); eq(b.length, 1, 'one rank banner'); ok(b[0] && b[0].id === 'panda' && b[0].rank === 9, 'passed panda, #9: ' + JSON.stringify(b[0]));
   ok(SFXLOG.includes('rankup'), 'rank-up horn'); ok(LINES.some(([w, k]) => w === P && k === 'P06'), 'line P06 by the innkeeper'); eq(RUN.overtakes, 1, 'counted');
   ok(RUN.news.some(n => n[1] === 'rank'), 'a "news" event');
-  run(4); addHearts(50); b = ranks(); eq(b.length, 1, 'passed penguin 4 s later: the same banner'); ok(b[0].id === 'penguin' && b[0].rank === 8, 'merged: penguin #8');
-  run(11); addHearts(100); b = ranks(); eq(b.length, 2, '11 s later: a new banner'); ok(b[1] && b[1].id === 'otter' && b[1].rank === 7, 'otter #7');
+  // (stage 3: a banner leaves the queue once it has been shown, 3 s; within 10 s while it is still up they merge)
+  run(1.5); addHearts(50); b = ranks(); eq(b.length, 1, 'passed penguin 1.5 s later: the same banner'); ok(b[0].id === 'penguin' && b[0].rank === 8 && b[0].age > 1, 'merged into the one on screen: penguin #8');
+  run(11); eq(ranks().length, 0, 'shown and gone'); addHearts(100); b = ranks(); eq(b.length, 1, '11 s later: a new banner'); ok(b[0] && b[0].id === 'otter' && b[0].rank === 7, 'otter #7');
   const n0 = RUN.overtakes; addHearts(10); eq(RUN.overtakes, n0, 'no overtake without passing anyone');
   BANNER_Q.length = 0; addHearts(400 - S.hearts); b = ranks(); ok(b.length === 1 && b[0].id === 'monkey' && b[0].rank === 5, 'passing two at once: one banner with the last (monkey #5)'); }
 // ---- hearts only go up

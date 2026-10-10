@@ -65,7 +65,7 @@ for (const f of files) {
   if (S.money !== raw.money + refund) bad(tag, 'money ' + raw.money + ' + refund ' + refund + ' -> ' + S.money);
   const hearts = UNLOCKS.reduce((a, x) => a + (u[x.id] ? x.hearts : 0), 0) + Math.min(600, Math.floor(raw.stats.guests / 4));
   if (S.hearts !== hearts) bad(tag, 'hearts ' + S.hearts + ' (want ' + hearts + ')');
-  if (S.gift !== (v1Star >= 2)) bad(tag, 'gift flag ' + S.gift);
+  if (BANNER_Q.some(b => b.kind === 'gift') !== (v1Star >= 2) || S.gift) bad(tag, 'the "inn grew" banner: ' + BANNER_Q.map(b => b.kind).join(',') + ' / flag ' + S.gift);   // shown once, then the flag is off (10.2)
   const asleep = Object.values(raw.rooms || {}).filter(v => v === 'occupied').length;
   if (sum(S.piles) !== sum(raw.piles) + asleep * STARS[S.peak].tip) bad(tag, 'piles ' + sum(raw.piles) + ' (+' + asleep + ' tips) -> ' + sum(S.piles));
   if (u.sign && !raw.done && !celebrateAt) bad(tag, '招牌 bought, celebration never seen: no celebration queued');

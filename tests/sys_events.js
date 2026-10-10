@@ -24,7 +24,7 @@ setup();
   ok(AREA_FADE.some(f => f.a.id === 'onsen'), 'onsen: shade fades'); ok(BANNER_Q.some(b => b.kind === 'area' && b.id === 'onsen'), 'onsen: area banner');
   ok(SFXLOG.includes('areaOpen'), 'onsen: area chime'); ok(line('P04'), 'onsen adds a star: P04'); eq(newsOf('area'), 1, 'news: area');
   buy('recep'); LINES.length = 0; buy('shop'); ok(BANNER_Q.some(b => b.kind === 'area' && b.id === 'shop') && line('P03'), 'shop: banner + P03 (no star)');
-  LINES.length = 0; buy('basket1'); ok(line('P01') && !BANNER_Q.some(b => b.id === 'basket1'), 'a plain pad: P01, no area banner');
+  LINES.length = 0; buy('basket1'); ok(line('P01') && !BANNER_Q.some(b => b.id === 'basket1' && b.kind === 'area') && BANNER_Q.some(b => b.id === 'basket1' && b.kind === 'buy'), 'a plain pad: P01, a buy banner (not an area one)');
   LINES.length = 0; buy('maid1'); ok(line('P02'), 'staff: P02'); ok(newsOf('buy') >= 6, 'news: every buy'); }
 // ---- calls: ring + the guest's line + the first-time card
 setup(['room2', 'room3', 'onsen', 'recep', 'tea']);

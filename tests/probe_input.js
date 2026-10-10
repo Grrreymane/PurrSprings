@@ -23,18 +23,18 @@
   out.push('D finger2 lifts, finger1 still held 40px right: JOY.on=' + JOY.on + ' input=' + iv());
   pe('pointerup', 1, 130, 200);
   // ---- tap in the letterbox bar above the canvas, right side
-  const b = r(), m0 = muted;
+  const b = r(), m0 = musicOn;
   if (b.top > 20) {
     pe('pointerdown', 3, 0, 0, { clientX: b.right - 8, clientY: b.top / 2 }); pe('pointerup', 3, 0, 0, { clientX: b.right - 8, clientY: b.top / 2 });
-    out.push('E tap in black bar above canvas (y=' + R(b.top / 2) + 'px, canvas top ' + R(b.top) + 'px): muted ' + m0 + ' -> ' + muted);
+    out.push('E tap in black bar above canvas (y=' + R(b.top / 2) + 'px, canvas top ' + R(b.top) + 'px): musicOn ' + m0 + ' -> ' + musicOn);
   } else out.push('E no top letterbox at this window size');
-  muted = m0;
+  musicOn = sfxOn = m0;
   // ---- key auto-repeat on M
-  const m1 = muted; let flips = 0;
-  for (let i = 0; i < 4; i++) { const was = muted; window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyM', key: 'm', repeat: i > 0, bubbles: true })); if (muted !== was) flips++; }
+  const m1 = musicOn; let flips = 0;
+  for (let i = 0; i < 4; i++) { const was = musicOn; window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyM', key: 'm', repeat: i > 0, bubbles: true })); if (musicOn !== was) flips++; }
   window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyM', key: 'm', bubbles: true }));
   out.push('F hold M (1 press + 3 auto-repeats): mute toggled ' + flips + ' times');
-  muted = m1;
+  musicOn = sfxOn = m1;
   // ---- keyboard on the celebration panel
   go('celebrate'); st = 2;
   for (const code of ['Enter', 'Space', 'Escape']) window.dispatchEvent(new KeyboardEvent('keydown', { code, key: code, bubbles: true }));

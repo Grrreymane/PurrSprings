@@ -17,7 +17,7 @@ class FakeAC {
   close() { this.state = 'closed'; return Promise.resolve(); }
 }
 window.AudioContext = FakeAC;
-muted = false;
+musicOn = sfxOn = true;   // (v2: the v1 `musicOn` became musicOn / sfxOn)
 newGame();
 initAudio();                                     // first tap
 const DT = 1 / 30;
@@ -33,7 +33,7 @@ console.log('session 1 after 10 min: music notes in 10 s =', musicOsc(10), '| co
 AC.suspend(); for (let i = 0; i < 300; i++) update(DT); AC.resume();
 console.log('control, after a hidden/visible cycle: music notes in 10 s =', musicOsc(10));
 // control: mute mid-song ramps the music bus to 0 and back
-let tgt = []; const mbSet = MB.gain.setTargetAtTime; MB.gain.setTargetAtTime = (v) => tgt.push(v); muted = true; run(1); muted = false; run(1); MB.gain.setTargetAtTime = mbSet;
+let tgt = []; const mbSet = MB.gain.setTargetAtTime; MB.gain.setTargetAtTime = (v) => tgt.push(v); musicOn = false; run(1); musicOn = true; run(1); MB.gain.setTargetAtTime = mbSet;
 console.log('control, mute then unmute mid-song: music bus targets', JSON.stringify(tgt));
 run(1);
 // pagehide handler body (index.html line ~1835): save, then AC.close(). Page goes into bfcache.

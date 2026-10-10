@@ -63,7 +63,7 @@ if (P.tray.length || PASS.n || callCount() || SEAT_OCC.some(Boolean)) bad('round
 run(300, 'after-load');
 // stage 2B (14.4): a VIP mid-service + decor + a clerk's bag -> save -> load. Nothing of the VIP is saved but half of its
 // unpaid gift (into the cash box, once); decor stays; the bag's fish were already in the cash box.
-{ for (const id of ['room4', 'room5', 'room6', 'maid1', 'dining', 'w1', 'room7', 'clerk', 'chef', 'porter', 'milk', 'garden', 'd_ikebana']) if (!S.unlocked[id]) { S.unlocked[id] = true; S.paid[id] = UNLOCK[id].price; }
+{ for (const id of ['room4', 'room5', 'room6', 'maid1', 'dining', 'w1', 'room7', 'clerk', 'chef', 'porter', 'milk', 'garden', 'shop', 'd_scroll', 'd_ikebana']) if (!S.unlocked[id]) { S.unlocked[id] = true; S.paid[id] = UNLOCK[id].price; }
   for (const rm of ROOMS) if (roomOpen(rm) && !S.rooms[rm.id]) S.rooms[rm.id] = 'clean';
   S.peak = Math.max(S.peak, starOf(S)); S.decor['room1:A'] = 'd_scroll'; S.decor['room1:B'] = 'd_ikebana'; resetWorld(); go('play');
   vipArrive(); const v = VIPG; v.x = tcx(ROOM.c3.stand); v.y = tcy(ROOM.c3.stand); v.suite = 'c3'; RT.c3.guest = v; setSt(v, 'seated'); S.vipOwe = v.G;
