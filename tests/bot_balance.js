@@ -7,6 +7,8 @@
 //   casual   1 s reaction, 30 % of the time wandering or standing
 //   novice   2 s reaction, half of the time wandering or standing, 30 % of its decisions ignore the arrow (a random walk)
 //   afk      eager; once the receptionist and a maid are hired: hands off for 10 min (A4), then eager again
+//   afkref   the reference for A4 (stage 4): eager, but from that same moment it buys nothing for 10 min - it keeps
+//            serving (calls, towels, cleaning, the desk, cooking, the VIP, decor), so the inn is the one afk leaves alone
 //   ignore   eager, but never does calls, the VIP or decor: guideTarget({ skip }) leaves those rules out (the next rule
 //            applies), and the game's own arrow is the same one (so what is drawn = what is walked)
 //   shopper  eager, then `post` (default 120; also ARGS[2]) min past star 5: the boutique (G1-G3)
@@ -16,7 +18,8 @@
 // Logged every second (log=file: one JSON line per second): the arrow kind ('*' = here) and rule, what the cat does
 // (walk / work / pour / stand), income by source, purchases, "new things" (RUN.news). The report (json: one line) has
 // every 14.2 metric one run can measure; tests/balance_all.js runs profiles x seeds, prints medians and the cross-run
-// ones (A3 ignore vs eager, A4 afk vs eager in the same minutes). Targets are printed, not enforced (stage 4 tunes).
+// ones (A3 ignore vs eager, A4 afk vs afkref in the same minutes). Targets are printed, not enforced: balance_all.js sums
+// up the ones not met (SPEC_v2 18.2 stage 4 says which apply to which profile).
 // Exit 1 = an invariant (14.3, every second) failed or star 5 was not reached.
 // Overrides (stage 4) work without touching index.html: cfg=<name> (CFGS below) / set=price.room2:30,star3.room:40,
 // patience:80 ... Data tables are mutable; constants are swapped by re-compiling the few functions that read them (only
@@ -29,6 +32,7 @@ const PROFS = {
   casual: { react: 1, distract: .3, ignore: 0, max: 70, post: 0 },
   novice: { react: 2, distract: .5, ignore: .3, max: 120, post: 0 },
   afk: { react: .3, distract: 0, ignore: 0, afk: 600, max: 80, post: 0 },
+  afkref: { react: .3, distract: 0, ignore: 0, hold: 600, max: 80, post: 0 },
   ignore: { react: .3, distract: 0, ignore: 0, skip: { call: true, vip: true, decor: true }, max: 70, post: 0 },
   shopper: { react: .3, distract: 0, ignore: 0, max: 45, post: 120 },
 };
@@ -68,6 +72,8 @@ if (bPatch) {
 function bPorterCap(s) { return bPatch ? __C.porterCarry + staffLv(s) - 1 : porterCap(s); }
 // the ignore profile: the game's own arrow skips calls / the VIP / decor too
 if (PROF.skip) { const bGT = guideTarget; guideTarget = o => bGT(Object.assign({ skip: PROF.skip }, o || {})); }
+// the afkref profile: no price pads while it holds (the arrow skips them, so it plays the same inn the afk bot leaves)
+if (PROF.hold) { const bGT = guideTarget; guideTarget = o => afkFrom !== null && t0() >= afkFrom && t0() < afkTo ? bGT(Object.assign({ skip: { pad: true } }, o || {})) : bGT(o); }
 // ---------------------------------------------------------------- income by source (14.1 log, D1 / D2 / E3)
 const INC = { room: 0, tip: 0, bath: 0, milk: 0, meal: 0, souv: 0, call: 0, vip: 0 };
 let bEarnSrc = 'vip', bPickups = 0;
@@ -108,6 +114,7 @@ function bAdopt(g, force) {
   bCur = g;
 }
 function drive(dt) {
+  if (PROF.hold && afkFrom === null && S.unlocked.recep && S.unlocked.maid1) { afkFrom = t0(); afkTo = afkFrom + PROF.hold; }
   if (PROF.afk) {
     if (afkFrom === null && S.unlocked.recep && S.unlocked.maid1) { afkFrom = t0(); afkTo = afkFrom + PROF.afk; }
     if (afkNow()) { botMove = null; bPath = []; bKey = ''; bCur = null; return; }
@@ -319,7 +326,9 @@ const end = fin !== null ? fin : t0();
 const pre = recs.filter(r => r.t <= end), between = (a, b) => pre.filter(r => r.t >= a && r.t < b);
 const ACTIVE = new Set(['deliver', 'urn', 'milk', 'pass', 'stove', 'vip', 'suite', 'tap', 'photo', 'slot']);
 const share = (rs, f) => rs.length ? rs.filter(f).length / rs.length : null;
-const arrowRecs = rs => rs.filter(r => r.m !== 'a' && r.tm);
+// the arrow's mix (C1-C4) counts the seconds the bot follows it (stage 4): not the afk minutes, and not the casual / novice
+// seconds spent idle, wandering or on a random walk - the arrow keeps showing its target then, which only measured the bot
+const arrowRecs = rs => rs.filter(r => r.m === 'f' && r.tm);
 // purchases: every unlock in time order (afk: the hands-off stretch is not a gap)
 const unlockT = {}; for (const r of recs) if (r.buy) for (const id of r.buy) unlockT[id] = r.t;
 const buys = Object.entries(unlockT).filter(([id, t]) => t <= end && !UNLOCK[id].booth).sort((a, b) => a[1] - b[1]);
@@ -395,7 +404,7 @@ else {
     : PROFILE === 'casual' ? [[fin !== null && fin <= 2160, 'A2 ★5 <=36m'], [M.B1.max <= 120, 'B2 <=120s'], [M.E5 < .08, 'E5']]
     : PROFILE === 'novice' ? [[fin !== null && fin <= 3480, 'A2 ★5 <=58m'], [M.B1.max <= 180, 'B2 <=180s'], [M.E5 < .12, 'E5']] : [];
   chk.push([M.B3.max <= 150, 'B3 <=150s'], [M.C4 === null ? null : M.C4 <= .05, 'C4 <=5%'], [M.C3.share === null ? null : M.C3.share <= .5, 'C3 <=50%'], [M.F2.ok === null ? null : M.F2.ok >= .95, 'F2 >=95%']);
-  console.log('  targets (informational until stage 4): ' + chk.map(([ok, s]) => T(ok, s)).join(' | '));
+  console.log('  targets (this run alone): ' + chk.map(([ok, s]) => T(ok, s)).join(' | '));
   for (const k in inv) console.log('  INVARIANT ' + k + ' x' + inv[k].n + ' first: ' + inv[k].first);
 }
 if (Object.keys(inv).length || fin === null) process.exitCode = 1;

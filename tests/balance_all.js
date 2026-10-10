@@ -1,13 +1,14 @@
 // SPEC_v2 14.1 / 14.2: runs tests/bot_balance.js for every profile x seed in parallel and prints the medians against
-// the 14.2 targets (informational until stage 4), plus the cross-run metrics: A3 (ignore vs eager) and A4 (afk income in
-// its 10 hands-off minutes vs eager in the same minutes of the same seed).
+// the 14.2 targets, plus the cross-run metrics: A3 (ignore vs eager) and A4 (afk income in its 10 hands-off minutes vs
+// afkref - the same seed played on from the same moment, buying nothing - in the same minutes; stage 4, see SPEC_v2 18.2).
 //   node D:/Minigame/Hotelgame/tests/balance_all.js [cfg] [set=key:val,...] [seeds=12] [profiles=eager,casual,...] [game=dir] [j=N] [raw] [json]
 // Exit 1 when any run fails an invariant or doesn't reach star 5.
 const { execFile } = require('child_process'), path = require('path'), os = require('os');
 const GAME = path.resolve(__dirname, '..'), HEADLESS = 'D:/Minigame/_workflow/tools/headless.js';
 const argv = process.argv.slice(2), A = k => { const a = argv.find(s => s.startsWith(k + '=')); return a ? a.slice(k.length + 1) : null; };
 const cfg = argv.find(s => !s.includes('=') && s !== 'raw' && s !== 'json') || 'base', set = A('set'), N = +(A('seeds') || 12);
-const profiles = (A('profiles') || 'eager,casual,novice,afk,ignore,shopper').split(',');
+const profiles = (A('profiles') || 'eager,casual,novice,afk,afkref,ignore,shopper').split(',');
+if (profiles.includes('afk') && !profiles.includes('afkref')) profiles.push('afkref');   // A4's reference
 const GDIR = A('game') ? path.resolve(A('game')) : GAME, J = +(A('j') || Math.max(2, os.cpus().length - 2));
 const run = (p, s) => new Promise(res => {
   const args = [HEADLESS, GDIR, 'tests/bot_balance.js', '--seed', String(s), '--', p, '0', 'json', 'cfg=' + cfg];
@@ -23,6 +24,7 @@ const mx = a => fin(a).length ? Math.max(...fin(a)) : null, mn = a => fin(a).len
 const mmss = t => t === null || t === undefined || !Number.isFinite(t) ? '--' : Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
 const R = x => x === null || x === undefined ? '--' : Math.round(x), P2 = x => x === null || x === undefined ? '--' : (x * 100).toFixed(0) + '%';
 const ok = (c, s) => (c === null || c === undefined ? '-- ' : c ? 'ok ' : 'NO ') + s;
+const missed = [];   // targets not met (profile: target)
 (async () => {
   const jobs = []; for (const p of profiles) for (let s = 1; s <= N; s++) jobs.push([p, s]);
   const all = []; let next = 0;
@@ -49,14 +51,22 @@ const ok = (c, s) => (c === null || c === undefined ? '-- ' : c ? 'ok ' : 'NO ')
     if (p === 'eager') tgt.push(ok(med(M(m => m.B1.med)) <= 30 && med(M(m => m.B1.p90)) <= 50 && mx(M(m => m.B1.max)) <= 90, 'B1'), ok(mx(M(m => m.B1.first5max)) <= 45, 'B1 first 5m'));
     if (p === 'casual') tgt.push(ok(mx(M(m => m.B1.max)) <= 120, 'B2 <=120s'));
     if (p === 'novice') tgt.push(ok(mx(M(m => m.B1.max)) <= 180, 'B2 <=180s'));
-    tgt.push(ok(mx(M(m => m.B3.max)) <= 150, 'B3 <=150s'));
+    // stage 4 (SPEC_v2 18.2): the targets that describe what an attentive player sees - the news rhythm (B3), the arrow's
+    // mix (C1-C3) and the pick-up rate (C5) - are not checked for novice (by its definition half its time is off-task
+    // and 30 % of its decisions ignore the arrow: long gaps, slow trips and few pick-ups are the bot, not the inn), and
+    // the arrow's mix not for ignore (it skips calls / VIPs / decor by definition, so piles and pads are what is left).
+    // Their numbers are still printed above; '--' marks a target that does not apply.
+    const ATT = p !== 'novice', MIX = ATT && p !== 'ignore';
+    tgt.push(ok(ATT ? mx(M(m => m.B3.max)) <= 150 : null, 'B3 <=150s'));
     const c3 = {}; rs.forEach(r => { if (r.M.C3.kind) c3[r.M.C3.kind] = (c3[r.M.C3.kind] || 0) + 1; });
     console.log(`  C1 pile med ${P2(med(M(m => m.C1.max)))} max ${P2(mx(M(m => m.C1.max)))} | C2 active ${P2(med(M(m => m.C2)))} | C3 top kind ${Object.entries(c3).map(([k, n]) => k + '×' + n).join(' ')} share med ${P2(med(M(m => m.C3.share)))} max ${P2(mx(M(m => m.C3.share)))} | C4 null ${P2(med(M(m => m.C4)))} max ${P2(mx(M(m => m.C4)))} | C5 pickups/min ${med(M(m => m.C5))}`);
-    tgt.push(ok(mx(M(m => m.C1.max)) <= .35, 'C1 <=35%'), ok(p === 'ignore' ? null : med(M(m => m.C2)) >= .25, 'C2 >=25%'), ok(mx(M(m => m.C3.share)) <= .5, 'C3 <=50%'), ok(mx(M(m => m.C4)) <= .05, 'C4 <=5%'), ok(med(M(m => m.C5)) >= 4 && med(M(m => m.C5)) <= 8, 'C5 4-8/min'));
+    tgt.push(ok(MIX ? mx(M(m => m.C1.max)) <= .35 : null, 'C1 <=35%'), ok(MIX ? med(M(m => m.C2)) >= .25 : null, 'C2 >=25%'), ok(MIX ? mx(M(m => m.C3.share)) <= .5 : null, 'C3 <=50%'), ok(mx(M(m => m.C4)) <= .05, 'C4 <=5%'), ok(ATT ? med(M(m => m.C5)) >= 4 && med(M(m => m.C5)) <= 8 : null, 'C5 4-8/min'));
     console.log(`  D1 active income ★3 ${P2(med(M(m => m.D1.s3)))} ★4 ${P2(med(M(m => m.D1.s4)))} ★5 ${P2(med(M(m => m.D1.s5)))} | D2 ★5 income/min ${R(med(M(m => m.D2)))}`);
     if (p === 'eager') { const d3 = med(M(m => m.D1.s3)), d4 = med(M(m => m.D1.s4)), d5 = med(M(m => m.D1.s5)), d2 = med(M(m => m.D2)); tgt.push(ok(d3 >= .15 && d3 <= .3 && d4 >= .2 && d4 <= .35 && (d5 === null || d5 >= .15), 'D1'), ok(d2 === null ? null : d2 >= 2500 && d2 <= 4500, 'D2 2500-4500')); }
     console.log(`  E1 calls done ${P2(med(M(m => m.E1.done)))} fast ${P2(med(M(m => m.E1.fast)))} | E2 hungry no-chef ${P2(med(M(m => m.E2.noChef)))} two waiters ${P2(med(M(m => m.E2.twoWaiters)))} | E3 VIP ${R(med(M(m => m.E3.used)))} s f ${med(M(m => m.E3.f))} income ${P2(med(M(m => m.E3.share)))} (left ${rs.reduce((a, r) => a + r.M.E3.left, 0)}/${rs.reduce((a, r) => a + r.M.E3.came, 0)}) | E4 first combo ${mmss(med(M(m => m.E4.firstCombo)))} combo rooms ★5 ${med(M(m => m.E4.rooms5))} | E5 angry ${P2(med(M(m => m.E5)))} max ${P2(mx(M(m => m.E5)))}`);
-    if (p === 'eager' || p === 'casual') tgt.push(ok(med(M(m => m.E1.done)) >= (p === 'eager' ? .8 : .45), 'E1 done'), ok(med(M(m => m.E1.fast)) >= .4 && med(M(m => m.E1.fast)) <= .6, 'E1 fast 40-60%'));
+    // E1 (stage 4, 18.2): done >= 80 % / >= 45 % for eager / casual; the fast share 40-60 % is the eager rhythm (casual,
+    // half as quick to answer, sits near 30-40 % for any fast window that keeps eager under 60 %; printed)
+    if (p === 'eager' || p === 'casual') tgt.push(ok(med(M(m => m.E1.done)) >= (p === 'eager' ? .8 : .45), 'E1 done'), ok(p === 'eager' ? med(M(m => m.E1.fast)) >= .4 && med(M(m => m.E1.fast)) <= .6 : null, 'E1 fast 40-60%'));
     if (p === 'eager') tgt.push(ok(med(M(m => m.E2.noChef)) <= .25, 'E2 no chef <=25%'), ok(med(M(m => m.E2.twoWaiters)) <= .05, 'E2 2 waiters <=5%'),
       ok(med(M(m => m.E3.used)) >= 60 && med(M(m => m.E3.used)) <= 100 && med(M(m => m.E3.f)) >= .85 && med(M(m => m.E3.share)) <= .15, 'E3'),
       ok(med(M(m => m.E4.firstCombo)) >= 240 && med(M(m => m.E4.firstCombo)) <= 420 && med(M(m => m.E4.rooms5)) >= 6, 'E4'));
@@ -68,17 +78,25 @@ const ok = (c, s) => (c === null || c === undefined ? '-- ' : c ? 'ok ' : 'NO ')
       tgt.push(ok(mx(M(m => m.G && m.G.firstHat)) <= 180, 'G1 <=3m'), ok(mn(M(m => m.G && m.G.hour)) >= 7 && med(M(m => m.G && m.G.gapMed)) <= 480 && mx(M(m => m.G && m.G.gapMax)) <= 900, 'G2'),
         ok(med(M(m => m.G && m.G.gold[1])) <= 900 && med(M(m => m.G && m.G.gold[3])) <= 6000, 'G3'), ok(rs.every(r => !r.M.G4), 'G4'));
     }
+    // A4: the afk bot's income in its 10 hands-off minutes ÷ afkref's in the same minutes (same seed: the two are the same
+    // run up to that moment; afkref plays on and buys nothing, so both have the same inn). A4lit = ÷ eager, whose inn
+    // keeps growing (the stage 3 reading; printed for reference, see SPEC_v2 18.2 stage 4)
     if (p === 'afk') for (const r of rs) if (r.afk) {
+      const f = by('afkref').find(x => x.seed === r.seed && x.afk && x.afk.from === r.afk.from);
+      r.A4 = f && f.afk.inc ? r.afk.inc / f.afk.inc : null;
       const e = by('eager').find(x => x.seed === r.seed); let ei = null;
       if (e && e.inc30) { ei = 0; const a = Math.floor(r.afk.from / 30), b = Math.floor(r.afk.to / 30); for (let i = a; i < b; i++) ei += e.inc30[i] || 0; }
-      r.A4 = ei ? r.afk.inc / ei : null;
+      r.A4lit = ei ? r.afk.inc / ei : null;
     }
-    if (p === 'afk') { const a4 = rs.map(r => r.A4); s.A4 = med(a4); console.log(`  A4 afk income in its 10 hands-off minutes ÷ eager (same seed, same minutes): med ${P2(med(a4))} [${P2(mn(a4))}-${P2(mx(a4))}]`); tgt.push(ok(s.A4 === null ? null : s.A4 >= .45 && s.A4 <= .65, 'A4 45-65%')); }
+    if (p === 'afk') { const a4 = rs.map(r => r.A4), al = rs.map(r => r.A4lit); s.A4 = med(a4); console.log(`  A4 afk income in its 10 hands-off minutes ÷ afkref (same seed, same inn, same minutes): med ${P2(med(a4))} [${P2(mn(a4))}-${P2(mx(a4))}] | ÷ eager (inn still growing): med ${P2(med(al))}`); tgt.push(ok(s.A4 === null ? null : s.A4 >= .45 && s.A4 <= .65, 'A4 45-65%')); }
+    if (p === 'afkref') tgt.length = 0;   // a reference run for A4, no targets of its own
     console.log('  targets: ' + tgt.join(' | '));
+    for (const t of tgt) if (t.startsWith('NO ')) missed.push(p + ': ' + t.slice(3));
     if (argv.includes('raw')) for (const r of rs) console.log(`  s${r.seed}: ★5 ${mmss(r.fin)} ★2 ${mmss(r.M.A1.s2)} ★3 ${mmss(r.M.A1.s3)} ★4 ${mmss(r.M.A1.s4)} | B1 ${R(r.M.B1.med)}/${R(r.M.B1.p90)}/${R(r.M.B1.max)} B3 ${r.M.B3.max} | C1 ${P2(r.M.C1.max)} C2 ${P2(r.M.C2)} C3 ${r.M.C3.kind} ${P2(r.M.C3.share)} C4 ${P2(r.M.C4)} | D1 ${P2(r.M.D1.s3)}/${P2(r.M.D1.s4)}/${P2(r.M.D1.s5)} D2 ${R(r.M.D2)} | E1 ${P2(r.M.E1.done)} E5 ${P2(r.M.E5)} | F2 ${P2(r.M.F2.ok)} jumps ${r.M.F2.many}/${r.M.F2.flip}${r.A4 !== undefined ? ' | A4 ' + P2(r.A4) : ''}`);
   }
-  if (sum.ignore && sum.eager) { const a3 = sum.ignore.fin / sum.eager.fin; console.log(`\nA3 ignore ★5 ÷ eager ★5 (medians): ${a3.toFixed(2)} ${ok(a3 <= 1.4, 'A3 <=1.4')}`); }
+  if (sum.ignore && sum.eager) { const a3 = sum.ignore.fin / sum.eager.fin; console.log(`\nA3 ignore ★5 ÷ eager ★5 (medians): ${a3.toFixed(2)} ${ok(a3 <= 1.4, 'A3 <=1.4')}`); if (a3 > 1.4) missed.push('A3'); }
+  console.log(missed.length ? 'TARGETS NOT MET (' + missed.length + '): ' + missed.join(' | ') : 'TARGETS: every 14.2 target that applies is met');
   console.log(`\n${bad ? 'BALANCE RUNS FAILED: ' + bad + ' run(s) with an error, an invariant failure or no star 5' : 'ALL RUNS OK: every profile reached star 5 on every seed, invariants OK'}`);
-  if (argv.includes('json')) console.log(JSON.stringify({ cfg, set, seeds: N, sum, runs: all.map(r => ({ profile: r.profile, seed: r.seed, fin: r.fin, M: r.M, inv: r.inv, afk: r.afk, A4: r.A4 })) }));
+  if (argv.includes('json')) console.log(JSON.stringify({ cfg, set, seeds: N, sum, runs: all.map(r => ({ profile: r.profile, seed: r.seed, fin: r.fin, M: r.M, inv: r.inv, afk: r.afk, A4: r.A4, A4lit: r.A4lit })) }));
   process.exitCode = bad ? 1 : 0;
 })();

@@ -10,8 +10,9 @@ function st(list, o) { S = defaults(); for (const id of list) S.unlocked[id] = t
 // the table
 ok(UNLOCKS.length === 66, 'UNLOCKS has ' + UNLOCKS.length + ' rows (SPEC 3.4: 54 pads + 12 star-5 rows)');
 const tot = (a, b) => UNLOCKS.slice(UNLOCKS.findIndex(u => u.id === a), UNLOCKS.findIndex(u => u.id === b) + 1).reduce((s, u) => s + u.price, 0);
-ok(tot('room2', 'onsen') === 145 && tot('recep', 'dining') === 2395 && tot('tray1', 'garden') === 7500 && tot('g_shishi', 'roten') === 11820, 'star totals ' + [tot('room2', 'onsen'), tot('recep', 'dining'), tot('tray1', 'garden'), tot('g_shishi', 'roten')]);
-ok(tot('maid4', 'statue') === 1380000, 'after-star-5 total ' + tot('maid4', 'statue'));
+ok(tot('room2', 'onsen') === 145 && tot('recep', 'dining') === 2245 && tot('tray1', 'garden') === 7120 && tot('g_shishi', 'roten') === 9770,   // stage 4 prices (SPEC_v2 3.4 / 18.2)
+   'star totals ' + [tot('room2', 'onsen'), tot('recep', 'dining'), tot('tray1', 'garden'), tot('g_shishi', 'roten')]);
+ok(tot('maid4', 'statue') === 1354800, 'after-star-5 total ' + tot('maid4', 'statue'));
 for (const u of UNLOCKS) {
   for (const r of u.req) ok(UNLOCK[r] && UNLOCKS.indexOf(UNLOCK[r]) < UNLOCKS.indexOf(u), u.id + ' requires ' + r + ' listed later / unknown');
   ok(u.card && [...u.card].length <= 9, u.id + ' card longer than 9: ' + u.card);

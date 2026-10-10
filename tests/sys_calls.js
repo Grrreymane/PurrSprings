@@ -1,6 +1,6 @@
 // SPEC_v2 4.2: calls (ring for service) - needs 茶台; rolled 1 s after lying down by the room's trait (standard 30% tea,
 // near-onsen 35% milk, quiet 35% night snack, cottage 40% tea) and 20% milk when a bather gets in; milk / snack fall
-// back to tea; at most 2 (3 from star 3), 6 s apart; CALL_T 40 s (50 from star 4); the call rides along with the
+// back to tea; at most 2 (3 from star 3), 6 s apart; CALL_T 50 s (60 from star 4; stage 4: was 40 / 50); the call rides along with the
 // guest; reward 3 x room fee x Q (x1.5 in the first half) straight into the wallet + ♥1 (fast ♥2); timing out costs
 // nothing; staff never take calls.
 //   node D:/Minigame/_workflow/tools/headless.js D:/Minigame/Hotelgame tests/sys_calls.js --seed 5
@@ -49,12 +49,12 @@ st(ALL3.concat(['milk']), 3);
 st(['room2', 'room3', 'onsen', 'recep', 'tea'], 2);
 { const g = [0, 1, 2, 3].map(() => guest('toBath')); lastCallAt = -99;
   ok(tryCall(g[0], 'tea', 1), 'first call'); ok(!tryCall(g[1], 'tea', 1), 'second call within 6 s refused');
-  S.stats.time += 6.1; ok(tryCall(g[1], 'tea', 1), 'second call after 6 s'); S.stats.time += 7; ok(!tryCall(g[2], 'tea', 1), 'star 2: no third call'); eq(callMax(), 2, 'callMax star 2'); eq(callT(), 40, 'CALL_T 40'); }
+  S.stats.time += 6.1; ok(tryCall(g[1], 'tea', 1), 'second call after 6 s'); S.stats.time += 7; ok(!tryCall(g[2], 'tea', 1), 'star 2: no third call'); eq(callMax(), 2, 'callMax star 2'); eq(callT(), 50, 'CALL_T 50'); }
 st(ALL3, 3);
 { const g = [0, 1, 2, 3].map(() => guest('toBath')); lastCallAt = -99;
   for (let i = 0; i < 3; i++) { ok(tryCall(g[i], 'tea', 1), 'star 3 call ' + (i + 1)); S.stats.time += 6.1; }
   ok(!tryCall(g[3], 'tea', 1), 'star 3: no fourth call'); eq(callCount(), 3, 'three open calls'); }
-st(ALL3.concat(['garden']), 4); eq(callT(), 50, 'CALL_T 50 from star 4');
+st(ALL3.concat(['garden']), 4); eq(callT(), 60, 'CALL_T 60 from star 4');
 // ---- the call rides along: a sleeper wakes, checks out, walks on - the call stays until served or timed out
 st(['room2', 'room3', 'onsen', 'recep', 'tea'], 2);
 { const rm = ROOM.room1, gu = guest('sleep', { room: 'room1', tt: 3, x: tcx(rm.stand), y: tcy(rm.stand) }); RT.room1.guest = gu; S.rooms.room1 = 'occupied';
@@ -62,8 +62,8 @@ st(['room2', 'room3', 'onsen', 'recep', 'tea'], 2);
   P.x = 40; P.y = 560;   // far away
   for (let i = 0; i < 30 * 10; i++) updGuest(gu, DT);
   ok(gu.st !== 'sleep' && gu.call && gu.call.k === 'tea', 'call still open after waking (' + gu.st + ')');
-  for (let i = 0; i < 30 * 31; i++) updGuest(gu, DT);
-  ok(!gu.call, 'timed out at 40 s'); eq(S.money, m0, 'no money lost'); ok(S.hearts >= h0, 'no ♥ lost (a happy leave still gives one)'); ok(gu.st !== 'angry', 'not angry'); eq(RUN.callsMissed, 1, 'counted as missed'); }
+  for (let i = 0; i < 30 * (callT() - 9); i++) updGuest(gu, DT);
+  ok(!gu.call, 'timed out at CALL_T'); eq(S.money, m0, 'no money lost'); ok(S.hearts >= h0, 'no ♥ lost (a happy leave still gives one)'); ok(gu.st !== 'angry', 'not angry'); eq(RUN.callsMissed, 1, 'counted as missed'); }
 // ---- reward: 3 x room x Q, x1.5 in the first half; gold stars +5% each
 st(['room2', 'room3', 'onsen', 'recep', 'tea', 'shop', 'd_scroll', 'd_ikebana'], 2);
 { S.decor['room1:A'] = 'd_scroll'; S.decor['room1:B'] = 'd_ikebana';

@@ -5181,12 +5181,12 @@ const UNLOCKS = [
   UN('shoes1', '跑鞋', 35, ['room2'], 1, [19, 28], 'shoes', '走路更快'),
   UN('onsen', '温泉', 50, ['room3'], 20, [17, 7], 'onsen', '客人泡汤付钱', { gate: true, star: true, at: [17, 3] }),
   // star 2 onsen + shop
-  UN('recep', '前台', 55, ['onsen'], 2, [19, 25], 'recep', '小樱来接待', { staff: true }),
-  UN('tea', '茶台', 60, ['recep'], 2, [11, 24], 'tea', '客人叫茶有赏', { at: [11, 24] }),   // pad where the urn goes (stage M: at (12,24) the desk hid it)
+  UN('recep', '前台', 20, ['onsen'], 2, [19, 25], 'recep', '小樱来接待', { staff: true }),
+  UN('tea', '茶台', 50, ['recep'], 2, [11, 24], 'tea', '客人叫茶有赏', { at: [11, 24] }),   // pad where the urn goes (stage M: at (12,24) the desk hid it)
   UN('basket1', '竹篮', 70, ['onsen'], 1, [20, 28], 'basket', '多顶3条毛巾'),
-  UN('maid1', '仲居', 110, ['recep'], 2, [19, 25], 'maid', '雪球来打扫', { staff: true }),
-  UN('net1', '鱼网', 80, ['maid1'], 1, [21, 28], 'net', '捡鱼干更远'),
-  UN('shop', '杂货', 120, ['recep'], 10, [11, 31], 'shop', '杂货铺开张', { gate: true, at: [4, 31] }),
+  UN('maid1', '仲居', 65, ['recep'], 2, [19, 25], 'maid', '雪球来打扫', { staff: true }),
+  UN('net1', '鱼网', 70, ['maid1'], 1, [21, 28], 'net', '捡鱼干更远'),
+  UN('shop', '杂货', 100, ['recep'], 10, [11, 31], 'shop', '杂货铺开张', { gate: true, at: [4, 31] }),
   UN('d_scroll', '挂轴', 60, ['shop'], 5, 'decor', 'decor', '摆进客房加价', { decor: true }),
   UN('d_ikebana', '生花', 80, ['shop'], 5, 'decor', 'decor', '摆进客房加价', { decor: true }),
   UN('room4', '客房', 140, ['onsen'], 3, [18, 16], 'room', '开「樱」房'),
@@ -5196,45 +5196,45 @@ const UNLOCKS = [
   UN('room5', '客房', 210, ['room4'], 3, [16, 12], 'room', '开「菊」房'),
   UN('shoes2', '跑鞋', 220, ['shoes1', 'room5'], 1, [19, 28], 'shoes', '走路更快'),
   UN('room6', '客房', 250, ['room5'], 3, [18, 12], 'room', '开「枫」房'),
-  UN('dining', '食堂', 450, ['room5', 'maid1'], 20, [11, 26], 'dining', '客人来吃早饭', { gate: true, star: true, at: [5, 23] }),
+  UN('dining', '食堂', 420, ['room5', 'maid1'], 20, [11, 26], 'dining', '客人来吃早饭', { gate: true, star: true, at: [5, 23] }),
   // star 3 dining + west wing
   UN('tray1', '托盘', 180, ['dining'], 1, [6, 21], 'tray', '多端一份'),
   UN('waiter1', '配膳', 200, ['dining'], 2, [9, 22], 'waiter', '阿福来上菜', { staff: true }),
   UN('d_tank', '鱼缸', 260, ['dining'], 5, 'decor', 'decor', '摆进客房加价', { decor: true }),
-  UN('porter', '搬运', 300, ['maid1', 'milk'], 2, [20, 25], 'porter', '阿灰来送毛巾', { staff: true }),
+  UN('porter', '搬运', 300, ['maid1', 'milk', 'dining'], 2, [20, 25], 'porter', '阿灰来送毛巾', { staff: true }),
   UN('basket2', '竹篮', 260, ['basket1', 'porter'], 1, [20, 28], 'basket', '多顶3条毛巾'),
   UN('d_tower', '爬架', 300, ['dining'], 5, 'decor', 'decor', '摆进客房加价', { decor: true }),
   UN('table3', '餐桌', 300, ['waiter1'], 2, [3, 26], 'table', '多两个座位'),
   UN('w1', '西馆', 330, ['dining'], 4, [8, 19], 'west', '西馆「茶」房'),
-  UN('chef', '厨师', 380, ['table3'], 2, [6, 20], 'chef', '黑糖来做饭', { staff: true }),
+  UN('chef', '厨师', 260, ['waiter1'], 2, [6, 20], 'chef', '黑糖来做饭', { staff: true }),
   UN('room7', '客房', 400, ['room6'], 3, [16, 8], 'room', '近汤房老人爱'),
   UN('w2', '客房', 420, ['w1'], 4, [7, 12], 'room', '静房爱点夜宵'),
   UN('maid2', '仲居', 450, ['room7', 'maid1'], 2, [19, 25], 'maid', '白玉来打扫', { staff: true }),
   UN('room8', '客房', 460, ['room7'], 3, [18, 8], 'room', '近汤房老人爱'),
   UN('shoes3', '跑鞋', 420, ['shoes2', 'room8'], 1, [19, 28], 'shoes', '走路更快'),
-  UN('clerk', '账房', 480, ['porter', 'chef'], 2, [20, 25], 'clerk', '老墨来收鱼干', { staff: true }),
+  UN('clerk', '账房', 320, ['porter'], 2, [20, 25], 'clerk', '老墨来收鱼干', { staff: true }),
   UN('net2', '鱼网', 280, ['net1', 'clerk'], 1, [21, 28], 'net', '捡鱼干更远'),
   UN('w3', '客房', 520, ['w2'], 4, [7, 8], 'room', '静房爱点夜宵'),
   UN('bigbath', '浴池', 560, ['room8'], 3, [13, 5], 'bath', '多2个泡汤位', { at: [17, 3] }),
-  UN('garden', '庭园', 1000, ['w1', 'room7'], 20, [22, 26], 'garden', '贵宾会来住', { gate: true, star: true, at: [29, 16] }),
+  UN('garden', '庭园', 900, ['w1', 'room7'], 20, [22, 26], 'garden', '贵宾会来住', { gate: true, star: true, at: [29, 16] }),
   // star 4 garden
-  UN('g_shishi', '惊鹿', 300, ['garden'], 4, [27, 27], 'shishi', '庭园更风雅', { at: [26, 16] }),
-  UN('d_maneki', '招财', 380, ['garden'], 5, 'decor', 'decor', '摆进客房加价', { decor: true }),
-  UN('g_sakura', '樱树', 400, ['g_shishi'], 4, [27, 27], 'sakura', '庭园更风雅', { at: [27, 24] }),
-  UN('d_daruma', '达摩', 420, ['garden'], 5, 'decor', 'decor', '摆进客房加价', { decor: true }),
-  UN('tray2', '托盘', 420, ['tray1', 'w2'], 1, [6, 21], 'tray', '多端一份'),
-  UN('g_maple', '枫树', 450, ['g_sakura'], 4, [27, 27], 'maple', '庭园更风雅', { at: [37, 18] }),
-  UN('table4', '餐桌', 450, ['table3', 'chef'], 2, [7, 26], 'table', '多两个座位'),
+  UN('g_shishi', '惊鹿', 250, ['garden'], 4, [27, 27], 'shishi', '庭园更风雅', { at: [26, 16] }),
+  UN('d_maneki', '招财', 300, ['garden'], 5, 'decor', 'decor', '摆进客房加价', { decor: true }),
+  UN('g_sakura', '樱树', 320, ['g_shishi'], 4, [27, 27], 'sakura', '庭园更风雅', { at: [27, 24] }),
+  UN('d_daruma', '达摩', 340, ['garden'], 5, 'decor', 'decor', '摆进客房加价', { decor: true }),
+  UN('tray2', '托盘', 340, ['tray1', 'w2', 'garden'], 1, [6, 21], 'tray', '多端一份'),
+  UN('g_maple', '枫树', 360, ['g_sakura'], 4, [27, 27], 'maple', '庭园更风雅', { at: [37, 18] }),
+  UN('table4', '餐桌', 360, ['table3', 'chef', 'garden'], 2, [7, 26], 'table', '多两个座位'),
   UN('koi', '锦鲤', 600, ['garden'], 4, [31, 16], 'koi', '池里来三条鱼', { at: [28, 16] }),
   UN('waiter2', '配膳', 600, ['waiter1', 'table4'], 2, [9, 22], 'waiter', '咪咪来上菜', { staff: true }),
   UN('net3', '鱼网', 600, ['net2', 'garden'], 1, [21, 28], 'net', '捡鱼干更远'),
-  UN('c2', '别院', 1000, ['garden'], 6, [32, 21], 'cottage', '一家人爱住'),
-  UN('maid3', '仲居', 700, ['maid2', 'c2'], 2, [19, 25], 'maid', '奶糖来打扫', { staff: true }),
-  UN('shoes4', '跑鞋', 900, ['shoes3', 'c2'], 1, [19, 28], 'shoes', '走路更快'),
-  UN('suiteB', '套房', 1600, ['garden'], 8, [32, 12], 'suite', '贵宾来得更勤'),
-  UN('roten', '星见', 3000, ['c2', 'bigbath'], 25, [23, 4], 'roten', '看星星泡汤', { gate: true, star: true, at: [32, 3] }),
+  UN('c2', '别院', 700, ['garden'], 6, [32, 21], 'cottage', '一家人爱住'),
+  UN('maid3', '仲居', 600, ['maid2', 'c2'], 2, [19, 25], 'maid', '奶糖来打扫', { staff: true }),
+  UN('shoes4', '跑鞋', 600, ['shoes3', 'c2'], 1, [19, 28], 'shoes', '走路更快'),
+  UN('suiteB', '套房', 1000, ['garden'], 8, [32, 12], 'suite', '贵宾来得更勤'),
+  UN('roten', '星见', 2800, ['c2', 'bigbath'], 25, [23, 4], 'roten', '看星星泡汤', { gate: true, star: true, at: [32, 3] }),
   // star 5 and after (v2.0)
-  UN('maid4', '仲居', 1000, ['maid3', 'suiteB'], 2, [19, 25], 'maid', '豆豆来打扫', { staff: true }),
+  UN('maid4', '仲居', 800, ['maid3', 'suiteB'], 2, [19, 25], 'maid', '豆豆来打扫', { staff: true }),
   UN('h_straw', '草帽', 3000, [], 3, 'hat', 'hat', '戴上：草帽', { need5: true, hat: 'straw' }),
   UN('h_flower', '花簪', 6000, [], 6, 'hat', 'hat', '戴上：花簪', { need5: true, hat: 'flower' }),
   UN('h_beret', '贝雷', 10000, [], 10, 'hat', 'hat', '贵宾同款', { need5: true, hat: 'beret', vip: 'kawa' }),
@@ -5243,7 +5243,7 @@ const UNLOCKS = [
   UN('h_shades', '墨镜', 25000, [], 25, 'hat', 'hat', '明星同款', { need5: true, hat: 'shades', vip: 'star' }),
   UN('h_fox', '狐面', 40000, [], 40, 'hat', 'hat', '戴上：狐面', { need5: true, hat: 'foxmask' }),
   UN('p_shiba', '柴犬', 40000, ['p_duck'], 40, 'pet', 'pet', '柴犬跟着你', { need5: true, pet: 'shiba' }),
-  UN('h_crown', '皇冠', 80000, [], 50, 'hat', 'hat', '戴上：小皇冠', { need5: true, hat: 'crown' }),
+  UN('h_crown', '皇冠', 55000, [], 50, 'hat', 'hat', '戴上：小皇冠', { need5: true, hat: 'crown' }),
   UN('h_gold', '金铃', 150000, [], 50, 'hat', 'hat', '走路带金光', { need5: true, hat: 'goldband' }),
   UN('statue', '金像', 1000000, ['shop'], 100, [13, 33], 'statue', '每位小费+1', { need5: true, at: [11, 33] }),   // + shop: SPEC_v2 10.2 (18.2)
 ];
@@ -5318,15 +5318,17 @@ const RANK_MERGE = 10, MILESTONES = [100, 500, 1000, 5000];
 // the boutique (4.11): try-on within 2 tiles of a booth; the mirror / the pet cushion switch every 1 s; a pet walks 14 px behind
 const TRYON_R = 2 * 16, MIRROR_T = 1, PET_GAP = 14, BOOTH_HINT_T = 60;
 const PATIENCE = 45, PATIENCE_EARLY = 70, BATH_WAIT = 20, CHECKIN_T = .7, CLEAN_T = 1.5, MAID_CLEAN_T = 2.5, BATH_T = 6, SLEEP_T = 10, MILK_T = 1;
+const POUR_T = .6;   // a pad fills in this long once you stand on it (stage 4: was 1.2 s; fewer half-poured pads left behind)
 const P_SPEED = 56, G_SPEED = 34, STAFF_SPEED = 40, BASKET_MAX = 10, PAD_DELAY = .4, GUEST_MAX = 40;
 const NET_R = [10, 18, 28, 40];   // fish-pile pickup radius by net level (4.8)
 // tray + calls + dining (4.1-4.3, 11)
 const TRAY_KINDS = ['tea', 'milk', 'rice', 'kaiseki'];
+const DELIVER_SLACK = 10;   // rule 3 (stage 4): the nearest first while the most urgent one has this much slack
 const DELIVER_R = 14, DELIVER_T = .2, CALL_GAP = 6, SEAT_WAIT = 30, EAT_T = 4, CHEF_T = 2.5, PASS_MAX = 6, WAITER_CARRY = 2;
 const STOVE_T = 1, KAISEKI_T = 3, BROWSE_T = 2, BROWSE_P = .3, FOLLOW_GAP = 9;
 // a call when a guest lies down (1 s in): by the room's trait (2.6); bathers ask for milk as they get in
 const CALL_ROLL = { std: ['tea', .3], near: ['milk', .35], quiet: ['rice', .35], cottage: ['tea', .4] };
-const BATH_CALL = ['milk', .2];
+const BATH_CALL = ['milk', .2];   // only once milk is sold (stage 4: no tea calls from the water)
 // favourite rooms (4.6): regulars take the plainest free room instead (roomRank)
 const PREF = { elder: rm => rm.trait === 'near', couple: rm => !!roomCombo(rm), family: rm => !!rm.cottage };
 const TYPE_IDS = ['regular', 'elder', 'couple', 'family'];
@@ -5340,6 +5342,8 @@ const DSLOT_AT = NUL(); DSLOTS.forEach(s => { DSLOT_AT[s.at[1] * MW + s.at[0]] =
 // VIPs (4.4, 11): the first one 20 s after garden, then 210 +- 30 s after the last one left (star 5: 180; suite B x0.7)
 const VIP_FIRST = 20, VIP_GAP = 210, VIP_GAP5 = 180, VIP_JIT = 30, VIP_RELOAD = 60;
 const VIP_GREET_T = .5, VIP_PHOTO_T = 1.2, VIP_TAP_T = 1.5, VIP_SOAK_T = 5, VIP_NEAR = 14;
+const VIP_URGENT = 30;                       // stage 4: a seated VIP's wish beats the pads once it has this little of VIP_IDLE left
+const VIP_SIP_T = { tea: 4, kaiseki: 6 };   // stage 4: the VIP drinks / eats this long before its next wish shows (like the soak)
 const VIP_FOLLOW = 16, VIP_HALT = 96, VIP_RESUME = 48, VIP_NOGREET = 60, VIP_IDLE = 120, VIP_LEAD_MAX = 120, VIP_NOSUITE = 240;
 // the clerk (4.8): claims piles >= 2 x the tip lying more than 48 px from the innkeeper and carries them to the cash box
 const CLERK_MIN = 2, CLERK_KEEP = 48, CLERK_BAG_T = .4, CLERK_DUMP_T = .3, CHEST_SPOT = [16, 24];
@@ -5480,8 +5484,9 @@ const padNeed = u => u.price - (S.paid[u.id] || 0);
 const maidCount = () => STAFF.filter(s => s.role === 'maid').length;
 const guestRoomsOpen = () => GUEST_ROOMS.reduce((n, r) => n + (roomOpen(r) ? 1 : 0), 0);
 const trayCap = () => 2 + (S.unlocked.tray1 ? 1 : 0) + (S.unlocked.tray2 ? 1 : 0);   // 4.1: 2 + 托盘 x2
-const callT = () => star() >= 4 ? 50 : 40;                                             // 4.2: CALL_T (the map is bigger from star 4)
+const callT = () => star() >= 4 ? 60 : 50;                                             // 4.2: CALL_T (the map is bigger from star 4; stage 4: 40 / 50 -> 50 / 60)
 const callMax = () => star() >= 3 ? 3 : 2;
+const CALL_FAST = .3;   // served within the first 30 % of its time = fast (x1.5, hearts 2; stage 4: was half)
 // a call's reward (4.2): 3 x room fee x Q, x1.5 when served in the first half of its time; gold stars +5% each
 const callReward = fast => R(3 * STARS[star()].room * qualityQ() * (fast ? 1.5 : 1) * (1 + .05 * goldStars()));
 // seconds between guests (3.3): more rooms -> more guests; gold stars -3% each
@@ -5848,7 +5853,7 @@ function tryCall(gu, k, p) {
 }
 function callExpire(gu) { gu.call = null; gu.callGone = .25; RUN.callsMissed++; lineSay(gu, 'G21'); }   // no anger, no fee lost, no hearts lost
 function serveCall(gu) {
-  const c = gu.call, fast = c.t > c.max / 2, [x, y] = guestSpot(gu);
+  const c = gu.call, fast = c.t > c.max * (1 - CALL_FAST), [x, y] = guestSpot(gu);
   gu.call = null; gu.heart = 1;
   earn(callReward(fast), x, y - 12);   // straight into the wallet
   addHearts(fast ? 2 : 1); S.stats.calls++; if (fast) S.stats.callsFast++;
@@ -5978,7 +5983,7 @@ function updGuest(gu, dt) {
         goTo(gu, SLOTS[gu.slot].x, 4);
         if (walk()) {
           setSt(gu, 'bathing'); gu.tt = BATH_T; SFX.splash(); if (gu.mate) gu.mate.mode = 'park';
-          tryCall(gu, BATH_CALL[0], BATH_CALL[1]);
+          if (S.unlocked.milk) tryCall(gu, BATH_CALL[0], BATH_CALL[1]);
           lineSay(gu, SLOTS[gu.slot].roten && dayLight().night > .5 ? 'G10|G34' : 'G10');
         }
       }
@@ -6000,6 +6005,7 @@ function updGuest(gu, dt) {
       break;
     case 'toMilk': goTo(gu, MILK_SPOT[0], MILK_SPOT[1]); if (walk()) { setSt(gu, 'milk'); gu.tt = MILK_T; gu.dir = 'up'; SFX.milk(); lineSay(gu, 'G13'); } break;
     case 'milk':
+      if (gu.call) break;   // stage 4: a call still open waits here for the delivery (or until it runs out) - nobody leaves with one
       gu.tt -= dt;
       if (gu.tt <= 0) { S.piles.milk = (S.piles.milk || 0) + fee('milk', { gu }); markDirty(); gu.heart = 1; SFX.meow(); guestNext(gu, 'bath'); }
       break;
@@ -6094,7 +6100,7 @@ function updStaff(s, dt) {
   if (s.role === 'recep') { goTo(s, DESK_SPOT[0], DESK_SPOT[1]); s.atDesk = walk(); if (s.atDesk) s.dir = 'down'; return; }
   if (s.role === 'maid') {
     if (s.job && (S.rooms[s.job] !== 'messy' || RT[s.job].claim !== s)) { if (RT[s.job].claim === s) RT[s.job].claim = null; s.job = null; }
-    if (!s.job) {   // 4.7: a dirty suite a VIP waits for > a room in the maid's own zone > the nearest dirty room
+    if (!s.job && !(s.carry > 0) && !s.loading) {   // 4.7: a dirty suite a VIP waits for > a room in the maid's own zone > the nearest dirty room
       let best = null, bd = 1e9; const vipWait = vipNeedsSuite();
       for (const rm of ROOMS) if (S.rooms[rm.id] === 'messy' && !RT[rm.id].claim) {
         const tier = rm.vip && vipWait ? 0 : s.zone && zoneOf(rm) === s.zone ? 1 : 2;
@@ -6106,7 +6112,7 @@ function updStaff(s, dt) {
     if (s.job) {
       const rm = ROOM[s.job]; goTo(s, rm.stand[0], rm.stand[1]);
       if (walk()) { s.working = true; s.dir = rm.left ? 'left' : 'right'; RT[s.job].cleanP += dt / (MAID_CLEAN_T * cleanMulOf(rm) * lvMul(s, .9)); if (RT[s.job].cleanP >= 1) { gainXp(s, 4); finishClean(s.job); lineSay(s, 'S08'); } }
-    } else { const h = homeOf(s); goTo(s, h[0], h[1]); if (walk()) s.dir = 'down'; }
+    } else if (!maidTowels(s, dt, walk)) { const h = homeOf(s); goTo(s, h[0], h[1]); if (walk()) s.dir = 'down'; }
     return;
   }
   if (s.role === 'porter' && S.unlocked.onsen) {
@@ -6134,6 +6140,22 @@ function updStaff(s, dt) {
   if (s.role === 'clerk') { updClerk(s, dt, walk); return; }
   // the shop owner (and a porter without an onsen): stand at the post
   const h = homeOf(s); goTo(s, h[0], h[1]); if (walk()) s.dir = 'down';
+}
+// stage 4 (18.2): a maid with no room to clean tops up a low towel basket while there is no porter yet - MAID_TOWELS a
+// run, one maid at a time - so the baths keep going when you step away (A4). The porter takes the job over.
+const MAID_TOWELS = 6, MAID_TOWEL_LOW = 2;
+function maidTowels(s, dt, walk) {
+  if (s.carry > 0 && !s.loading) {   // loaded: to the basket (a basket that fills up first takes what fits; the rest go back on the shelf)
+    goTo(s, BASKET_SPOT[0], BASKET_SPOT[1]);
+    if (walk()) { s.dir = 'right'; s.tt += dt; while (s.tt >= .1 && s.carry > 0 && S.basket < BASKET_MAX) { s.tt -= .1; s.carry--; S.basket++; markDirty(); } if (S.basket >= BASKET_MAX) s.carry = 0; }
+    else s.tt = 0;
+    return true;
+  }
+  if (!S.unlocked.onsen || S.unlocked.porter || (!s.loading && (S.basket > MAID_TOWEL_LOW || STAFF.some(o => o !== s && o.role === 'maid' && (o.loading || o.carry > 0))))) { s.loading = false; return false; }
+  if (!s.loading) { s.loading = true; s.tt = 0; }
+  goTo(s, SHELF_SPOT[0], SHELF_SPOT[1]);
+  if (walk()) { s.dir = 'up'; s.tt += dt; while (s.tt >= .12 && s.carry < MAID_TOWELS) { s.tt -= .12; s.carry++; } if (s.carry >= MAID_TOWELS) { s.loading = false; s.tt = 0; } }
+  return true;
 }
 function finishClean(id) {
   S.rooms[id] = 'clean'; RT[id].cleanP = 0; RT[id].claim = null; RT[id].vipMess = false;
@@ -6243,6 +6265,19 @@ function slotCands() {
   return DSLOTS.filter(sl => sl.k === 'A' && roomOpen(sl.rm) && !S.decor[sl.key] && !S.decor[otherSlot(sl).key]).sort(by);
 }
 const slotTarget = () => slotCands()[0] || null;
+// arrow timers (stage 4, 18.2): a pointed-at combo never made yet goes before the pads for COMBO_RUSH s; after STALL_T s
+// without a purchase, buying (or the pile that pays for it) goes before the chores
+const COMBO_RUSH = 90, STALL_T = 100;
+let lastBuyAt = 0;   // the last purchase (the arrow's anti-stall: rule 6 moved up)
+let comboRushAt = NUL();   // combo id -> when rule 14 first went ahead of the pads for it (not saved: a load gives another go)
+function comboRush() {
+  let on = false;
+  for (const c of COMBOS) if (c.hint && !S.combos[c.id] && S.unlocked[c.a] && S.unlocked[c.b]) {
+    if (comboRushAt[c.id] === undefined) comboRushAt[c.id] = S.stats.time;
+    if (S.stats.time - comboRushAt[c.id] < COMBO_RUSH) on = true;
+  }
+  return on;
+}
 // the owned piece that would make a pointed-at combo with the other slot (comboOnly: else null), else the first owned one
 function slotPiece(sl, comboOnly) {
   const own = decorOwned(), other = S.decor[otherSlot(sl).key];
@@ -6281,7 +6316,7 @@ const cleanSuite = () => SUITES.find(suiteFree) || null;   // suite A first, B w
 const vipNeedsSuite = () => !!VIPG && (VIPG.st === 'arrive' || VIPG.st === 'carpet') && !cleanSuite();
 const vipGift = () => R(20 * STARS[star()].room * qualityQ() * (1 + .05 * goldStars()));
 const vipGap = () => ((star() >= 5 ? VIP_GAP5 : VIP_GAP) + rand(-VIP_JIT, VIP_JIT)) * (S.unlocked.suiteB ? .7 : 1);
-const vipWish = () => VIPG && (VIPG.st === 'seated' || VIPG.st === 'soak') ? VIP[VIPG.id].wishes[VIPG.wi] : null;
+const vipWish = () => VIPG && (VIPG.st === 'seated' || VIPG.st === 'soak') && !(VIPG.hold > 0) ? VIP[VIPG.id].wishes[VIPG.wi] : null;
 const inBox = (rm, tx, ty) => tx >= rm.box[0] && tx <= rm.box[2] && ty >= rm.box[1] && ty <= rm.box[3];
 const suiteInner = rm => [rm.box[0], rm.door[1]];   // the first tile inside the suite's door
 function vipArrive() {
@@ -6314,7 +6349,8 @@ function vipWishDone() {
   firstDone(k);
   if (v.wi < def.wishes.length - 1) {   // an earlier wish: 25% of the gift, hearts 2
     const pay = R(v.G * .25); v.paid += pay; earn(pay, v.x, v.y - 18); addHearts(2); lineSay(v, 'V09');
-    v.wi++; setSt(v, 'seated'); v.actT = 0; S.vipOwe = Math.max(0, v.G - v.paid); vipWishStart(); markDirty();
+    v.wi++; setSt(v, 'seated'); v.actT = 0; S.vipOwe = Math.max(0, v.G - v.paid); markDirty();
+    v.hold = VIP_SIP_T[k] || 0; if (!v.hold) vipWishStart();   // tea / kaiseki: it enjoys it first (stage 4)
     return;
   }
   // the last one (always the photo): the other half x the speed factor, hearts 10 (+10 the first photo of this VIP), its gift
@@ -6366,6 +6402,7 @@ function updVip(dt) {
     }
     case 'seated': {
       v.moving = false;
+      if (v.hold > 0) { v.hold -= dt; v.t = 0; if (v.hold <= 0) { v.hold = 0; vipWishStart(); } break; }   // enjoying the tea / kaiseki
       const k = vipWish(), rm = ROOM[v.suite];
       if (v.t >= VIP_IDLE) { vipLeave(false); break; }
       if (k === 'photo') { if (dist(P.x, P.y, v.x, v.y) <= VIP_NEAR) { v.actT += dt; if (v.actT >= VIP_PHOTO_T) { v.actT = 0; vipPhoto(); } } else v.actT = 0; }
@@ -6530,7 +6567,7 @@ function pour(u, dt) {
   if (padNeed(u) <= 0) { unlock(u.id); return; }   // an old save already paid more than a price that was lowered later
   if (S.money <= 0) { P.pouring = null; P.pourAcc = 0; return; }   // out of fish: no pouring look (the frame stays white)
   if (P.pouring !== u.id) { P.pouring = u.id; P.pourAcc = 0; }
-  P.pourAcc += Math.max(15, u.price / 1.2) * dt;
+  P.pourAcc += Math.max(15, u.price / POUR_T) * dt;
   const n = Math.min(Math.floor(P.pourAcc), S.money, padNeed(u));
   if (n > 0) {
     P.pourAcc -= n; S.money -= n; S.paid[u.id] = (S.paid[u.id] || 0) + n; markDirty();
@@ -6623,8 +6660,10 @@ function zones(dt) {
   if (f && f.st === 'queue' && f.ready) { const rm = freeRoom(f); if (rm && deskManned()) { f.ck += dt / checkinT(); if (f.ck >= 1) checkIn(f, rm); } }
   trayZones(dt);
   // fish piles: step near it, take it all (the net widens the reach: 4.8)
-  const nr = NET_R[netLvl()];
-  for (const id in S.piles) if (S.piles[id] > 0) { const [tx, ty] = PILE_AT[id]; if (dist(P.x, P.y, tx * TILE + 8, ty * TILE + 8) <= nr) collect(id); }
+  // stage 4 (fewer, bigger pick-ups): the net reaches piles worth bending down for (NEAR_MIN, like arrow rule 4); the
+  // cash box (the desk pile) and smaller piles you step on
+  const nr = NET_R[netLvl()], nm = NEAR_MIN[star()];
+  for (const id in S.piles) if (S.piles[id] > 0) { const [tx, ty] = PILE_AT[id]; if (dist(P.x, P.y, tx * TILE + 8, ty * TILE + 8) <= (id === 'recep' || S.piles[id] < nm ? NET_R[0] : nr)) collect(id); }
   // cleaning: progress is kept if you walk away
   for (const rm of ROOMS) if (S.rooms[rm.id] === 'messy' && inCleanZone(rm)) { RT[rm.id].cleanP += dt / (CLEAN_T * cleanMulOf(rm)); if (RT[rm.id].cleanP >= 1) finishClean(rm.id); }
   // towels: shelf -> head stack -> basket
@@ -6652,7 +6691,7 @@ function unlock(id) {
   const u = UNLOCK[id], s0 = star(), xy = padXY(u) || [P.x / TILE | 0, P.y / TILE | 0];
   const over = (S.paid[id] || 0) - u.price; if (over > 0) S.money += over;   // paid in before a price cut: give the rest back
   S.unlocked[id] = true; S.paid[id] = u.price;
-  guideClock = 0;   // the arrow re-picks this frame (the map may have changed under it: a table now stands on the pad)
+  lastBuyAt = S.stats.time; guideClock = 0;   // the arrow re-picks this frame (the map may have changed under it: a table now stands on the pad)
   addHearts(u.hearts);
   if (id === 'dining') firstTime('dine');   // the "[stove] -> [rice] -> [table]" card (7.4; stage 3 draws it)
   if (u.decor) firstTime('decor');          // "[decor] -> [room]" (7.4)
@@ -6700,15 +6739,17 @@ const BUY_POP = { shoes: '▲速度', basket: '+3 毛巾', tray: '+1 托盘', ne
 // ============================================================ guide (arrow) + hints + bubbles
 // The single "what next" brain (SPEC_v2 6): the arrow draws it, the balance bots walk it. Every target carries the rule
 // it came from (`rule` = the row of the 6 table, 1 = "here": you're already doing it, no arrow) and a `key` (what it
-// points at). The rules are checked in table order, so a lower rule number = higher priority. Deviations (18.2): while
-// the VIP is seated its wish (rule 8, on a 120 s clock) is checked before rule 6; rule 3's "in time" uses a Manhattan
-// lower bound. Booths (hats / pets) only by rule 6 (once each); hidden combos, the mirror, the pet cushion and the
-// statue are never pointed at.
+// points at). The rules are checked in table order, so a lower rule number = higher priority. Deviations (18.2): rule 3's
+// "in time" uses a Manhattan lower bound and takes the nearest in-time want first; stage 4 moves some rules up at times -
+// 6 / 9 after STALL_T s without a purchase, 8 when a seated VIP's wish gets late, 14 for a pointed-at combo never made
+// yet (COMBO_RUSH s), 11 before 9 / 10 while there is no chef; rule 6 takes the nearest affordable pad (star gates
+// first). Booths (hats / pets) only by rule 6 (once each); hidden combos, the mirror, the pet cushion and the statue are
+// never pointed at.
 // Stickiness (6): the arrow keeps what it shows (opts.prev, default GUIDE) while that is still a candidate of the SAME
 // rule; another candidate of that rule takes over only when it is >= 30 % nearer. A different rule always takes over
 // (higher priority, or the old rule has nothing left). Targets that move (guests, the VIP) are re-read every 0.25 s.
 // opts.skip = { call, vip, decor } (the 'ignore' bot, 14.1): calls / the VIP / decor (slots and decor pads) are never
-// pointed at - the next rule applies.
+// pointed at - the next rule applies. skip.pad (the 'afkref' bot, A4): no price pads at all (it plays on, buys nothing).
 function gT(kind, x, y, tx, ty, here, key) { return { kind, x, y, tx, ty, here: !!here, rule: 0, key: key || kind + ':' + tx + ',' + ty }; }
 const T_DESK = here => gT('desk', DESK_SPOT[0] * TILE + 8, DESK_SPOT[1] * TILE + 8, DESK_SPOT[0], DESK_SPOT[1], here);
 const T_CLEAN = (rm, here) => gT('clean', rm.cleanC[0], rm.cleanC[1], rm.cleanT[0], rm.cleanT[1], here, 'clean:' + rm.id);
@@ -6717,7 +6758,7 @@ const T_SHELF = here => gT('shelf', SHELF_C[0], SHELF_C[1], SHELF_SPOT[0], SHELF
 const T_PAD = (u, here) => { const [tx, ty] = padXY(u); return Object.assign(gT('pad', tx * TILE + 8, ty * TILE + 8, tx, ty, here, 'pad:' + u.id), { id: u.id }); };
 const T_PILE = id => { const [tx, ty] = PILE_AT[id]; return Object.assign(gT('pile', tx * TILE + 8, ty * TILE + 8, tx, ty, false, 'pile:' + id), { id }); };
 const towelWanted = () => S.basket === 0 && GUESTS.some(gu => gu.st === 'towel');
-const guidePads = sk => visiblePads().filter(u => !u.booth && !(sk && sk.decor && u.decor));
+const guidePads = sk => sk && sk.pad ? [] : visiblePads().filter(u => !u.booth && !(sk && sk.decor && u.decor));
 // pick-up points: the tile the arrow / bot goes to and the arrow kind (6)
 const PICK_TILE = { urn1: SPOT.urn1, urn2: SPOT.urn2, milk: MILK_SPOT, pass: [3, 22], stove: [2, 20] };
 const PICK_KIND = { urn1: 'urn', urn2: 'urn', milk: 'milk', pass: 'pass', stove: 'stove' };
@@ -6767,6 +6808,7 @@ function sourceOf(k, from) {
   return null;
 }
 const PILE_MIN = 20;   // rule 15: a pile smaller than this is not worth a walk across the map
+const NEAR_MIN = [0, 1, 10, 40, 70, 110];   // stage 4, by star: rule 4 points at a pile 1-3 steps away / the net reaches a pile from this size
 let GPREV = null;   // the target shown before this pick (stickiness)
 const gAt = (rule, t) => { if (t) t.rule = rule; return t; };
 // the rule's own pick vs. the one shown before: keep the old one while it is still a candidate of this rule, unless the
@@ -6799,7 +6841,7 @@ function guideTarget(opts) {
     if (P.towels > 0 && S.basket < BASKET_MAX && inBasketZone()) return gAt(1, T_BASKET(true));
     if (!S.unlocked.porter && P.towels < towelCap() && inShelfZone() && (P.towels > 0 || S.basket <= 2 || towelWanted())) return gAt(1, T_SHELF(true));
   }
-  if (P.pouring && S.money > 0 && PADPOS.has(P.pouring) && !(sk.decor && UNLOCK[P.pouring].decor)) return gAt(1, T_PAD(UNLOCK[P.pouring], true));
+  if (P.pouring && S.money > 0 && PADPOS.has(P.pouring) && !sk.pad && !(sk.decor && UNLOCK[P.pouring].decor)) return gAt(1, T_PAD(UNLOCK[P.pouring], true));
   for (const pk of PICKUPS) if (inZone(ZONE[pk.id]) && canPick(pk, L)) return gAt(1, T_PICK(pk.id, true, pk.k));   // picking up something wanted
   if (inZone(ZONE.stove)) { const sj = stoveJob(L); if (sj) return gAt(1, T_PICK('stove', true, sj.k)); }               // cooking something wanted
   if (P.giveTo) { const w = L.find(x => x.e === P.giveTo && x.k === P.giveK); if (w) return gAt(1, T_GIVE(w, true)); }   // handing it over
@@ -6810,23 +6852,48 @@ function guideTarget(opts) {
     if (v.st === 'seated' && k === 'bath') { const rm = ROOM[v.suite]; if (ptx === rm.tap[0] && pty === rm.tap[1]) return gAt(1, T_TAP(rm, true)); }
   }
   if (slotT && ptx === slotT.at[0] && pty === slotT.at[1]) return gAt(1, T_SLOT(slotT, true));   // standing on the slot the arrow wants filled
+  const gp = guidePads(sk);
+  const rule6 = () => {
+    let best = null;
+    const dP = u => { const [tx, ty] = padXY(u); return Math.abs(tx - ptx) + Math.abs(ty - pty); }, better = (u, o) => dP(u) < dP(o);
+    const sg = u => !!u.gate && !!u.star;   // a gate that adds a star goes first (stage 4: not the shop - a side area)
+    for (const u of gp) if (S.money >= padNeed(u) && (!best || (sg(u) && !sg(best)) || (sg(u) === sg(best) && better(u, best)))) best = u;
+    const bu = boutiqueOpen() && !sk.pad ? boothHint() : null; if (bu && (!best || (!sg(best) && better(bu, best)))) best = bu;
+    if (!best) return null;
+    const same = gp.filter(u => S.money >= padNeed(u) && sg(u) === sg(best));
+    if (best.booth) same.push(best);
+    return gStick(6, T_PAD(best), same.map(u => T_PAD(u)));
+  };
+  // the cheapest visible progress pad's shortfall (rules 9 and 15)
+  let need = 1e9; for (const u of gp) need = Math.min(need, padNeed(u));
+  const piles = pileIds();
+  const rule9 = () => {
+    const dPl = id => { const [tx, ty] = PILE_AT[id]; return Math.abs(tx - ptx) + Math.abs(ty - pty); };
+    const pays = piles.filter(id => S.money + S.piles[id] >= need).sort((a, b) => dPl(a) - dPl(b));
+    return pays.length ? gStick(9, T_PILE(pays[0]), pays.map(T_PILE)) : null;
+  };
+  // 6 / 9 (moved up when nothing was bought for STALL_T s, 18.2): a slow player kept busy by chores (the VIP, deliveries)
+  //   is sent to buy what it can afford, or to the pile that pays for it; the next purchase resets the clock
+  if (S.stats.time - lastBuyAt >= STALL_T) { const t = rule6() || rule9(); if (t) return t; }
   // 2. the VIP follows you: it fell behind and stopped -> back to it; else -> into a clean empty suite
   if (v && v.st === 'follow') { if (v.halt) return gAt(2, T_VIP()); const rm = cleanSuite(); if (rm) return gAt(2, T_SUITE(rm)); }
-  // 3. something on the tray that someone waits for -> the most urgent of them who can still be reached in time
-  //    (a Manhattan lower bound x 1.2; nobody in time: the tightest one that may still make it; else no arrow for it)
+  // 3. something on the tray that someone waits for -> one of them who can still be reached in time (a Manhattan lower
+  //    bound x 1.2): the nearest, unless the most urgent one gets tight (stage 4, 18.2); nobody in time: the tightest one
+  //    that may still make it; else no arrow for it
   if (P.tray.length) {
     let bw = null, late = null; const ok = [];
     for (const w of L) {
       if (!P.tray.includes(w.k)) continue;
       const t = wantTile(w), eta = (Math.abs(t[0] - ptx) + Math.abs(t[1] - pty)) * TILE / spd;
-      if (eta * 1.2 < w.left) { ok.push(w); if (!bw || w.left < bw.left) bw = w; } else if (eta < w.left && (!late || w.left > late.left)) late = w;
+      if (eta * 1.2 < w.left) { ok.push(w); w.eta = eta; if (!bw || w.left < bw.left) bw = w; } else if (eta < w.left && (!late || w.left > late.left)) late = w;
     }
+    if (bw && bw.left - bw.eta * 1.2 >= DELIVER_SLACK) for (const w of ok) if (w.eta < bw.eta) bw = w;   // nearest first
     if (bw) return gStick(3, T_GIVE(bw), ok.map(w => T_GIVE(w)));
     if (late) return gAt(3, T_GIVE(late));
   }
   // 4. a fish pile two or three steps away is always worth grabbing (the desk pile, a room's tip)
   { const near = [], was = GPREV && GPREV.rule === 4 && !GPREV.here ? GPREV.id : null;
-    for (const id in S.piles) if (S.piles[id] > 0) {
+    for (const id in S.piles) if (id !== 'recep' && (S.piles[id] >= NEAR_MIN[star()] || (id === was && S.piles[id] > 0))) {
       const lim = id === was ? 6 : 4;   // hysteresis: the pile already shown stays while it is <= 5 steps away (walking past
       const [tx, ty] = PILE_AT[id]; if (Math.abs(tx - ptx) + Math.abs(ty - pty) >= lim) continue;   // it must not flicker)
       const p = findPath(ptx, pty, tx, ty); if (p && p.length < lim) near.push([p.length, id]);
@@ -6834,28 +6901,31 @@ function guideTarget(opts) {
     if (near.length) { near.sort((a, b) => a[0] - b[0]); return gStick(4, T_PILE(near[0][1]), near.map(n => T_PILE(n[1]))); } }
   // 5. towels on your head (before the porter): finish the run while the need that started it still holds
   if (S.unlocked.onsen && !S.unlocked.porter && P.towels > 0 && (S.basket <= 2 || towelWanted())) return gAt(5, T_BASKET(false));
-  // 8 (moved up while the VIP is seated, 18.2): its wish runs on a 120 s clock, a pad can wait
-  if (v && v.st === 'seated') { const t = vipGuide(); if (t) return gAt(8, t); }
-  // 6. a price pad you can afford: a gate first, else the cheapest; a booth piece once (4.11); never the statue
-  const gp = guidePads(sk);
-  { let best = null;
-    for (const u of gp) if (S.money >= padNeed(u) && (!best || (u.gate && !best.gate) || (!!u.gate === !!best.gate && padNeed(u) < padNeed(best)))) best = u;
-    const bu = boutiqueOpen() ? boothHint() : null; if (bu && (!best || (!best.gate && padNeed(bu) < padNeed(best)))) best = bu;
-    if (best) {
-      const same = gp.filter(u => S.money >= padNeed(u) && !!u.gate === !!best.gate);
-      if (best.booth) same.push(best);
-      return gStick(6, T_PAD(best), same.map(u => T_PAD(u)));
-    } }
+  // 8 (moved up while the VIP is seated and its wish has VIP_URGENT s left, 18.2): it leaves after VIP_IDLE s without
+  //   progress, so a late wish beats the pads; a fresh one waits for them (a pad is a few seconds away)
+  if (v && v.st === 'seated' && v.t >= VIP_IDLE - VIP_URGENT) { const t = vipGuide(); if (t) return gAt(8, t); }
+  // 14 (moved up while a pointed-at combo has never been made and you own both pieces, 18.2): a one-off, two short
+  //   stands; ahead of the pads for COMBO_RUSH s per combo at most, then back in its place
+  if (slotT && comboRush()) return gStick(14, T_SLOT(slotT), slots.map(sl => T_SLOT(sl)));
+  // 6. a price pad you can afford: a star gate first, else the nearest (stage 4: was the cheapest); a booth piece once (4.11);
+  //    never the statue
+  { const t = rule6(); if (t) return t; }
   // 7. a guest is at the counter or walking in, a room is ready, nobody is serving
   if (coming) return gAt(7, T_DESK(false));
   // 8. the VIP: greet it (no clean suite: clean one), or its current wish
   if (v) { const t = vipGuide(); if (t) return gAt(8, t); }
-  // the cheapest visible progress pad's shortfall (rules 9 and 15)
-  let need = 1e9; for (const u of gp) need = Math.min(need, padNeed(u));
-  const piles = pileIds();
-  // 9. a fish pile that would pay for a pad: the biggest such pile
-  { const pays = piles.filter(id => S.money + S.piles[id] >= need);
-    if (pays.length) return gStick(9, T_PILE(pays[0]), pays.map(T_PILE)); }
+  const r11 = () => {   // 11. breakfast (see below)
+    if (!S.unlocked.dining || !L.some(w => w.seat)) return null;
+    const nr = wantCount('rice', L) - heldCount('rice');
+    if (!hasChef() && nr - PASS.n > 0 && (hasWaiter() || P.tray.length < trayCap())) return gAt(11, T_PICK('stove', false, 'rice'));
+    if (!hasWaiter() && PASS.n > 0 && nr > 0 && P.tray.length < trayCap()) return gAt(11, T_PICK('pass', false, 'rice'));
+    return null;
+  };
+  // 9. a fish pile that would pay for a pad: the nearest such pile (stage 4: was the biggest - a long walk across the map)
+  { const t = rule9(); if (t) return t; }
+  // 11 (moved up while there is no chef, 18.2): the diners' rice before the calls - with only you cooking they go hungry
+  //   otherwise; the pads (6) and the piles that pay for them (9) still come first, so the chef gets bought
+  if (!hasChef()) { const t = r11(); if (t) return t; }
   // 10. a call nobody is bringing yet that can still be served in time -> where its thing is picked up
   //     ((path to the pick-up + path on to the guest) x 16 / speed x 1.2 < time left); late ones are not pointed at
   if (P.tray.length < trayCap()) {
@@ -6869,11 +6939,7 @@ function guideTarget(opts) {
   }
   // 11. breakfast: diners wait and nobody else covers them -> the stove (no chef; with a waiter the innkeeper cooks onto
   //     the counter for him - 18.2) or the counter (rice on it, no waiter; the tray then goes by rule 3)
-  if (S.unlocked.dining && L.some(w => w.seat)) {
-    const nr = wantCount('rice', L) - heldCount('rice');
-    if (!hasChef() && nr - PASS.n > 0 && (hasWaiter() || P.tray.length < trayCap())) return gAt(11, T_PICK('stove', false, 'rice'));
-    if (!hasWaiter() && PASS.n > 0 && nr > 0 && P.tray.length < trayCap()) return gAt(11, T_PICK('pass', false, 'rice'));
-  }
+  { const t = r11(); if (t) return t; }
   // 12. a guest is stuck because no room is clean, and the maids can't keep up -> the nearest messy room. Once shown, the
   //     room stays while it is messy and someone is in line (a check-in or a maid finishing elsewhere must not flip the
   //     arrow to a pile and back)
@@ -7436,7 +7502,7 @@ function drawOverlays() {
       if (VIS(bx, by - 7, 30)) {
         drawA(wishBoardArt(), bx, by, 20, 14);
         ws.forEach((w, i) => {
-          const cx = bx - 20 + 3 + i * 12 - CX, cy = by - 14 + 2 - CY + (i === v.wi && T % 1 < .5 ? -1 : 0);
+          const cx = bx - 20 + 3 + i * 12 - CX, cy = by - 14 + 2 - CY + (i === v.wi && !(v.hold > 0) && T % 1 < .5 ? -1 : 0);
           if (i === v.wi) { g.fillStyle = '#ffc21f'; g.fillRect(cx - 1, cy - 1, 12, 12); g.fillStyle = '#fff3d0'; g.fillRect(cx, cy, 10, 10); }
           g.globalAlpha = i < v.wi ? .3 : 1; g.drawImage(bubbleArt(w, 0), 2, 2, 10, 7, cx, cy + 1, 10, 7); g.globalAlpha = 1;
         });
@@ -7600,13 +7666,13 @@ function render() {
 // LINES: id -> { text (or fn(arg)), p (odds), ev (event line), who: g guest | k kitten | s staff | o shop owner | v VIP | p innkeeper | a pet }
 const LINES = NUL();
 [
-  ['G01', 'g', '打扰啦～', .25], ['G02', 'g', '有空房吗？', .6], ['G03', 'g', '听说温泉超棒', .15], ['G04', 'g', '前台有人吗？', 1], ['G05', 'g', '还要等多久…', .5],
-  ['G06', 'g', '麻烦你啦', .25], ['G07', 'g', '被子软软的', .2], ['G08', 'g', '呼噜呼噜…', .1], ['G09', 'g', '睡得真香！', .15], ['G10', 'g', '啊～活过来了', .25],
-  ['G11', 'g', '水温刚刚好', .15], ['G12', 'g', '毛巾呢？', .6], ['G13', 'g', '咕嘟咕嘟！', .3], ['G14', 'g', '肚子饿扁了', .25], ['G15', 'g', '开动了！', .4],
-  ['G16', 'g', '早饭好香喵', .15], ['G17', 'g', '还会再来的', .2], ['G18', 'g', '下次带朋友', .15], ['G19', 'g', '五星好评！', .15], ['G20', 'g', '下次吧…', 1, 1],
+  ['G01', 'g', '打扰啦～', .35], ['G02', 'g', '有空房吗？', .6], ['G03', 'g', '听说温泉超棒', .15], ['G04', 'g', '前台有人吗？', 1], ['G05', 'g', '还要等多久…', .5],
+  ['G06', 'g', '麻烦你啦', .4], ['G07', 'g', '被子软软的', .3], ['G08', 'g', '呼噜呼噜…', .15], ['G09', 'g', '睡得真香！', .25], ['G10', 'g', '啊～活过来了', .35],
+  ['G11', 'g', '水温刚刚好', .2], ['G12', 'g', '毛巾呢？', .6], ['G13', 'g', '咕嘟咕嘟！', .4], ['G14', 'g', '肚子饿扁了', .3], ['G15', 'g', '开动了！', .4],
+  ['G16', 'g', '早饭好香喵', .15], ['G17', 'g', '还会再来的', .3], ['G18', 'g', '下次带朋友', .2], ['G19', 'g', '五星好评！', .15], ['G20', 'g', '下次吧…', 1, 1],
   ['G21', 'g', '唉，算了', .5, 1], ['G22', 'g', '能来杯茶吗', 1, 1], ['G23', 'g', '想喝冰牛奶', 1, 1], ['G24', 'g', '有夜宵吗？', 1, 1], ['G25', 'g', '正好想要！', .7, 1],
   ['G26', 'g', '掌柜真贴心', .3, 1], ['G27', 'g', '好快！谢谢', 1, 1], ['G28', 'g', '这房间真棒', .3], ['G29', 'g', '离汤近，好！', 1], ['G30', 'g', '好浪漫喵', 1],
-  ['G31', 'g', '像自己家一样', 1], ['G32', 'k', '好好吃！', .3], ['G33', 'g', '晚安喵…', .1], ['G34', 'g', '星星好近喵…', .25], ['G35', 'g', '买点土产！', .25],
+  ['G31', 'g', '像自己家一样', 1], ['G32', 'k', '好好吃！', .3], ['G33', 'g', '晚安喵…', .1], ['G34', 'g', '星星好近喵…', .25], ['G35', 'g', '买点土产！', .35],
   ['G36', 'g', n => '第' + n + '位！', 1, 1],
   ['S01', 's', '欢迎光临！', 1, 1], ['S02', 's', '里边请～', .05], ['S03', 's', '早上好喵！', 1, 1], ['S04', 's', '打扫交给我', 1, 1], ['S05', 's', '我也来帮忙', 1, 1],
   ['S06', 's', '西馆交给我', 1, 1], ['S07', 's', '庭园交给我', 1, 1], ['S08', 's', '打扫完毕！', .15], ['S09', 's', '毛巾我来搬', 1, 1], ['S10', 's', '嘿咻嘿咻', .08],
@@ -8161,7 +8227,7 @@ function resetWorld() {
   // calls, trays, the counter and followers are not saved (10.1): they start empty
   Object.assign(P, { x: 17 * TILE + 8, y: 27 * TILE + 8, dir: 'up', moving: false, walkT: 0, towels: 0, dist: 0, sway: 0, atDesk: false, pourAcc: 0, pouring: null, padOn: null, padT: 0, shelfT: 0, basketT: 0,
     tray: [], pick: {}, cookT: 0, cookK: null, giveT: 0, giveTo: null, giveK: null, putT: 0, slot: { key: null, t: 0, n: 0, stop: false, cyc: null } });
-  PASS.n = 0; BROWSE.occ = null; TABLE_EATEN.fill(-9); FIRST_Q.length = 0; BANNER_Q.length = 0; lastCallAt = -99;
+  PASS.n = 0; BROWSE.occ = null; TABLE_EATEN.fill(-9); FIRST_Q.length = 0; BANNER_Q.length = 0; lastCallAt = -99; comboRushAt = NUL(); lastBuyAt = S.stats.time;
   for (const k in PILE_AGE) delete PILE_AGE[k];
   // the VIP is not saved (10.1): after a load the next one comes soon - unless half a gift was just refunded (no shortcut)
   VIPG = null; lastVip = null; vipT = !S.unlocked.garden ? 1e9 : S.stats.time + (S.vipRefunded ? vipGap() : S.vipNext ? VIP_RELOAD : VIP_FIRST);

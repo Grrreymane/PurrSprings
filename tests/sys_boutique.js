@@ -19,7 +19,8 @@ const PRE4 = UNLOCKS.filter(u => !u.need5 && u.id !== 'roten').map(u => u.id);
 function setup(five, extra) {
   S = defaults(); for (const id of PRE4.concat(extra || [])) S.unlocked[id] = true; if (five) S.unlocked.roten = true;
   for (const rm of ROOMS) if (roomOpen(rm)) S.rooms[rm.id] = 'clean';
-  S.peak = starOf(S); S.basket = BASKET_MAX; S.tut.moved = true; S.done = true; resetWorld(); go('play'); spawnT = 1e9;
+  S.peak = starOf(S); S.basket = BASKET_MAX; S.tut.moved = true; S.done = true; for (const c of COMBOS) if (c.hint) S.combos[c.id] = 1;   // a star-5 inn has made its combos (else rule 14 goes first)
+  resetWorld(); go('play'); spawnT = 1e9;
   for (let i = STAFF.length - 1; i >= 0; i--) if (STAFF[i].role !== 'owner') STAFF.splice(i, 1);
   P.x = 17 * 16 + 8; P.y = 27 * 16 + 8; SFXLOG.length = 0; LINES.length = 0; BANNER_Q.length = 0;
 }
@@ -87,7 +88,7 @@ setup(true, ['p_duck', 'p_shiba']);
 // ---- pets: the duck quacks on a pickup (10 %, at most once per 20 s); the shiba barks at a VIP; the shiba wags sitting still
 setup(true, ['p_duck']);
 { S.equip.pet = 'p_duck'; run(.1); let quacks = []; const _l2 = lineSay; lineSay = (w, k) => { if (k === 'A01') quacks.push(S.stats.time); return _l2(w, k); };
-  const [px, py] = PILE_AT.recep; at(px, py + 1); for (let i = 0; i < 600; i++) { S.piles.recep = 5; run(.5); }
+  const [px, py] = PILE_AT.recep; at(px, py); for (let i = 0; i < 600; i++) { S.piles.recep = 5; run(.5); }   // on the cash box (stage 4: the net doesn't reach it)
   lineSay = _l2; ok(quacks.length >= 2, 'quacks: ' + quacks.length); ok(quacks.every((t, i) => !i || t - quacks[i - 1] >= 20 - 1e-6), 'never twice in 20 s');
   ok(quacks.length <= 300 / 20 + 1, 'not on every pickup'); }
 setup(true, ['p_shiba', 'garden']);

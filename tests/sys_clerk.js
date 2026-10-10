@@ -48,8 +48,11 @@ st(['clerk', 'shop', 'bigbath'], 3); spawnT = 1; S.unlocked.maid2 = true; ensure
 st([], 2);
 { for (const [lvl, r] of NET_R.entries()) {
     S.unlocked.net1 = lvl >= 1; S.unlocked.net2 = lvl >= 2; S.unlocked.net3 = lvl >= 3; eq(NET_R[netLvl()], r, 'net level ' + lvl + ' radius');
-    S.piles.room1 = 5; const [tx, ty] = PILE_AT.room1; P.x = tcx([tx, ty]) + r + 1.5; P.y = tcy([tx, ty]); zones(DT); eq(S.piles.room1, 5, 'out of reach at r+1.5 (' + r + ')');
-    P.x -= 2; zones(DT); eq(S.piles.room1, 0, 'picked up inside r (' + r + ')'); }
+    S.piles.room1 = 500; const [tx, ty] = PILE_AT.room1; P.x = tcx([tx, ty]) + r + 1.5; P.y = tcy([tx, ty]); zones(DT); eq(S.piles.room1, 500, 'out of reach at r+1.5 (' + r + ')');
+    P.x -= 2; zones(DT); eq(S.piles.room1, 0, 'picked up inside r (' + r + ')');
+    // stage 4: the net only reaches piles >= NEAR_MIN; a smaller pile and the cash box you step on (NET_R[0])
+    const small = NEAR_MIN[star()] - 1; if (small > 0 && r > NET_R[0]) { S.piles.room1 = small; P.x = tcx([tx, ty]) + r - .5; zones(DT); eq(S.piles.room1, small, 'small pile: the net does not reach it (' + r + ')'); P.x = tcx([tx, ty]) + NET_R[0] - .5; zones(DT); eq(S.piles.room1, 0, 'small pile: stepped on'); S.piles.room1 = 0; }
+    if (r > NET_R[0]) { const [cx, cy] = PILE_AT.recep; S.piles.recep = 500; P.x = tcx([cx, cy]) + r - .5; P.y = tcy([cx, cy]); zones(DT); eq(S.piles.recep, 500, 'cash box: not by the net (' + r + ')'); P.x = tcx([cx, cy]) + NET_R[0] - .5; zones(DT); eq(S.piles.recep, 0, 'cash box: stepped on'); } }
   st(['maid1'], 2); S.money = 200; FX.length = 0; unlock('net1'); const rf = FX.find(f => f.k === 'netring'); ok(rf && rf.r0 === 10 && rf.r1 === 18, 'net1: ring from 10 to 18');
   run(.7); ok(!FX.some(f => f.k === 'netring'), 'the ring shows once (0.6 s)'); }
 // ---- the cash box: chest art over 200 (glow over 1,000); collecting it: 10 fish fly, a rattle

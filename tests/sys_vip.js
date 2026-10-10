@@ -2,7 +2,7 @@
 // suite B x0.7); one at a time; the six in order, then at random (never twice running). arrive -> red carpet (17,26) ->
 // greet (within 14 px for 0.5 s) -> follows 16 px behind on your crumbs (stops > 96 px behind with "...", goes on within
 // 48 px) -> you step into a clean empty suite (A first) -> it walks to its seat -> 3 wishes (tea / kaiseki by tray, bath:
-// tap 1.5 s then it soaks 5 s, photo: beside it 1.2 s) -> 25% G per earlier wish (♥2), photo 50% G x f (♥10, +10 first)
+// tap 1.5 s then it soaks 5 s, photo: beside it 1.2 s; stage 4: after tea / kaiseki it sips / eats VIP_SIP_T s first) -> 25% G per earlier wish (♥2), photo 50% G x f (♥10, +10 first)
 // -> gift on the shelf, album; leaves, suite messy (cleans x2, maids put it first while a VIP waits). Soft fails: 60 s
 // unwelcomed -> walks to the suite alone; 120 s without progress -> leaves, keeps what it paid; no clean suite -> waits,
 // no clock. Not saved: half of the unpaid G goes to the cash box on load (10.1).
@@ -61,7 +61,8 @@ st([], 3);
   walkTo(SPOT.urn2[0], SPOT.urn2[1], 20); run(.5); ok(P.tray.includes('tea'), 'tea picked up at urn 2');
   t = guideTarget(); ok(t && t.kind === 'deliver', 'arrow: deliver (' + (t && t.kind) + ')');
   const m0 = S.money, h0 = S.hearts, G = VIPG.G; walkTo(ROOM.c3.stand[0], ROOM.c3.stand[1], 20); run(.4);
-  eq(S.money - m0, R(G * .25), 'tea: 25% of G'); eq(S.hearts - h0, 2, 'tea: ♥2'); eq(VIPG.wi, 1, 'next wish'); eq(vipWish(), 'bath', 'bath next'); eq(S.vipOwe, G - R(G * .25), 'owed shrinks');
+  eq(S.money - m0, R(G * .25), 'tea: 25% of G'); eq(S.hearts - h0, 2, 'tea: ♥2'); eq(VIPG.wi, 1, 'next wish'); eq(S.vipOwe, G - R(G * .25), 'owed shrinks');
+  eq(vipWish(), null, 'sips the tea first (no wish shown)'); ok(!guideTarget() || guideTarget().kind !== 'tap', 'no arrow to the tap while it sips'); run(VIP_SIP_T.tea + .1); eq(vipWish(), 'bath', 'bath next'); eq(VIPG.t < 1, true, 'the idle clock starts after the sip');
   ok(FIRST_Q.some(f => f.key === 'bath'), 'first-time card "bath"');
   // wish 2: bath - the tap 1.5 s, it soaks 5 s (you may leave)
   S.money = 0; t = guideTarget(); ok(t && t.kind === 'tap', 'arrow: the tap (' + (t && t.kind) + ')');
@@ -80,7 +81,7 @@ st([], 3);
   STAFF.length = 0; RT.c3.cleanP = 0; P.x = ROOM.c3.cleanC[0]; P.y = ROOM.c3.cleanC[1]; run(CLEAN_T * 2 - .1); eq(S.rooms.c3, 'messy', 'not clean at 2 x CLEAN_T - 0.1'); run(.2); eq(S.rooms.c3, 'clean', 'clean at 2 x CLEAN_T'); ok(!RT.c3.vipMess, 'flag cleared'); }
 // ---- the same VIP again (not the first photo): ♥10 only
 { st([], 4); S.album.photos.push({ v: 'kawa', d: 1, h: null, p: null }); arrive(); greet(); escort(ROOM.c3);
-  for (let k = 0; k < 2; k++) { const w = vipWish(); if (w === 'tea') { P.tray = ['tea']; toVip(); run(.4); } else if (w === 'bath') { P.x = tcx(ROOM.c3.tap); P.y = tcy(ROOM.c3.tap); run(1.6); P.x = 400; P.y = 400; run(5.2); } }
+  for (let k = 0; k < 2; k++) { const w = vipWish(); if (w === 'tea') { P.tray = ['tea']; toVip(); run(.4 + VIP_SIP_T.tea + .1); } else if (w === 'bath') { P.x = tcx(ROOM.c3.tap); P.y = tcy(ROOM.c3.tap); run(1.6); P.x = 400; P.y = 400; run(5.2); } }
   const h0 = S.hearts; toVip(); run(1.3); eq(S.hearts - h0, 10, 'second photo of kawa: ♥10 only'); eq(S.gifts.length, 1, 'gift shelf: one per VIP'); }
 // ---- kaiseki (大关): the stove 3 s (gold ring), one box on the tray, carried to the suite
 { st(['chef'], 4); S.vipNext = 1; arrive(); eq(VIPG.id, 'ozeki', 'the second VIP is 大关'); greet(); escort(ROOM.c3);
@@ -94,7 +95,7 @@ st([], 3);
 { st([], 4); arrive(); P.x = 40; P.y = 34 * 16; run(VIP_NOGREET - 1); eq(VIPG.st, 'carpet', 'waits 60 s'); run(1.2); eq(VIPG.st, 'toSuite', 'walks there alone');
   run(30, () => VIPG.st === 'seated'); eq(VIPG.st, 'seated', 'seated alone'); }
 // ---- 120 s without progress: leaves, keeps what it paid, no penalty
-{ st([], 4); arrive(); greet(); escort(ROOM.c3); P.tray = ['tea']; toVip(); run(.4); const m0 = S.money, h0 = S.hearts, ang = S.stats.angry; P.x = 40; P.y = 34 * 16; P.tray = [];
+{ st([], 4); arrive(); greet(); escort(ROOM.c3); P.tray = ['tea']; toVip(); run(.4); const m0 = S.money, h0 = S.hearts, ang = S.stats.angry; P.x = 40; P.y = 34 * 16; P.tray = []; run(VIP_SIP_T.tea);
   run(VIP_IDLE - 1); eq(VIPG.st, 'seated', 'still there at 119 s'); run(1.2); eq(VIPG.st, 'leave', '120 s idle: leaves'); eq(S.money, m0, 'no money lost'); ok(S.hearts >= h0, 'no ♥ lost'); eq(S.stats.angry, ang, 'not angry');
   eq(S.rooms.c3, 'messy', 'suite messy'); eq(S.vipOwe, 0, 'nothing owed'); eq(RUN.vipLeft, 1, 'counted'); }
 // ---- no clean suite: it waits on the carpet, the 60 s clock stops; the arrow / the maids go to the dirty suite first
