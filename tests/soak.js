@@ -1,0 +1,139 @@
+// Long invariant soak (pasted into the game closure by _workflow/tools/headless.js):
+//   node D:/Minigame/_workflow/tools/headless.js D:/Minigame/Hotelgame tests/soak.js --seed 1 -- eager 60
+//   node D:/Minigame/_workflow/tools/headless.js D:/Minigame/Hotelgame tests/soak.js --seed 1 -- casual 60 reload
+// Same guide-following driver as bot.js, but it keeps playing after the sign (celebration dismissed) for the
+// whole run, and checks a stricter invariant set every simulated second:
+//   money integer >= 0; earned == money + sum(paid); fees generated == earned + sum(piles) (no fish created
+//   or lost); room <-> guest <-> RT links consistent both ways; reserved/occupied rooms always have a live guest;
+//   slots <-> guests consistent; maid claims point at a maid whose job is that room; Q == arrive/queue guests;
+//   basket 0..10; nobody lost (path null); no guest in one state > 120 s; staff not stuck on a job > 60 s;
+//   all positions finite; player not in a wall; render() does not throw.
+// Also records growth of runtime arrays / caches (GUESTS, FX, POPS, TXC, ART, FLIPS) and BFS calls per frame.
+// Extra args: [profile] [minutes] ['reload' = save -> loadState -> resetWorld every ~4 min]
+const PROFILE = ARGS[0] || 'eager', MAXMIN = +ARGS[1] || 60, RELOAD = ARGS.includes('reload');
+const PROF = { eager: { react: .3, distract: 0 }, casual: { react: 1, distract: .3 } }[PROFILE] || { react: .3, distract: 0 };
+const DT = 1 / 30;
+const mmss = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
+// ---- instrumentation (function declarations in the game closure are mutable bindings)
+let bfsFrame = 0, bfsMax = 0, bfsTotal = 0, txNew = 0, generated = 0;
+const _findPath = findPath; findPath = function (a, b, c, d) { bfsFrame++; return _findPath(a, b, c, d); };
+const _textSprite = textSprite; textSprite = function (t) { const had = TXC.has(t.s + '|' + t.size + '|' + t.col + '|' + t.stroke + '|' + K); if (!had) txNew++; return _textSprite(t); };
+const _fee = fee; fee = function (k) { const v = _fee(k); generated += v; return v; };
+newGame();
+// ---------------------------------------------------------------- driver (as bot.js)
+let path = [], key = '', think = 0, mode = 'follow', episode = 0, stuckT = 0, lastPos = [P.x, P.y], stuckN = 0;
+function randomTile() {
+  for (let k = 0; k < 200; k++) { const tx = Math.floor(Math.random() * 15), ty = Math.floor(Math.random() * 34); if (walkable(tx, ty)) { const [sx, sy] = tileOf(P), p = _findPath(sx, sy, tx, ty); if (p) return p; } }
+  return [];
+}
+function drive(dt) {
+  episode -= dt;
+  if (episode <= 0) {
+    episode = 3 + Math.random() * 5;
+    const was = mode;
+    mode = Math.random() < PROF.distract ? (Math.random() < .5 ? 'wander' : 'idle') : 'follow';
+    if (mode !== was) { path = []; key = ''; think = 0; if (mode === 'wander') path = randomTile(); }
+  }
+  think -= dt;
+  if (think <= 0 && mode === 'follow') {
+    think = PROF.react;
+    const t = S.tut.moved ? guideTarget() : { tx: 7, ty: 24 };
+    if (!t || t.here) { path = []; key = ''; }
+    else if (t.tx + ',' + t.ty !== key || !path.length) { key = t.tx + ',' + t.ty; const [sx, sy] = tileOf(P); path = _findPath(sx, sy, t.tx, t.ty) || []; }
+  }
+  if (path.length) {
+    const [tx, ty] = path[0], cx = tx * 16 + 8, cy = ty * 16 + 8, dx = cx - P.x, dy = cy - P.y, d = Math.hypot(dx, dy);
+    if (d < 1.5) path.shift();
+    botMove = d > .01 ? { x: dx / d * Math.min(1, d / 3), y: dy / d * Math.min(1, d / 3) } : null;
+    if (Math.hypot(P.x - lastPos[0], P.y - lastPos[1]) < .2) { stuckT += dt; if (stuckT > 1.5) { stuckN++; stuckT = 0; key = ''; think = 0; path = []; } } else stuckT = 0;
+  } else { botMove = null; stuckT = 0; }
+  lastPos = [P.x, P.y];
+}
+// ---------------------------------------------------------------- invariants
+const inv = {}, flag = (k, m) => { inv[k] = inv[k] || { n: 0, first: m }; inv[k].n++; };
+const sum = o => Object.values(o).reduce((a, b) => a + b, 0);
+let base = 0;   // fish that existed before tracking started (tips handed out by loadState on reload)
+const rebase = () => { base = S.earned + sum(S.piles) - generated; };
+rebase();
+const staffJob = new Map(), peak = { guests: 0, fx: 0, pops: 0, txc: 0, art: 0, flips: 0, rots: 0, q: 0 };
+function checkSecond() {
+  const t = S.stats.time, at = mmss(t);
+  if (!Number.isFinite(S.money) || S.money < 0 || S.money !== Math.floor(S.money)) flag('money', at + ' ' + S.money);
+  if (S.earned !== S.money + sum(S.paid)) flag('earned!=money+paid', at + ' earned ' + S.earned + ' money ' + S.money + ' paid ' + sum(S.paid));
+  if (generated + base !== S.earned + sum(S.piles)) flag('fish-conservation', at + ' generated ' + (generated + base) + ' vs earned+piles ' + (S.earned + sum(S.piles)));
+  for (const k in S.piles) if (!Number.isInteger(S.piles[k]) || S.piles[k] < 0) flag('pile', at + ' ' + k + '=' + S.piles[k]);
+  // rooms <-> guests
+  for (const rm of ROOMS) {
+    const rt = RT[rm.id], st = S.rooms[rm.id];
+    if (rt.guest && !GUESTS.includes(rt.guest)) flag('room-leak', at + ' ' + rm.id + ' guest gone');
+    if (rt.guest && rt.guest.room !== rm.id) flag('room-backlink', at + ' ' + rm.id + ' guest.room=' + rt.guest.room);
+    if ((st === 'reserved' || st === 'occupied') && !rt.guest) flag('room-held-no-guest', at + ' ' + rm.id + ' ' + st);
+    if (rt.guest && st !== 'reserved' && st !== 'occupied') flag('guest-in-free-room', at + ' ' + rm.id + ' ' + st);
+    if (st === 'occupied' && rt.guest && rt.guest.st !== 'sleep') flag('occupied-not-sleeping', at + ' ' + rm.id + ' ' + rt.guest.st);
+    if (rt.claim && (!STAFF.includes(rt.claim) || rt.claim.job !== rm.id)) flag('claim-leak', at + ' ' + rm.id);
+    if (rt.claim && st !== 'messy') flag('claim-on-clean', at + ' ' + rm.id + ' ' + st);
+    if (!Number.isFinite(rt.cleanP) || rt.cleanP < 0 || rt.cleanP >= 1.01) flag('cleanP', at + ' ' + rm.id + ' ' + rt.cleanP);
+  }
+  const perRoom = {};
+  for (const gu of GUESTS) {
+    if (gu.room) { perRoom[gu.room] = (perRoom[gu.room] || 0) + 1; if (RT[gu.room].guest !== gu) flag('guest-room-not-linked', at + ' ' + gu.room + ' ' + gu.st); }
+    if (gu.slot >= 0 && SLOT_OCC[gu.slot] !== gu) flag('slot-backlink', at + ' slot ' + gu.slot);
+    if (gu.slot >= 0 && gu.st !== 'toSlot' && gu.st !== 'bathing') flag('slot-held-wrong-state', at + ' ' + gu.st);
+    if (gu.t > 120 && gu.st !== 'sleep' && gu.st !== 'bathing') flag('stuck-guest', at + ' ' + gu.st + ' ' + R(gu.t) + 's at ' + R(gu.x) + ',' + R(gu.y));
+    if (gu.lost) flag('guest-lost', at + ' ' + gu.st + ' goal ' + gu.goal);
+    if (!Number.isFinite(gu.x) || !Number.isFinite(gu.y)) flag('guest-nan', at);
+    const inQ = Q.includes(gu), qState = gu.st === 'arrive' || gu.st === 'queue';
+    if (inQ !== qState) flag('queue-mismatch', at + ' ' + gu.st + ' inQ=' + inQ);
+    if (['toRoom', 'sleep'].includes(gu.st) && !gu.room) flag('roomless-guest', at + ' ' + gu.st);
+    if (['toBath', 'towel', 'toSlot', 'bathing', 'toMilk', 'milk'].includes(gu.st) && gu.room) flag('bath-holds-room', at + ' ' + gu.st);   // bath-last: guests bathe after checking out
+  }
+  for (const k in perRoom) if (perRoom[k] > 1) flag('room-shared', at + ' ' + k);
+  for (let i = 0; i < SLOT_OCC.length; i++) { const o = SLOT_OCC[i]; if (o && (!GUESTS.includes(o) || o.slot !== i)) flag('slot-leak', at + ' slot ' + i); if (o && i >= slotCount()) flag('slot-over-count', at + ' ' + i); }
+  for (const g2 of Q) if (!GUESTS.includes(g2)) flag('queue-ghost', at);
+  if (S.basket < 0 || S.basket > BASKET_MAX || !Number.isInteger(S.basket)) flag('basket', at + ' ' + S.basket);
+  if (P.towels < 0 || P.towels > towelCap()) flag('towels', at + ' ' + P.towels);
+  if (boxHit(P.x, P.y)) flag('player-in-wall', at + ' ' + R(P.x) + ',' + R(P.y));
+  for (const s of STAFF) {
+    if (s.lost) flag('staff-lost', at + ' ' + s.id);
+    if (!Number.isFinite(s.x) || !Number.isFinite(s.y)) flag('staff-nan', at + ' ' + s.id);
+    if (s.role === 'maid') {
+      const j = staffJob.get(s);
+      if (s.job) { if (!j || j.job !== s.job) staffJob.set(s, { job: s.job, t }); else if (t - j.t > 60) flag('maid-stuck', at + ' ' + s.id + ' on ' + s.job + ' for ' + R(t - j.t) + 's'); }
+      else staffJob.delete(s);
+    }
+    if (s.role === 'porter' && (s.carry < 0 || s.carry > 6)) flag('porter-carry', at + ' ' + s.carry);
+  }
+  try { render(); } catch (e) { flag('render', String(e && e.message || e)); }
+  peak.guests = Math.max(peak.guests, GUESTS.length); peak.fx = Math.max(peak.fx, FX.length); peak.pops = Math.max(peak.pops, POPS.length);
+  peak.txc = Math.max(peak.txc, TXC.size); peak.art = Math.max(peak.art, Object.keys(ART).length); peak.flips = Math.max(peak.flips, FLIPS.size); peak.rots = Math.max(peak.rots, ROTS.size); peak.q = Math.max(peak.q, Q.length);
+}
+// ---------------------------------------------------------------- run
+const steps = Math.round(MAXMIN * 60 / DT);
+let lastSec = -1, signAt = null, reloads = 0, nextReload = 240, upd = 0, updMax = 0, frames = 0;
+const artAt = {};
+for (let i = 0; i < steps; i++) {
+  drive(DT);
+  bfsFrame = 0;
+  const t0 = process.hrtime.bigint();
+  update(DT);
+  const ms = Number(process.hrtime.bigint() - t0) / 1e6; upd += ms; updMax = Math.max(updMax, ms); frames++;
+  bfsMax = Math.max(bfsMax, bfsFrame); bfsTotal += bfsFrame;
+  if (state === 'celebrate') { signAt = signAt || S.stats.time; S.done = true; go('play'); }
+  const t = S.stats.time;
+  if (Math.floor(t) !== lastSec) { lastSec = Math.floor(t); checkSecond(); }
+  if (Math.floor(t / 600) * 600 === Math.floor(t) && !artAt[Math.floor(t)]) artAt[Math.floor(t)] = { art: Object.keys(ART).length, txc: TXC.size, txNew, guests: GUESTS.length, fx: FX.length, money: S.money };
+  if (RELOAD && t >= nextReload) {
+    nextReload += 200 + Math.random() * 100;
+    const before = { money: S.money, unlocked: Object.keys(S.unlocked).sort().join(','), earned: S.earned };
+    saveNow(); S = loadState(); resetWorld(); go('play'); reloads++;
+    const after = { money: S.money, unlocked: Object.keys(S.unlocked).sort().join(','), earned: S.earned };
+    if (JSON.stringify(before) !== JSON.stringify(after)) flag('reload-mismatch', mmss(t) + ' ' + JSON.stringify(before) + ' -> ' + JSON.stringify(after));
+    rebase(); staffJob.clear(); path = []; key = '';
+  }
+}
+const invOk = Object.keys(inv).length === 0;
+console.log(`${PROFILE} ${MAXMIN}m seed? | sign ${signAt ? mmss(signAt) : '-'} | unlocked ${Object.keys(S.unlocked).length}/21 | money ${S.money} earned ${S.earned} | guests ${S.stats.guests} angry ${S.stats.angry} | reloads ${reloads} | stuck ${stuckN} | inv ${invOk ? 'OK' : 'FAIL'}`);
+console.log(`  peaks: guests ${peak.guests} Q ${peak.q} FX ${peak.fx} POPS ${peak.pops} TXC ${peak.txc} ART ${peak.art} FLIPS ${peak.flips} ROTS ${peak.rots} | new text sprites ${txNew} (${(txNew / MAXMIN).toFixed(1)}/min) | BFS/frame max ${bfsMax} avg ${(bfsTotal / frames).toFixed(3)} | update() avg ${(upd / frames).toFixed(3)}ms max ${updMax.toFixed(2)}ms`);
+console.log('  every 10 min: ' + Object.entries(artAt).map(([k, v]) => mmss(+k) + ' art' + v.art + ' txc' + v.txc + ' txNew' + v.txNew + ' g' + v.guests + ' fx' + v.fx).join(' | '));
+for (const k in inv) console.log('  INVARIANT ' + k + ' x' + inv[k].n + ' first: ' + inv[k].first);
+if (!invOk) process.exitCode = 1;

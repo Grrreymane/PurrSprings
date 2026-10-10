@@ -1700,21 +1700,28 @@ const inR = (p, r) => p.x >= r[0] && p.x <= r[0] + r[2] && p.y >= r[1] && p.y <=
 let hold = false;
 // Floating joystick: press anywhere (except the speaker) = base, drag = direction, 14px = full speed.
 const JOY = { on: false, id: null, bx: 0, by: 0, dx: 0, dy: 0 };
+const PTRS = new Map();   // pointerId -> { bx, by, x, y } for every finger held down (the newest one steers)
 const KEYS = {};
 let botMove = null;   // test hook: {x, y} (length <= 1) replaces joystick / keyboard input when not null
 window.addEventListener('pointerdown', e => {
   if (shareEl) return;   // the share overlay handles its own taps
   e.preventDefault(); initAudio();
   const p = toLogical(e);
-  if (p.x >= 162 && p.y <= 18) { muted = !muted; save('mute', muted); return; }   // speaker icon, top-right
-  hold = true; JOY.id = e.pointerId; onPress(p);
+  if (p.x >= 162 && p.x <= W && p.y <= 18) { muted = !muted; save('mute', muted); return; }   // speaker icon, top-right (not the side bars)
+  hold = true; JOY.id = e.pointerId; PTRS.set(e.pointerId, { bx: p.x, by: p.y, x: p.x, y: p.y }); onPress(p);
 }, { passive: false });
 window.addEventListener('pointermove', e => {
+  const q = PTRS.get(e.pointerId); if (q) { const p = toLogical(e); q.x = p.x; q.y = p.y; }
   if (!JOY.on || e.pointerId !== JOY.id) return;
   const p = toLogical(e); JOY.dx = p.x - JOY.bx; JOY.dy = p.y - JOY.by;
 });
-['pointerup', 'pointercancel'].forEach(ev => window.addEventListener(ev, e => { hold = false; if (e.pointerId === JOY.id) JOY.on = false; }));
-window.addEventListener('blur', () => { hold = false; JOY.on = false; for (const k in KEYS) KEYS[k] = false; });
+// the steering finger lifts while another is still down: that finger takes over from its own base (no dead stop)
+['pointerup', 'pointercancel'].forEach(ev => window.addEventListener(ev, e => {
+  hold = false; PTRS.delete(e.pointerId); if (e.pointerId !== JOY.id) return;
+  JOY.on = false;
+  if (state === 'play' && PTRS.size) { const [id, q] = [...PTRS].pop(); Object.assign(JOY, { on: true, id, bx: q.bx, by: q.by, dx: q.x - q.bx, dy: q.y - q.by }); }
+}));
+window.addEventListener('blur', () => { hold = false; JOY.on = false; PTRS.clear(); for (const k in KEYS) KEYS[k] = false; });
 window.addEventListener('contextmenu', e => { if (!shareEl) e.preventDefault(); });
 // Cancelling raw touches stops phones from showing the long-press bubble / magnifier; pointer events still arrive.
 ['touchstart', 'touchmove', 'touchend'].forEach(ev => window.addEventListener(ev, e => { if (!shareEl && e.cancelable) e.preventDefault(); }, { passive: false }));
@@ -1722,7 +1729,7 @@ window.addEventListener('contextmenu', e => { if (!shareEl) e.preventDefault(); 
 window.addEventListener('keydown', e => {
   if (shareEl) return;
   initAudio(); KEYS[e.code] = true;
-  if (e.code === 'KeyM') { muted = !muted; save('mute', muted); }
+  if (e.code === 'KeyM' && !e.repeat) { muted = !muted; save('mute', muted); }
   if ((e.code === 'Enter' || e.code === 'Space') && state === 'title') onPress({ x: BTN.start[0] + 1, y: BTN.start[1] + 1 });
   if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
 });
@@ -1740,7 +1747,8 @@ let AC = null, NB = null, MB = null, muted = load('mute', false);
 function initAudio() {
   try {
     if (AC && AC.state === 'closed') { AC = null; NB = null; MB = null; }
-    if (!AC) { const A = window.AudioContext || window.webkitAudioContext; if (A) AC = new A(); }
+    // a new context's clock starts at 0 (e.g. after pagehide closed the old one): restart the music / SFX clocks with it
+    if (!AC) { const A = window.AudioContext || window.webkitAudioContext; if (A) { AC = new A(); bgmNext = 0; bgmStep = 0; sfxCoinT = sfxPopT = sfxTickT = -1; } }
     if (AC && AC.state === 'suspended') AC.resume();
   } catch (e) {}
 }
@@ -1830,7 +1838,7 @@ function musicTick() {
 function vib(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
 document.addEventListener('visibilitychange', () => {
   try { if (document.hidden && state !== 'title') saveNow(); } catch (e) {}
-  try { if (!AC) return; if (document.hidden) AC.suspend(); else AC.resume(); } catch (e) {}
+  try { if (!AC || AC.state === 'closed') return; const pr = document.hidden ? AC.suspend() : AC.resume(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {}
 });
 window.addEventListener('pagehide', () => { try { if (state !== 'title') saveNow(); } catch (e) {} try { if (AC) AC.close(); } catch (e) {} });
 
@@ -1956,28 +1964,29 @@ const REST = [[11, 25], [12, 25], [13, 25]];         // staff idle spots
 const EXIT = [7 * TILE + 8, 34 * TILE + 8];          // half a tile below the map
 const PILE_AT = { recep: [5, 24], onsen: [8, 5], milk: [11, 5] }; ROOMS.forEach(r => { PILE_AT[r.id] = r.pile; });
 const SHIRTS = ['#e05a5a', '#5a9ae0', '#6ac06a', '#e0b04a', '#b07ae0', '#e08ac0', '#4ac0b8', '#f08a4a'];
-// unlock table (prices tuned with tests/bot.js; SPEC 2.5 had the starting values)
+// unlock table (prices tuned with tests/bot.js + tests/bot_balance.js; SPEC 2.5 lists them). Lobby pads sit in cols 9-10
+// and the milk pad beside the machine: the camera always shows cols 4-10 (cam.x 0..60), so new pads never pop in unseen.
 const UNLOCKS = [
   { id: 'room2',   name: '客房', price: 25,   req: [],                    pad: [8, 20],  icon: 'room' },
-  { id: 'room3',   name: '客房', price: 50,   req: ['room2'],             pad: [6, 16],  icon: 'room' },
-  { id: 'shoes1',  name: '跑鞋', price: 65,   req: ['room2'],             pad: [1, 27],  icon: 'shoes' },
-  { id: 'onsen',   name: '温泉', price: 70,  req: ['room3'],             pad: [7, 7],   icon: 'onsen' },
-  { id: 'room4',   name: '客房', price: 140,  req: ['onsen'],             pad: [8, 16],  icon: 'room' },
-  { id: 'recep',   name: '前台', price: 70,  req: ['onsen'],             pad: [1, 24],  icon: 'recep' },
-  { id: 'basket1', name: '竹篮', price: 80,  req: ['onsen'],             pad: [1, 28],  icon: 'basket' },
-  { id: 'milk',    name: '牛奶', price: 150,  req: ['onsen'],             pad: [12, 4],  icon: 'milk' },
-  { id: 'maid1',   name: '仲居', price: 160,  req: ['recep'],             pad: [11, 27], icon: 'maid' },
-  { id: 'room5',   name: '客房', price: 220,  req: ['room4'],             pad: [6, 12],  icon: 'room' },
-  { id: 'room6',   name: '客房', price: 260,  req: ['room5'],             pad: [8, 12],  icon: 'room' },
-  { id: 'shoes2',  name: '跑鞋', price: 240,  req: ['shoes1', 'room5'],   pad: [1, 27],  icon: 'shoes' },
-  { id: 'porter',  name: '搬运', price: 300,  req: ['maid1', 'milk'],     pad: [13, 27], icon: 'porter' },
-  { id: 'basket2', name: '竹篮', price: 260,  req: ['basket1', 'porter'], pad: [1, 28],  icon: 'basket' },
-  { id: 'room7',   name: '客房', price: 350,  req: ['room6'],             pad: [6, 8],   icon: 'room' },
-  { id: 'room8',   name: '客房', price: 400,  req: ['room7'],             pad: [8, 8],   icon: 'room' },
-  { id: 'maid2',   name: '仲居', price: 420,  req: ['room7', 'maid1'],    pad: [12, 27], icon: 'maid' },
-  { id: 'bigbath', name: '浴池', price: 500,  req: ['room8'],             pad: [3, 5],   icon: 'bath' },
-  { id: 'shoes3',  name: '跑鞋', price: 400,  req: ['shoes2', 'room8'],   pad: [1, 27],  icon: 'shoes' },
-  { id: 'sign',    name: '招牌', price: 800, req: ['bigbath', 'maid2'],  pad: [7, 31],  icon: 'sign' },
+  { id: 'room3',   name: '客房', price: 35,   req: ['room2'],             pad: [6, 16],  icon: 'room' },
+  { id: 'shoes1',  name: '跑鞋', price: 35,   req: ['room2'],             pad: [9, 28],  icon: 'shoes' },
+  { id: 'onsen',   name: '温泉', price: 50,   req: ['room3'],             pad: [7, 7],   icon: 'onsen' },
+  { id: 'room4',   name: '客房', price: 180,  req: ['onsen'],             pad: [8, 16],  icon: 'room' },
+  { id: 'recep',   name: '前台', price: 55,   req: ['onsen'],             pad: [9, 25],  icon: 'recep' },
+  { id: 'basket1', name: '竹篮', price: 80,   req: ['onsen'],             pad: [10, 28], icon: 'basket' },
+  { id: 'milk',    name: '牛奶', price: 200,  req: ['onsen'],             pad: [10, 5],  icon: 'milk' },
+  { id: 'maid1',   name: '仲居', price: 120,  req: ['recep'],             pad: [9, 25],  icon: 'maid' },
+  { id: 'room5',   name: '客房', price: 320,  req: ['room4'],             pad: [6, 12],  icon: 'room' },
+  { id: 'room6',   name: '客房', price: 370,  req: ['room5'],             pad: [8, 12],  icon: 'room' },
+  { id: 'shoes2',  name: '跑鞋', price: 340,  req: ['shoes1', 'room5'],   pad: [9, 28],  icon: 'shoes' },
+  { id: 'porter',  name: '搬运', price: 430,  req: ['maid1', 'milk'],     pad: [10, 25], icon: 'porter' },
+  { id: 'basket2', name: '竹篮', price: 370,  req: ['basket1', 'porter'], pad: [10, 28], icon: 'basket' },
+  { id: 'room7',   name: '客房', price: 500,  req: ['room6'],             pad: [6, 8],   icon: 'room' },
+  { id: 'room8',   name: '客房', price: 570,  req: ['room7'],             pad: [8, 8],   icon: 'room' },
+  { id: 'maid2',   name: '仲居', price: 600,  req: ['room7', 'maid1'],    pad: [9, 25],  icon: 'maid' },
+  { id: 'bigbath', name: '浴池', price: 720,  req: ['room8'],             pad: [3, 5],   icon: 'bath' },
+  { id: 'shoes3',  name: '跑鞋', price: 570,  req: ['shoes2', 'room8'],   pad: [9, 28],  icon: 'shoes' },
+  { id: 'sign',    name: '招牌', price: 1100, req: ['bigbath', 'maid2'],  pad: [7, 31],  icon: 'sign' },
 ];
 const UNLOCK = {}; UNLOCKS.forEach(u => { UNLOCK[u.id] = u; });
 // where each unlock's sparkle goes (the thing that appears)
@@ -1993,7 +2002,7 @@ const STARS = [null,
   { room: 20, tip: 8, bath: 12, milk: 8, gap: 4.2 },
   { room: 25, tip: 10, bath: 15, milk: 10, gap: 3.6 },
 ];
-const PATIENCE = 45, BATH_WAIT = 20, CHECKIN_T = .7, CLEAN_T = 1.5, MAID_CLEAN_T = 2.5, BATH_T = 6, SLEEP_T = 10, MILK_T = 1;
+const PATIENCE = 45, PATIENCE_EARLY = 70, BATH_WAIT = 20, CHECKIN_T = .7, CLEAN_T = 1.5, MAID_CLEAN_T = 2.5, BATH_T = 6, SLEEP_T = 10, MILK_T = 1;
 const P_SPEED = 56, G_SPEED = 34, STAFF_SPEED = 40, BASKET_MAX = 10, PAD_DELAY = .4;
 
 // ============================================================ state + save/load
@@ -2005,7 +2014,7 @@ function defaults() {
   };
 }
 const starOf = s => 1 + (s.unlocked.onsen ? 1 : 0) + (s.unlocked.room6 ? 1 : 0) + (s.unlocked.room8 ? 1 : 0) + (s.unlocked.sign ? 1 : 0);
-const int0 = v => Math.max(0, Math.floor(+v || 0));
+const int0 = v => { const n = Math.floor(+v); return Number.isFinite(n) && n > 0 ? Math.min(n, 1e9) : 0; };
 function loadState() {
   let raw = load('state', null); if (!raw || typeof raw !== 'object') raw = {};
   const s = Object.assign(defaults(), raw), d = defaults();
@@ -2013,7 +2022,15 @@ function loadState() {
   s.money = int0(s.money); s.earned = int0(s.earned); s.basket = clamp(int0(s.basket), 0, BASKET_MAX); s.done = !!s.done;
   s.unlocked.room1 = true;
   for (const k in s.paid) s.paid[k] = int0(s.paid[k]);
-  for (const k in s.piles) s.piles[k] = int0(s.piles[k]);
+  {   // only piles the map has (and that are unlocked); anything else (a renamed id, an array, a hand edit) goes on the desk pile
+    const pl = {};
+    for (const k in s.piles) {
+      const v = int0(s.piles[k]); if (!v) continue;
+      const id = Object.prototype.hasOwnProperty.call(PILE_AT, k) && (k === 'recep' || s.unlocked[k]) ? k : 'recep';
+      pl[id] = (pl[id] || 0) + v;
+    }
+    s.piles = pl;
+  }
   for (const k of ['guests', 'angry']) s.stats[k] = int0(s.stats[k]);
   s.stats.time = Math.max(0, +s.stats.time || 0);
   // guests are not saved: a reserved room is free again, a slept-in room is messy and its guest left a tip
@@ -2160,11 +2177,12 @@ function addGuest() {
   const furs = Object.keys(FURS).filter(k => k !== 'orange');
   const gu = { id: ++guestN, x: EXIT[0], y: EXIT[1], dir: 'up', moving: false, walkT: 0, path: [], goal: null, spd: G_SPEED * rand(.9, 1.1),
     look: { fur: pick(furs), outfit: 'guest', shirt: pick(SHIRTS), bag: Math.random() < .5 }, ox: R(rand(-2, 2)),
-    st: 'arrive', t: 0, pat: PATIENCE, wait: 0, ck: 0, front: 0, room: null, slot: -1, heart: 0, tt: 0, ready: false, bub: null, urg: 0 };
+    st: 'arrive', t: 0, pat: S.unlocked.recep ? PATIENCE : PATIENCE_EARLY, wait: 0, ck: 0, front: 0, room: null, slot: -1, heart: 0, tt: 0, ready: false, bub: null, urg: 0 };
   GUESTS.push(gu); Q.push(gu);
 }
 function freeRoom() { for (const rm of ROOMS) if (S.unlocked[rm.id] && S.rooms[rm.id] === 'clean' && !RT[rm.id].guest) return rm; return null; }
-function guestToRoom(gu) { setSt(gu, 'toRoom'); gu.goal = null; }
+// after a bath / milk / giving up on a towel: back to the room if it still holds one, else home (bath-last guests already slept)
+function guestToRoom(gu) { if (!gu.room) { guestLeave(gu, false); return; } setSt(gu, 'toRoom'); gu.goal = null; }
 function guestLeave(gu, angry) { setSt(gu, angry ? 'angry' : 'leave'); gu.goal = null; goTo(gu, 7, 33, EXIT.slice()); }
 function updGuest(gu, dt) {
   gu.t += dt; if (gu.heart > 0) gu.heart -= dt;
@@ -2217,7 +2235,7 @@ function updGuest(gu, dt) {
       if (gu.tt <= 0) {
         const id = gu.room; S.rooms[id] = 'messy'; S.piles[id] = (S.piles[id] || 0) + fee('tip');
         RT[id].guest = null; RT[id].cleanP = 0; gu.room = null; gu.dir = 'down'; markDirty();
-        guestLeave(gu, false);
+        if (S.unlocked.onsen) { setSt(gu, 'toBath'); gu.goal = null; } else guestLeave(gu, false);   // bathe on the way out: the room is free first
       }
       break;
     case 'leave': case 'angry': if (walk()) gu.gone = true; break;
@@ -2226,7 +2244,7 @@ function updGuest(gu, dt) {
 function checkIn(gu, rm) {
   Q.shift(); gu.room = rm.id; RT[rm.id].guest = gu; S.rooms[rm.id] = 'reserved';
   S.piles.recep = (S.piles.recep || 0) + fee('room'); S.stats.guests++; gu.ck = 0;
-  setSt(gu, S.unlocked.onsen ? 'toBath' : 'toRoom'); gu.goal = null;
+  setSt(gu, 'toRoom'); gu.goal = null;
   SFX.bell(); markDirty();
 }
 // staff: recep (stays at the desk), maids (clean the nearest unclaimed messy room), porter (keeps the towel basket stocked)
@@ -2262,7 +2280,7 @@ function updStaff(s, dt) {
   // porter
   if (s.loading) {
     goTo(s, SHELF_SPOT[0], SHELF_SPOT[1]);
-    if (walk()) { s.dir = 'up'; s.tt += dt; while (s.tt >= .12 && s.carry < 4) { s.tt -= .12; s.carry++; } if (s.carry >= 4) { s.loading = false; s.tt = 0; } }
+    if (walk()) { s.dir = 'up'; s.tt += dt; while (s.tt >= .12 && s.carry < 6) { s.tt -= .12; s.carry++; } if (s.carry >= 6) { s.loading = false; s.tt = 0; } }
   } else if (s.carry > 0 && S.basket < BASKET_MAX) {
     goTo(s, BASKET_SPOT[0], BASKET_SPOT[1]);
     if (walk()) { s.dir = 'right'; s.tt += dt; while (s.tt >= .1 && s.carry > 0 && S.basket < BASKET_MAX) { s.tt -= .1; s.carry--; S.basket++; markDirty(); } }
@@ -2294,8 +2312,9 @@ function collect(id) {
 function pour(u, dt) {
   if (P.padOn !== u.id) { P.padOn = u.id; P.padT = 0; }
   P.padT += dt; if (P.padT < PAD_DELAY) return;   // walking across a pad doesn't spend; stand on it for a moment
+  if (padNeed(u) <= 0) { unlock(u.id); return; }   // an old save already paid more than a price that was lowered later
+  if (S.money <= 0) { P.pouring = null; P.pourAcc = 0; return; }   // out of fish: no pouring look (the frame stays white)
   if (P.pouring !== u.id) { P.pouring = u.id; P.pourAcc = 0; }
-  if (S.money <= 0) { P.pourAcc = 0; return; }
   P.pourAcc += Math.max(15, u.price / 1.2) * dt;
   const n = Math.min(Math.floor(P.pourAcc), S.money, padNeed(u));
   if (n > 0) {
@@ -2330,15 +2349,17 @@ function zones(dt) {
 // ---- unlocking
 const POPA = {};           // id -> time it popped in (objects / furniture scale in)
 const PADSEEN = new Set(); // pads already shown (a newly visible pad pops in once)
-let celebrateAt = 0;
+let celebrateAt = 0, starPopAt = -9;   // starPopAt: when the HUD's newest star last popped in
 function unlock(id) {
   if (S.unlocked[id]) return;
-  const u = UNLOCK[id];
+  const u = UNLOCK[id], s0 = star();
+  const over = (S.paid[id] || 0) - u.price; if (over > 0) S.money += over;   // paid in before a price cut: give the rest back
   S.unlocked[id] = true; S.paid[id] = u.price;
   if (ROOM[id]) S.rooms[id] = 'clean';
-  if (id === 'onsen') S.basket = 4;
+  if (id === 'onsen') S.basket = BASKET_MAX;
   POPA[id] = T; P.pourAcc = 0; P.pouring = null;
   rebuildWorld(); ensureStaff(); unstick(P);
+  if (star() > s0) starPopAt = T;   // the new HUD star pops (the unlock chime already plays)
   fxSpark(u.at[0], u.at[1], 6); FX.push({ k: 'poof', x: u.at[0], y: u.at[1], t: 0, life: .45 });
   if (u.at[0] !== u.pad[0] * TILE + 8 || u.at[1] !== u.pad[1] * TILE + 8) fxSpark(u.pad[0] * TILE + 8, u.pad[1] * TILE + 8, 4);
   SFX.unlock(); saveNow();
@@ -2348,7 +2369,10 @@ function padsSeen() { for (const u of UNLOCKS) if (padVisible(u) && !PADSEEN.has
 
 // ============================================================ guide (arrow) + hints + bubbles
 // The single "what next" brain: the arrow draws it, the balance bot walks it. here = you're already doing it (no arrow).
-// Order: keep doing the job you're standing in > a pile 1-3 steps away > a pad you can afford > SPEC 2.7 rules 2, 3, 4, 6, 7.
+// One ordered list, no wrappers. Order: keep doing the job you're standing in > a pile 1-3 steps away > towels on your
+// head go to the basket > a pad you can afford > a guest at the counter or walking in > a pile that pays for a pad >
+// a messy room blocking the queue > towels > the biggest pile > while you have fish, the cheapest pad (part payment is
+// kept) > the room whose sleeper wakes first. Never hidden by distance: a new player with no arrow doesn't know what to do.
 function gT(kind, x, y, tx, ty, here) { return { kind, x, y, tx, ty, here: !!here }; }
 const T_DESK = here => gT('desk', DESK_SPOT[0] * TILE + 8, DESK_SPOT[1] * TILE + 8, DESK_SPOT[0], DESK_SPOT[1], here);
 const T_CLEAN = (rm, here) => { const c = futonC(rm); return gT('clean', c[0], c[1], rm.futon[0], rm.futon[1] + 1, here); };
@@ -2360,8 +2384,9 @@ const towelWanted = () => S.basket === 0 && GUESTS.some(gu => gu.st === 'towel')
 function guideTarget() {
   if (!S.tut.moved) return null;
   const f = Q[0], waiting = !!(f && f.st === 'queue' && f.ready), free = freeRoom();
+  const coming = !S.unlocked.recep && Q.length > 0 && !!free;   // a guest at the counter or walking in, a room ready, nobody hired
   // 0. you're in the middle of a job: keep at it
-  if (P.atDesk && waiting && free && !S.unlocked.recep) return T_DESK(true);
+  if (P.atDesk && coming) return T_DESK(true);
   for (const rm of ROOMS) if (S.rooms[rm.id] === 'messy' && inCleanZone(rm)) return T_CLEAN(rm, true);
   if (S.unlocked.onsen) {
     if (P.towels > 0 && S.basket < BASKET_MAX && inBasketZone()) return T_BASKET(true);
@@ -2375,12 +2400,19 @@ function guideTarget() {
     const p = findPath(ptx, pty, tx, ty); if (p && p.length < nd) { nd = p.length; near = id; }
   }
   if (near) return T_PILE(near);
+  // 1b. towels on your head (before the porter): finish the run while the need that started it still holds
+  if (S.unlocked.onsen && !S.unlocked.porter && P.towels > 0 && (S.basket <= 2 || towelWanted())) return T_BASKET(false);
   // 5 (moved up). a price pad you can afford: the cheapest — growing the inn beats serving one more guest
   let best = null;
   for (const u of UNLOCKS) if (padVisible(u) && S.money >= padNeed(u) && (!best || padNeed(u) < padNeed(best))) best = u;
   if (best) return T_PAD(best);
-  // 2. a guest is at the counter, a room is ready, nobody is serving
-  if (waiting && free && !S.unlocked.recep) return T_DESK(false);
+  // 2. a guest is at the counter or walking in, a room is ready, nobody is serving
+  if (coming) return T_DESK(false);
+  // 2b. the biggest fish pile would pay for a pad: fetch it before cleaning / towels (point at what really advances)
+  { let pid = null, need = 1e9;
+    for (const id in S.piles) if (S.piles[id] > 0 && (!pid || S.piles[id] > S.piles[pid])) pid = id;
+    for (const u of UNLOCKS) if (padVisible(u)) need = Math.min(need, padNeed(u));
+    if (pid && S.money + S.piles[pid] >= need) return T_PILE(pid); }
   // 3. a guest is stuck because no room is clean, and the maids can't keep up -> the nearest messy room
   if (waiting && !free) {
     const messy = ROOMS.filter(rm => S.rooms[rm.id] === 'messy');
@@ -2396,9 +2428,16 @@ function guideTarget() {
   let pid = null;
   for (const id in S.piles) if (S.piles[id] > 0 && (!pid || S.piles[id] > S.piles[pid])) pid = id;
   if (pid) return T_PILE(pid);
-  // 7. the cheapest visible pad, so you know what's next (hidden once you're near it)
-  for (const u of UNLOCKS) if (padVisible(u) && (!best || padNeed(u) < padNeed(best))) best = u;
-  if (best && dist(P.x, P.y, best.pad[0] * TILE + 8, best.pad[1] * TILE + 8) > 2 * TILE) return T_PAD(best);
+  // 7. you have fish: the cheapest visible pad (part payment is kept); standing on it = here. With 0 fish, no pad.
+  if (S.money > 0) {
+    for (const u of UNLOCKS) if (padVisible(u) && (!best || padNeed(u) < padNeed(best))) best = u;
+    if (best) return T_PAD(best, ptx === best.pad[0] && pty === best.pad[1]);
+  }
+  // 8. a guest waits and every room is taken: stand by the room whose sleeper wakes first (it needs cleaning next)
+  if (waiting && !free) {
+    let bm = null; for (const rm of ROOMS) { const gu = RT[rm.id].guest; if (gu && gu.st === 'sleep' && (!bm || gu.tt < RT[bm.id].guest.tt)) bm = rm; }
+    if (bm) return T_CLEAN(bm, inCleanZone(bm));
+  }
   return null;
 }
 let GUIDE = null, guideClock = 0;
@@ -2406,12 +2445,13 @@ let GUIDE = null, guideClock = 0;
 const urgOf = fr => fr > .6 ? 0 : fr > .3 ? 1 : 2;
 function bubbles() {
   const manned = deskManned(), free = !!freeRoom();
+  let worst = 0; for (const q of Q) if (q.st === 'queue') worst = Math.max(worst, urgOf(q.pat / PATIENCE));
   for (const gu of GUESTS) {
     let b = null, u = 0;
     if (gu.st === 'queue') {
-      u = urgOf(gu.pat / PATIENCE);
-      if (gu === Q[0] && gu.ready) { if (!free) b = 'bed'; else if (!manned && gu.front > .6) b = 'dots'; }
-      else if (u > 0) b = 'dots';
+      // only the front guest gets a bubble (one over each guest covered the face of the guest ahead); its rim shows
+      // the most impatient guest in the line. Thresholds stay absolute: early guests' 70 s read white until 27 s are left.
+      if (gu === Q[0] && gu.ready) { u = worst; if (!free) b = 'bed'; else if (!manned && gu.front > .6) b = 'dots'; }
     } else if (gu.st === 'towel') { b = 'towel'; u = urgOf(gu.wait / BATH_WAIT); }
     else if (gu.st === 'toSlot' && gu.slot < 0 && gu.wait < BATH_WAIT * .6) { b = 'dots'; u = urgOf(gu.wait / BATH_WAIT); }
     else if (gu.st === 'milk') b = 'milk';
@@ -2524,20 +2564,22 @@ function drawPad(u) {
   }
   g.drawImage(padIcon(u.icon), x + 2, y + 2);
 }
-// The price goes under the pad; beside it (right) when another visible pad sits right below (跑鞋 over 竹篮);
-// over it when another visible pad sits right beside it (仲居 / 搬运). The 2-char name shows over the pad when
-// you're within 2 tiles. The guide arrow reads this layout to stay clear of the labels.
+// The price goes under the pad; beside it (right) when another visible pad sits right below, or when you stand just
+// below the pad (it would cover your head); over it when another visible pad sits right beside it (跑鞋 / 竹篮,
+// 仲居 / 搬运). The 2-char name shows over the pad when you're within 2 tiles. The guide arrow reads this layout.
 function padLayout(u) {
   const vis = (dx, dy) => UNLOCKS.some(o => o !== u && padVisible(o) && o.pad[0] === u.pad[0] + dx && o.pad[1] === u.pad[1] + dy);
-  const side = vis(0, 1) ? 'right' : vis(1, 0) ? 'over' : 'under';
+  const head = Math.abs(P.x - (u.pad[0] * TILE + 8)) < 16 && P.y > u.pad[1] * TILE + 16 && P.y < u.pad[1] * TILE + 44;   // just below: the price would cover your head
+  const side = vis(0, 1) ? 'right' : vis(1, 0) ? 'over' : head ? 'right' : 'under';
   const on = Math.floor(P.x / TILE) === u.pad[0] && Math.floor(P.y / TILE) === u.pad[1];   // standing on it: the name would cover your head
   return { side, over: side === 'over', named: !on && dist(P.x, P.y, u.pad[0] * TILE + 8, u.pad[1] * TILE + 8) <= 2 * TILE };
 }
 function padLabels(u) {
   if (popScale(POPA['pad:' + u.id]) < 1) return;
   const cx = u.pad[0] * TILE + 8 - CX, y = u.pad[1] * TILE - CY, { side, over, named } = padLayout(u);
-  const need = padNeed(u), fi = fishIcon(), label = fmt(need), w = label.length * 3.8;
+  const need = Math.max(0, padNeed(u)), fi = fishIcon(), label = fmt(need), w = label.length * 3.8;
   const py = side === 'over' ? y - 4 : side === 'right' ? y + 8 : y + 20, lx = side === 'right' ? cx + 9 : R(cx - (w + fi.width) / 2);
+  if (py < 19) return;   // would sit on the HUD row (text is drawn last, over the speaker / fish / stars)
   g.drawImage(fi, lx, R(py - fi.height / 2));
   txt(label, lx + fi.width + 1, py, 7, S.money >= need ? '#ffe9a8' : '#ffffff', 'left');
   if (named) txt(u.name, cx, over ? y - 13 : y - 5, 7, '#ffffff');
@@ -2645,7 +2687,14 @@ function drawHUD() {
   drawC(fishIcon(), 9, 8 - (hudBump > 0 ? 1 : 0));
   txt(n, 16, 8.5, 8, '#ffe9a8', 'left');
   const sx = 2 + w + 3; pill(sx, 2, 43, 13);
-  for (let i = 0; i < 5; i++) drawC(starIcon(i < star()), sx + 6 + i * 8, 8);
+  for (let i = 0; i < 5; i++) {
+    const x = sx + 6 + i * 8;
+    if (i === star() - 1 && T - starPopAt < .6) {   // a star just earned: scales in (0 -> 1.15 -> 1) under a sparkle, no flash
+      const w = R(7 * popScale(starPopAt));
+      if (w > 0) g.drawImage(starIcon(true), R(x - w / 2), R(8 - w / 2), w, w);
+      drawC(sparkleArt(clamp(Math.floor((T - starPopAt) / .6 * 4), 0, 3)), x, 8);
+    } else drawC(starIcon(i < star()), x, 8);
+  }
 }
 function drawFly() {
   for (const f of FX) if (f.k === 'fly' && f.t >= 0) {
@@ -2684,7 +2733,7 @@ function resetWorld() {
   for (const k in POPA) delete POPA[k];
   PADSEEN.clear(); for (const u of UNLOCKS) if (padVisible(u)) PADSEEN.add(u.id);
   Object.assign(P, { x: 7 * TILE + 8, y: 27 * TILE + 8, dir: 'up', moving: false, walkT: 0, towels: 0, dist: 0, sway: 0, atDesk: false, pourAcc: 0, pouring: null, padOn: null, padT: 0, shelfT: 0, basketT: 0 });
-  spawnT = 1.5; guideClock = 0; GUIDE = null; celebrateAt = 0; DISP = S.money; lastEarnT = S.stats.time;
+  spawnT = 1.5; guideClock = 0; GUIDE = null; celebrateAt = 0; starPopAt = -9; DISP = S.money; lastEarnT = S.stats.time;
   rebuildWorld(); ensureStaff(); updCam(0, true);
 }
 function newGame() { S = defaults(); resetWorld(); saveNow(); hasSave = true; go('play'); }

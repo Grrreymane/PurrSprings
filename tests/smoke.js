@@ -56,8 +56,15 @@ const back = { money: S.money, unlocked: Object.keys(S.unlocked).sort().join(','
 if (back.money !== mid.money || back.unlocked !== mid.unlocked) bad('roundtrip', JSON.stringify(mid) + ' -> ' + JSON.stringify(back));
 run(300, 'after-load');
 // old / odd save shapes load without throwing
-for (const raw of ['{}', '{"money":"12","unlocked":{"room2":true},"rooms":{"room1":"occupied","room2":"reserved"}}', '{"v":1,"stats":null,"tut":7}', 'not json']) {
-  try { localStorage.setItem(SAVE + 'state', raw); const s = loadState(); if (!Number.isFinite(s.money) || !s.unlocked.room1) bad('oldsave', raw); S = s; resetWorld(); go('play'); run(5, 'oldsave'); }
+// (+ shapes the game never writes: unknown / array / locked pile keys, Infinity, a part payment above a lowered price)
+for (const raw of ['{}', '{"money":"12","unlocked":{"room2":true},"rooms":{"room1":"occupied","room2":"reserved"}}', '{"v":1,"stats":null,"tut":7}', 'not json',
+  '{"piles":{"desk":5}}', '{"piles":[3,4]}', '{"piles":{"room5":9,"onsen":4,"constructor":2}}', '{"money":1e999}', '{"money":12,"paid":{"room2":40}}']) {
+  try {
+    localStorage.setItem(SAVE + 'state', raw); const s = loadState();
+    if (!Number.isFinite(s.money) || !s.unlocked.room1) bad('oldsave', raw);
+    for (const k in s.piles) if (!Object.prototype.hasOwnProperty.call(PILE_AT, k) || !Number.isFinite(s.piles[k])) bad('oldsave pile ' + k, raw);
+    S = s; resetWorld(); go('play'); run(5, 'oldsave');
+  }
   catch (e) { bad('oldsave ' + raw, String(e && e.stack || e)); }
 }
 console.log(errs.length ? 'SMOKE FAIL\n  ' + errs.join('\n  ') : 'SMOKE OK  money ' + mid.money + ', guests ' + mid.guests + ', unlocked [' + mid.unlocked + '] after 5 min; round trip + 5 min OK');
