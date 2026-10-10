@@ -24,7 +24,8 @@
   const ff = (sec, bot) => { for (let i = 0, n = Math.round(sec / DT); i < n; i++) { if (bot) drive(DT); update(DT); if (state === 'celebrate' && bot) { S.done = true; go('play'); } } botMove = null; };
   const unl = ids => { ids.forEach(id => { S.unlocked[id] = true; S.paid[id] = UNLOCK[id].price; for (const rm of ROOMS) if (rm.open === id) S.rooms[rm.id] = S.rooms[rm.id] || 'clean'; }); S.peak = Math.max(S.peak, starOf(S)); };
   const place = (x, y, dir) => { Object.assign(P, { x: x * TILE + 8, y: y * TILE + 8, dir: dir || 'down', moving: false }); updCam(0, true); };
-  const guest = (o) => { addGuest(); const gu = GUESTS[GUESTS.length - 1]; Q.splice(Q.indexOf(gu), 1); Object.assign(gu, o); return gu; };
+  const guest = (o) => { addGuest('regular'); const gu = GUESTS[GUESTS.length - 1]; Q.splice(Q.indexOf(gu), 1); Object.assign(gu, o); return gu; };
+  const party = (type, o) => { addGuest(type); const gu = GUESTS[GUESTS.length - 1]; Q.splice(Q.indexOf(gu), 1); Object.assign(gu, o); if (gu.mate) { gu.mate.x = gu.x; gu.mate.y = gu.y + 9; } return gu; };
   const bathe = (slot, room) => { const gu = guest({ st: 'bathing', t: 0, tt: 60, slot, room, x: SLOTS[slot].x * TILE + 8, y: 4 * TILE + 8 }); SLOT_OCC[slot] = gu; RT[room].guest = gu; S.rooms[room] = 'reserved'; return gu; };
   const sleepIn = (room) => { const rm = ROOM[room]; const gu = guest({ st: 'sleep', t: 0, tt: 60, room, x: rm.stand[0] * TILE + 8, y: rm.stand[1] * TILE + 8 }); RT[room].guest = gu; S.rooms[room] = 'occupied'; return gu; };
   const ALL = UNLOCKS.filter(u => !u.need5 && u.id !== 'maid4').map(u => u.id);
@@ -82,6 +83,35 @@
       ff(20, false); place(17, 30, 'up'); go('celebrate'); st = 1;
     },
     share() { sc.celebrate(); makeShare(); },
+    // ---- stage 2A (SPEC_v2 4.1-4.6): breakfast in full swing, calls + the tray, parties walking in / bathing
+    dining_busy() {
+      newGame(); S.tut.moved = true; unl(ALL.filter(id => UNLOCKS.findIndex(u => u.id === id) <= UNLOCKS.findIndex(u => u.id === 'chef')).concat(['table4'])); resetWorld(); go('play'); spawnT = 1e9;
+      PASS.n = 4;
+      const sit = (i, o) => { const se = SEATS[i], gu = guest(Object.assign({ st: 'seated', t: 8, seat: i, x: tcx(se.at), y: tcy(se.at), dir: se.face, inside: true }, o)); SEAT_OCC[i] = gu; return gu; };
+      sit(0); sit(3, { t: 24 }); const e = sit(4); serveSeat(e); e.tt = 3;
+      const c = party('couple', { st: 'seated', t: 12, seat: 6, seat2: 7, x: tcx(SEATS[6].at), y: tcy(SEATS[6].at), dir: SEATS[6].face, inside: true }); SEAT_OCC[6] = SEAT_OCC[7] = c;
+      Object.assign(c.mate, { mode: 'park', x: tcx(SEATS[7].at), y: tcy(SEATS[7].at), dir: SEATS[7].face });
+      ff(1.2, false); place(5, 24, 'up'); P.tray = ['rice', 'rice']; ff(.1, false);
+    },
+    calls() {
+      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'shoes1', 'onsen', 'recep', 'tea', 'basket1', 'room4', 'milk', 'maid1']); resetWorld(); go('play'); spawnT = 1e9;
+      const a = sleepIn('room2'); a.call = { k: 'tea', t: 30, max: 40 };
+      const b = sleepIn('room3'); b.call = { k: 'tea', t: 7, max: 40 };
+      const c = guest({ st: 'toBath', x: 17 * TILE + 8, y: 20 * TILE + 8, dir: 'up', inside: true }); c.call = { k: 'milk', t: 18, max: 40 };
+      place(17, 18, 'left'); P.tray = ['tea', 'milk']; ff(.15, false);
+    },
+    parties() {   // a couple (pink heart), a family with its kitten and an elder come in through the front garden
+      newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); S.decor['room1:A'] = 'd_scroll'; S.decor['room1:B'] = 'd_ikebana'; resetWorld(); go('play'); spawnT = 1e9;
+      for (const t of ['family', 'couple', 'elder']) { addGuest(t); ff(.9, false); }
+      ff(.6, false); place(19, 31, 'left'); ff(.1, false);
+    },
+    bath_party() {   // a couple sharing a slot, a family's kitten sitting on the edge
+      newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); resetWorld(); go('play'); spawnT = 1e9;
+      const c = party('couple', { st: 'bathing', t: 0, tt: 60, slot: 0, x: SLOTS[0].x * TILE + 8, y: 4 * TILE + 8, inside: true }); SLOT_OCC[0] = c; c.mate.mode = 'park';
+      const f = party('family', { st: 'bathing', t: 0, tt: 60, slot: 1, x: SLOTS[1].x * TILE + 8, y: 4 * TILE + 8, inside: true }); SLOT_OCC[1] = f; f.mate.mode = 'park';
+      f.call = { k: 'milk', t: 25, max: 50 };
+      place(18, 5, 'up'); ff(.1, false);
+    },
     map() { newGame(); S.tut.moved = true; if (window.MAPU) unl(window.MAPU); resetWorld(); go('play'); ff(25, false); place(17, 27, 'up'); mapView(); },
     mapAll() { newGame(); S.tut.moved = true; unl(ALL.concat(['maid4'])); S.done = true; resetWorld(); go('play'); ff(40, false); place(17, 27, 'up'); mapView(); },
     migrated_v1_s5() {

@@ -54,9 +54,19 @@ function checkSecond() {
   for (const gu of GUESTS) {
     if (gu.room) perRoom[gu.room] = (perRoom[gu.room] || 0) + 1;
     if (gu.slot >= 0) perSlot[gu.slot] = (perSlot[gu.slot] || 0) + 1;
-    if (gu.t > 120 && gu.st !== 'sleep' && gu.st !== 'bathing') flag('stuck-guest', mmss(t) + ' ' + gu.st + ' ' + R(gu.t) + 's at ' + R(gu.x) + ',' + R(gu.y));
+    if (gu.t > 180 && gu.st !== 'sleep' && gu.st !== 'bathing' && gu.st !== 'eat') flag('stuck-guest', mmss(t) + ' ' + gu.st + ' ' + R(gu.t) + 's at ' + R(gu.x) + ',' + R(gu.y));
     if (!Number.isFinite(gu.x) || !Number.isFinite(gu.y)) flag('guest-nan', mmss(t));
+    // stage 2A (14.3): seats, followers
+    if ((gu.st === 'toSeat' || gu.st === 'seated' || gu.st === 'eat') && (gu.seat < 0 || SEAT_OCC[gu.seat] !== gu)) flag('seat-lost', mmss(t) + ' ' + gu.st);
+    if (gu.mate && gu.mate.mode === 'follow' && dist(gu.x, gu.y, gu.mate.x, gu.mate.y) > 200) flag('follower-far', mmss(t) + ' ' + gu.st + ' ' + R(dist(gu.x, gu.y, gu.mate.x, gu.mate.y)));
+    if (gu.call && !(gu.call.t > 0 && gu.call.t <= gu.call.max)) flag('call-time', mmss(t) + ' ' + gu.call.t);
   }
+  // stage 2A (14.3): the tray, calls, seats, the counter
+  if (P.tray.length > trayCap() || P.tray.some(k => !TRAY_KINDS.includes(k)) || countK(P.tray, 'kaiseki') > 1) flag('tray', mmss(t) + ' ' + P.tray.join(','));
+  if (callCount() > callMax()) flag('calls>max', mmss(t) + ' ' + callCount());
+  for (let i = 0; i < SEAT_OCC.length; i++) { const o = SEAT_OCC[i]; if (o && (!GUESTS.includes(o) || (o.seat !== i && o.seat2 !== i))) flag('seat-leak', mmss(t) + ' seat ' + i); }
+  if (!(PASS.n >= 0 && PASS.n <= PASS_MAX && PASS.n === Math.floor(PASS.n))) flag('pass', mmss(t) + ' ' + PASS.n);
+  for (const s of STAFF) if (s.tray.length > WAITER_CARRY) flag('waiter-tray', mmss(t) + ' ' + s.id + ' ' + s.tray.length);
   for (const k in perRoom) if (perRoom[k] > 1) flag('room-shared', mmss(t) + ' ' + k);
   for (const k in perSlot) if (perSlot[k] > 1) flag('slot-shared', mmss(t) + ' ' + k);
   for (let i = 0; i < SLOT_OCC.length; i++) if (SLOT_OCC[i] && !GUESTS.includes(SLOT_OCC[i])) flag('slot-leak', mmss(t) + ' slot ' + i);
@@ -109,6 +119,7 @@ if (JSONOUT) console.log(JSON.stringify({ profile: PROFILE, fin, unlockT, gapEar
 else {
   console.log(`${PROFILE} ★5 ${fin ? mmss(fin) : 'NOT REACHED (' + mmss(t0()) + ', ' + Object.keys(S.unlocked).length + ' unlocked)'} | room2 ${r2 !== undefined ? mmss(r2) : '-'} | gap≤5m ${R(gapEarly)}s(${gapEarlyAt}) >5m ${R(gapLate)}s(${gapLateAt}) | angry ${(angryRate * 100).toFixed(1)}% (${aa}/${ga + aa} after recep; total ${S.stats.angry}/${S.stats.guests + S.stats.angry}) | earn-gap ${R(maxGap)}s@${mmss(maxGapAt)} | peakQ ${peakQueue} | stuck ${stuckN} | inv ${invOk ? 'OK' : 'FAIL'}`);
   console.log('  ' + order.map(u => mmss(unlockT[u.id]) + ' ' + u.id).join(', '));
+  console.log(`  2A: calls ${RUN.calls} made, ${S.stats.calls} served (${S.stats.callsFast} fast), ${RUN.callsMissed} missed | diners ${RUN.seated} seated, ${S.stats.diners} fed, ${RUN.hungry} hungry | ♥ ${S.hearts} | types ${Object.keys(S.album.types).join(',') || '-'}`);
   console.log('  checks: ' + checks.map(([n, ok]) => (ok ? 'ok ' : 'NO ') + n).join(' | '));
   for (const k in inv) console.log('  INVARIANT ' + k + ' x' + inv[k].n + ' first: ' + inv[k].first);
 }

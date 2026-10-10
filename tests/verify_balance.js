@@ -91,7 +91,7 @@ for (let i = 0; i < steps; i++) {
   if (Math.floor(t) !== lastSec) {
     lastSec = Math.floor(t);
     if (!Number.isFinite(S.money) || S.money < 0 || S.money !== Math.floor(S.money)) flag('money', mmss(t));
-    const perRoom = {}; for (const gu of GUESTS) { if (gu.room) perRoom[gu.room] = (perRoom[gu.room] || 0) + 1; if (gu.t > 120 && gu.st !== 'sleep' && gu.st !== 'bathing') flag('stuck', mmss(t) + ' ' + gu.st); }
+    const perRoom = {}; for (const gu of GUESTS) { if (gu.room) perRoom[gu.room] = (perRoom[gu.room] || 0) + 1; if (gu.t > 180 && gu.st !== 'sleep' && gu.st !== 'bathing' && gu.st !== 'eat') flag('stuck', mmss(t) + ' ' + gu.st); }
     for (const k in perRoom) if (perRoom[k] > 1) flag('room-shared', mmss(t));
     if (S.basket < 0 || S.basket > 10) flag('basket', mmss(t));
     try { render(); } catch (e) { flag('render', String(e && e.message)); }

@@ -50,12 +50,16 @@ const mid = { money: S.money, unlocked: Object.keys(S.unlocked).sort().join(',')
 try {
   const keep = state; go('celebrate'); st = 1; render(); makeShare(); go('title'); render(); go(keep);
 } catch (e) { bad('screens', String(e && e.stack || e)); }
-// save round trip: save -> load into a fresh world -> keep playing
+// save round trip: save -> load into a fresh world -> keep playing. Save it mid-service (14.4): a call open, something
+// on the tray, rice on the counter - none of that is saved (10.1), and loading must start clean.
+{ const gu = GUESTS.find(x => x.st !== 'arrive' && x.st !== 'queue') || GUESTS[0]; if (gu) gu.call = { k: 'tea', t: 20, max: 40 }; P.tray = ['tea']; PASS.n = 3; }
 saveNow();
+if (/"k":"tea"|"tray":\[/.test(JSON.stringify(S))) bad('roundtrip', 'runtime tray / call state leaked into the save');
 S = defaults(); resetWorld();
 continueGame();
 const back = { money: S.money, unlocked: Object.keys(S.unlocked).sort().join(','), guests: S.stats.guests };
 if (back.money !== mid.money || back.unlocked !== mid.unlocked) bad('roundtrip', JSON.stringify(mid) + ' -> ' + JSON.stringify(back));
+if (P.tray.length || PASS.n || callCount() || SEAT_OCC.some(Boolean)) bad('roundtrip', 'tray / counter / calls / seats not empty after loading');
 run(300, 'after-load');
 // old / odd save shapes load without throwing
 // (+ shapes the game never writes: unknown / array / locked pile keys, Infinity, a part payment above a lowered price;

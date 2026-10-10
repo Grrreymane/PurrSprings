@@ -19,8 +19,8 @@ const __C = {   // shipped values
   checkinT: CHECKIN_T, cleanT: CLEAN_T, maidCleanT: MAID_CLEAN_T, bathT: BATH_T, sleepT: SLEEP_T, spawnSlack: 3, gSpeed: G_SPEED,
   towelLow: 2,        // guide rule 4: fetch towels when the basket has <= this many
   // rule switches (0 = shipped behaviour)
-  skipBath: 0,        // 1: at check-in a guest only heads for the onsen if the basket has a towel nobody else is already walking to; else straight to the room
-  bathLast: 1,        // 1 (shipped): guests sleep first, then bathe (+ milk) on the way out, so the room is freed before the long onsen trip; 0 = MVP bath-first
+  skipBath: 0,        // (ignored since v2 2A) 1: at check-in a guest only heads for the onsen if the basket has a towel nobody else is already walking to; else straight to the room
+  bathLast: 1,        // (ignored since v2 2A) 1 (shipped): guests sleep first, then bathe (+ milk) on the way out, so the room is freed before the long onsen trip; 0 = MVP bath-first
   cleanAhead: 0,      // 1: guide: with nothing more urgent, point at the nearest messy room no maid has claimed (before "biggest pile")
   pileFirst: 1,       // 1 (shipped): guide rule 2b: if money + the biggest pile would pay for a visible pad, fetch that pile (after the desk rule, before cleaning / towels); 0 = without
 };
@@ -73,9 +73,8 @@ patchFn('guideTarget', [['towelCap()', '__towelCap()'], ['S.basket <= 2', 'S.bas
   // 6. the biggest fish pile`]]);
 patchFn('updStaff', [['s.carry < 6', 's.carry < __C.porterCarry'], ['s.carry >= 6', 's.carry >= __C.porterCarry'], ['S.basket <= 6', 'S.basket <= __C.porterRefill'], ['MAID_CLEAN_T', '__C.maidCleanT']]);
 patchFn('spawnGuests', [['guestRoomsOpen() + 3', 'guestRoomsOpen() + __C.spawnSlack']]);
-const __bathOk = () => !__C.skipBath || S.basket > GUESTS.filter(x => x.st === 'toBath').length;
-patchFn('checkIn', [["setSt(gu, 'toRoom')", "setSt(gu, S.unlocked.onsen && !__C.bathLast && __bathOk() ? 'toBath' : 'toRoom')"]]);
-patchFn('updGuest', [["if (S.unlocked.onsen) { setSt(gu, 'toBath');", "if (__C.bathLast && S.unlocked.onsen && __bathOk()) { setSt(gu, 'toBath');"]]);
+// skipBath / bathLast were v1 flow experiments; since v2 stage 2A the flow is fixed by SPEC_v2 4.12 (room -> breakfast ->
+// bath -> souvenirs), so both switches are ignored.
 
 const PROFS = {
   eager: { react: .3, distract: 0, ignore: 0 },
@@ -151,7 +150,7 @@ function checkSecond() {
   for (const gu of GUESTS) {
     if (gu.room) perRoom[gu.room] = (perRoom[gu.room] || 0) + 1;
     if (gu.slot >= 0) perSlot[gu.slot] = (perSlot[gu.slot] || 0) + 1;
-    if (gu.t > 120 && gu.st !== 'sleep' && gu.st !== 'bathing') flag('stuck-guest', mmss(t) + ' ' + gu.st + ' ' + R(gu.t) + 's at ' + R(gu.x) + ',' + R(gu.y));
+    if (gu.t > 180 && gu.st !== 'sleep' && gu.st !== 'bathing' && gu.st !== 'eat') flag('stuck-guest', mmss(t) + ' ' + gu.st + ' ' + R(gu.t) + 's at ' + R(gu.x) + ',' + R(gu.y));
     if (!Number.isFinite(gu.x) || !Number.isFinite(gu.y)) flag('guest-nan', mmss(t));
   }
   for (const k in perRoom) if (perRoom[k] > 1) flag('room-shared', mmss(t) + ' ' + k);

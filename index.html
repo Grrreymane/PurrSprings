@@ -1968,6 +1968,8 @@ function musicTick() {
   } catch (e) {}
 }
 /*AUDIO:END*/
+// v2 sound effects (9.5: ring take serve eat cook ...) arrive with audio/engine.js: until then they are silent
+function sfx(k, a) { const f = SFX[k]; if (typeof f === 'function') try { f.call(SFX, a); } catch (e) {} }
 function vib(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
 document.addEventListener('visibilitychange', () => {
   try { if (document.hidden && state !== 'title') saveNow(); } catch (e) {}
@@ -2319,6 +2321,16 @@ function dayLight(c) {
 const PATIENCE = 45, PATIENCE_EARLY = 70, BATH_WAIT = 20, CHECKIN_T = .7, CLEAN_T = 1.5, MAID_CLEAN_T = 2.5, BATH_T = 6, SLEEP_T = 10, MILK_T = 1;
 const P_SPEED = 56, G_SPEED = 34, STAFF_SPEED = 40, BASKET_MAX = 10, PAD_DELAY = .4, GUEST_MAX = 40;
 const NET_R = [10, 18, 28, 40];   // fish-pile pickup radius by net level (4.8)
+// tray + calls + dining (4.1-4.3, 11)
+const TRAY_KINDS = ['tea', 'milk', 'rice', 'kaiseki'];
+const DELIVER_R = 14, DELIVER_T = .2, CALL_GAP = 6, SEAT_WAIT = 30, EAT_T = 4, CHEF_T = 2.5, PASS_MAX = 6, WAITER_CARRY = 2;
+const STOVE_T = 1, KAISEKI_T = 3, BROWSE_T = 2, BROWSE_P = .3, FOLLOW_GAP = 9;
+// a call when a guest lies down (1 s in): by the room's trait (2.6); bathers ask for milk as they get in
+const CALL_ROLL = { std: ['tea', .3], near: ['milk', .35], quiet: ['rice', .35], cottage: ['tea', .4] };
+const BATH_CALL = ['milk', .2];
+// favourite rooms (4.6): regulars take the plainest free room instead (roomRank)
+const PREF = { elder: rm => rm.trait === 'near', couple: rm => !!roomCombo(rm), family: rm => !!rm.cottage };
+const TYPE_IDS = ['regular', 'elder', 'couple', 'family'];
 
 // ============================================================ state + save/load (SPEC_v2 section 10)
 function defaults() {
@@ -2447,6 +2459,11 @@ const slotOpen = i => !!S.unlocked[SLOTS[i].need];
 const padNeed = u => u.price - (S.paid[u.id] || 0);
 const maidCount = () => STAFF.filter(s => s.role === 'maid').length;
 const guestRoomsOpen = () => GUEST_ROOMS.reduce((n, r) => n + (roomOpen(r) ? 1 : 0), 0);
+const trayCap = () => 2 + (S.unlocked.tray1 ? 1 : 0) + (S.unlocked.tray2 ? 1 : 0);   // 4.1: 2 + 托盘 x2
+const callT = () => star() >= 4 ? 50 : 40;                                             // 4.2: CALL_T (the map is bigger from star 4)
+const callMax = () => star() >= 3 ? 3 : 2;
+// a call's reward (4.2): 3 x room fee x Q, x1.5 when served in the first half of its time; gold stars +5% each
+const callReward = fast => R(3 * STARS[star()].room * qualityQ() * (fast ? 1.5 : 1) * (1 + .05 * goldStars()));
 // seconds between guests (3.3): more rooms -> more guests; gold stars -3% each
 function spawnGap() { return Math.max(1.8, STARS[star()].gap * Math.min(1, 9 / Math.max(1, guestRoomsOpen()))) * (1 - .03 * goldStars()); }
 
@@ -2514,11 +2531,11 @@ const PROPS = [
   { k: 'petcushion', at: [8, 34], need: () => !!S.unlocked.shop && star() >= 5, ground: true, block: false, img: () => petCushionArt() },
   { k: 'statue', at: [11, 33], fw: 2, fh: 2, need: () => star() >= 5 && !!S.unlocked.shop, img: () => S.unlocked.statue ? statueArt('gold', 1) : statueArt('covered', clamp((S.paid.statue || 0) / UNLOCK.statue.price, 0, 1)) },
   // dining + kitchen
-  { k: 'stove', at: [2, 19], fw: 2, need: 'dining', img: () => stoveArt(Math.floor(T * 2) & 1) },
-  { k: 'ricepot', at: [4, 19], need: 'dining', img: () => ricePotArt(Math.floor(T * 1.5) & 1) },
-  { k: 'pass', at: [2, 21], fw: 3, need: 'dining', img: () => passArt(0) },
-  { k: 'dtable', at: [3, 23], need: 'dining', img: () => dTableArt('empty') }, { k: 'dtable', at: [7, 23], need: 'dining', img: () => dTableArt('empty') },
-  { k: 'dtable', at: [3, 26], need: 'table3', img: () => dTableArt('empty') }, { k: 'dtable', at: [7, 26], need: 'table4', img: () => dTableArt('empty') },
+  { k: 'stove', at: [2, 19], fw: 2, need: 'dining', img: () => stoveArt(stoveBusy() ? Math.floor(T * 2) & 1 : 0) },   // fire + steam only while cooking
+  { k: 'ricepot', at: [4, 19], need: 'dining', img: () => ricePotArt(stoveBusy() ? Math.floor(T * 1.5) & 1 : 0) },
+  { k: 'pass', at: [2, 21], fw: 3, need: 'dining', img: () => passArt(PASS.n) },
+  { k: 'dtable', at: [3, 23], need: 'dining', img: () => dTableArt(tableState(0)) }, { k: 'dtable', at: [7, 23], need: 'dining', img: () => dTableArt(tableState(1)) },
+  { k: 'dtable', at: [3, 26], need: 'table3', img: () => dTableArt(tableState(2)) }, { k: 'dtable', at: [7, 26], need: 'table4', img: () => dTableArt(tableState(3)) },
   // garden
   { k: 'urn', at: [26, 25], need: 'garden', img: () => urnArt() },
   { k: 'shishi', at: [26, 16], need: 'g_shishi', img: () => shishiArt(T % 20 < .6 ? 1 : 0) },   // tips over every 20 s
@@ -2633,30 +2650,186 @@ function unstick(e) {
 }
 
 // ============================================================ entities: player / guests / staff
-const P = { x: 0, y: 0, dir: 'up', moving: false, walkT: 0, towels: 0, dist: 0, sway: 0, atDesk: false, pourAcc: 0, pouring: null, padOn: null, padT: 0, shelfT: 0, basketT: 0 };
+// P.tray = the hand tray (4.1; head towels stay in P.towels). pick: pick-up timers per zone; cookT / cookK: the stove;
+// giveT / giveTo / giveK: handing something over (DELIVER_T); putT: putting back what nobody wants any more.
+const P = { x: 0, y: 0, dir: 'up', moving: false, walkT: 0, towels: 0, dist: 0, sway: 0, atDesk: false, pourAcc: 0, pouring: null, padOn: null, padT: 0, shelfT: 0, basketT: 0,
+  tray: [], pick: {}, cookT: 0, cookK: null, giveT: 0, giveTo: null, giveK: null, putT: 0 };
 const PLAYER_LOOK = { fur: 'orange', outfit: 'happi' };
-const GUESTS = [], Q = [], STAFF = [], SLOT_OCC = SLOTS.map(() => null);
+const GUESTS = [], Q = [], STAFF = [], SLOT_OCC = SLOTS.map(() => null), SEAT_OCC = SEATS.map(() => null);
 const RT = {};   // per room runtime: { guest, cleanP, claim }
-let spawnT = 1.5, guestN = 0;
+const PASS = { n: 0 };                    // rice portions on the dining counter (4.3; runtime only, like the tray)
+const BROWSE = { occ: null };             // the one souvenir-browsing spot (7,32)
+const TABLE_EATEN = [-9, -9, -9, -9];     // when each table last finished a meal (its plates show 'eaten' for 3 s)
+// run counters for tests / balancing (not saved): calls made / timed out, diners seated / gone hungry
+const RUN = { calls: 0, callsMissed: 0, seated: 0, hungry: 0 };
+let spawnT = 1.5, guestN = 0, lastCallAt = -99;
 function setSt(e, st) { e.st = st; e.t = 0; }
-function addGuest() {
+
+// ---- hooks the later stages fill in (kept tiny on purpose)
+// first-time picture cards (7.4): stage 3 draws FIRST_Q[0] at the bottom and hides it on firstDone(key) / after 20 s
+const FIRST_Q = [];
+function firstTime(key) { if (!SEEN_KEYS.includes(key) || S.seen[key]) return false; S.seen[key] = true; FIRST_Q.push({ key, t: T }); markDirty(); return true; }
+function firstDone(key) { for (let i = FIRST_Q.length - 1; i >= 0; i--) if (FIRST_Q[i].key === key) FIRST_Q.splice(i, 1); }
+// cat lines (8): stage 3 replaces this with the line system. key = a line id from 8.2, or several joined by '|'
+// (the line system picks one by its own odds). Called at every event that has a line; returns true if it was said.
+function lineSay(who, key) { return false; }
+// Hearts (popularity) (4.9): only ever goes up. Stage 2B hangs the rival board / overtaking banner on this.
+function addHearts(n) { n = n | 0; if (n <= 0) return; S.hearts += n; S.dayLog.h += n; markDirty(); }
+// staff experience (4.7). Stage 2B adds the levels (20 / 60 / 140 / 300 -> Lv2-5) and what they do.
+function gainXp(s, n) { if (s && STAFF_DEF[s.id]) S.staff[s.id] = (S.staff[s.id] | 0) + n; }
+// money straight into the wallet (calls; stage 2B: VIP gifts): fish fly from (wx, wy) in the world to the HUD
+function earn(v, wx, wy) {
+  v = v | 0; if (v <= 0) return;
+  S.money += v; S.earned += v; lastEarnT = S.stats.time;
+  const n = Math.min(6, Math.max(1, Math.ceil(v / 12)));
+  for (let i = 0; i < n; i++) FX.push({ k: 'fly', x0: wx - R(cam.x) + rand(-4, 4), y0: wy - R(cam.y) + rand(-3, 3), t: -i * .05, life: .55 + i * .02 });
+  pop('+' + v, wx, wy - 8, '#ffe9a8', 8, .9); SFX.coin(0); markDirty();
+}
+
+// ---- guests (4.6): regular / elder / couple / family. A couple's partner and a family's kitten are followers
+// (gu.mate), not guests: they don't count towards GUEST_MAX and never take a room, a slot or a seat of their own.
+// the type of the next arrival: per-star weights; a type whose favourite room doesn't exist yet counts as a regular
+function pickType() {
+  const w = TYPE_W[star()].slice(), open = GUEST_ROOMS.filter(rm => roomOpen(rm));
+  for (let i = 1; i < 4; i++) if (w[i] && !open.some(PREF[TYPE_IDS[i]])) { w[0] += w[i]; w[i] = 0; }
+  let x = Math.random() * (w[0] + w[1] + w[2] + w[3]);
+  for (let i = 0; i < 4; i++) { x -= w[i]; if (x < 0) return TYPE_IDS[i]; }
+  return 'regular';
+}
+const ELDER_FURS = ['gray', 'graytabby', 'white'];
+function addGuest(type) {
   const furs = Object.keys(FURS).filter(k => k !== 'orange');
-  const gu = { id: ++guestN, type: 'regular', x: EXIT[0], y: EXIT[1], dir: 'up', moving: false, walkT: 0, path: [], goal: null, spd: G_SPEED * rand(.9, 1.1),
-    look: { fur: pick(furs), outfit: 'guest', shirt: pick(SHIRTS), bag: Math.random() < .5 }, ox: R(rand(-2, 2)),
-    st: 'arrive', t: 0, pat: S.unlocked.recep ? PATIENCE : PATIENCE_EARLY, wait: 0, ck: 0, front: 0, room: null, slot: -1, heart: 0, tt: 0, ready: false, bub: null, urg: 0 };
+  type = GUEST_TYPES[type] ? type : pickType();
+  const fur = type === 'elder' ? pick(ELDER_FURS) : pick(furs);
+  const look = type === 'elder' ? { fur, outfit: 'haori', acc: 'cane' } : { fur, outfit: 'guest', shirt: pick(SHIRTS), bag: type === 'regular' && Math.random() < .5 };
+  if (type === 'couple') look.hat = 'flower';
+  const gu = { id: ++guestN, type, x: EXIT[0], y: EXIT[1], dir: 'up', moving: false, walkT: 0, path: [], goal: null, spd: G_SPEED * rand(.9, 1.1) * (GUEST_TYPES[type].speed || 1),
+    look, ox: R(rand(-2, 2)), st: 'arrive', t: 0, pat: S.unlocked.recep ? PATIENCE : PATIENCE_EARLY, wait: 0, ck: 0, front: 0, room: null, slot: -1, heart: 0, heart2: 0, embT: 0,
+    tt: 0, ready: false, bub: null, urg: 0, call: null, callGone: 0, rolled: false, seat: -1, seat2: -1, served: false, claim: null, pref: false, inside: false, mate: null };
+  if (type === 'couple' || type === 'family') gu.mate = { kind: type === 'couple' ? 'cat' : 'kitten', look: type === 'couple' ? { fur: pick(furs), outfit: 'guest', shirt: pick(SHIRTS), hat: 'straw' } : { fur },
+    x: gu.x, y: gu.y, dir: 'up', moving: false, walkT: 0, path: [], goal: null, q: [], mode: 'follow' };
   GUESTS.push(gu); Q.push(gu);
 }
-// the free clean room for the next guest: plain rooms first (no decor -> decor -> combo -> cottage), keeping the good
-// rooms for picky guests (4.6); suites are VIP-only
+// ---- followers (4.6; stage 2B reuses this for the VIP and the pets): the leader drops a crumb every 4 px into the
+// follower's queue; the follower walks the crumbs at its own speed and stops `gap` px (path length) behind the leader.
+function crumbTo(L, f) { const q = f.q, last = q.length ? q[q.length - 1] : [f.x, f.y]; if (Math.hypot(L.x - last[0], L.y - last[1]) >= 4) q.push([L.x, L.y]); }
+function followStep(f, L, gap, spd, dt) {
+  const q = f.q;
+  if (q.length > 64) { const c = q.splice(0, q.length - 32).pop(); f.x = c[0]; f.y = c[1]; }   // fell far behind: catch up
+  let rest = 0, px = f.x, py = f.y;
+  for (const c of q) { rest += Math.hypot(c[0] - px, c[1] - py); px = c[0]; py = c[1]; }
+  rest += Math.hypot(L.x - px, L.y - py);
+  let move = Math.min(spd * dt, Math.max(0, rest - gap));
+  f.moving = move > .01;
+  while (move > 0 && q.length) {
+    const [cx, cy] = q[0], dx = cx - f.x, dy = cy - f.y, d = Math.hypot(dx, dy);
+    if (d > .01) f.dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down');
+    if (d <= move) { f.x = cx; f.y = cy; move -= d; q.shift(); } else { f.x += dx / d * move; f.y += dy / d * move; move = 0; }
+  }
+  if (f.moving) f.walkT += dt; else if (!q.length && rest > .5) f.dir = L.dir;
+}
+// a partner / kitten: 'follow' (walks behind), 'seat' (walks to the other seat of the table), 'park' (in bed, in the
+// bath, sitting: drawn with the leader)
+function updMate(gu, dt) {
+  const m = gu.mate; if (!m) return;
+  if (m.mode === 'follow') { crumbTo(gu, m); followStep(m, gu, FOLLOW_GAP, gu.spd * 1.3, dt); }
+  else if (m.mode === 'seat') { const se = SEATS[gu.seat2]; if (!se) { m.mode = 'follow'; return; } goTo(m, se.at[0], se.at[1]); if (stepPath(m, dt, gu.spd)) { m.mode = 'park'; m.dir = se.face; } }
+  else m.moving = false;
+}
+function unpark(gu, at) { const m = gu.mate; if (!m) return; if (at) { m.x = at[0]; m.y = at[1]; } if (m.mode !== 'follow') { m.mode = 'follow'; m.q = []; m.path = []; m.goal = null; } }
+// the free clean room for a guest: its favourite kind first (4.6), then the plainest (no decor -> decor -> combo ->
+// cottage), keeping the good rooms for picky guests; suites are VIP-only
 function roomRank(rm) { const [a, b] = decorOf(rm); return (rm.cottage ? 4 : 0) + (comboOf(a, b) ? 2 : (a || b) ? 1 : 0); }
-function freeRoom() {
-  let best = null;
-  for (const rm of GUEST_ROOMS) if (roomOpen(rm) && S.rooms[rm.id] === 'clean' && !RT[rm.id].guest && (!best || roomRank(rm) < roomRank(best))) best = rm;
+const roomFree = rm => roomOpen(rm) && S.rooms[rm.id] === 'clean' && !RT[rm.id].guest;
+function freeRoom(gu) {
+  const pf = gu && PREF[gu.type];
+  let best = null, bp = false;
+  for (const rm of GUEST_ROOMS) {
+    if (!roomFree(rm)) continue;
+    const p = !!(pf && pf(rm));
+    if (!best || (p && !bp) || (p === bp && roomRank(rm) < roomRank(best))) { best = rm; bp = p; }
+  }
   return best;
 }
-// after a bath / milk / giving up on a towel: back to the room if it still holds one, else home (bath-last guests already slept)
-function guestToRoom(gu) { if (!gu.room) { guestLeave(gu, false); return; } setSt(gu, 'toRoom'); gu.goal = null; }
-function guestLeave(gu, angry) { setSt(gu, angry ? 'angry' : 'leave'); gu.goal = null; goTo(gu, EXIT_TILE[0], EXIT_TILE[1], EXIT.slice()); }
+// 4.12: after the room (woken up, checked out) -> breakfast -> bath (+ milk) -> souvenirs -> home. A step that is
+// closed or full is skipped; only the queue makes guests angry.
+const NEXT = ['room', 'seat', 'bath', 'browse'];
+function guestNext(gu, from) {
+  for (let i = NEXT.indexOf(from) + 1; i < NEXT.length; i++) {
+    const k = NEXT[i];
+    if (k === 'seat' && S.unlocked.dining && takeSeat(gu)) { RUN.seated++; setSt(gu, 'toSeat'); gu.goal = null; return; }
+    if (k === 'bath' && S.unlocked.onsen) { setSt(gu, 'toBath'); gu.goal = null; return; }
+    if (k === 'browse' && S.unlocked.shop && !BROWSE.occ && Math.random() < BROWSE_P) { BROWSE.occ = gu; setSt(gu, 'toBrowse'); gu.goal = null; return; }
+  }
+  guestLeave(gu, false);
+}
+function guestLeave(gu, angry) {
+  unpark(gu);
+  setSt(gu, angry ? 'angry' : 'leave'); gu.goal = null; goTo(gu, EXIT_TILE[0], EXIT_TILE[1], EXIT.slice());
+  if (gu.mate) gu.path.push([EXIT[0], EXIT[1] + 24]);   // walk on a little so the partner / kitten leaves the screen too
+  if (!angry) { addHearts(1); lineSay(gu, star() >= 5 ? 'G17|G18|G19' : 'G17|G18'); }   // a happy guest: hearts +1 (4.9)
+}
+// ---- calls (4.2): only the innkeeper takes them. Need 茶台; milk needs 牛奶 and a night snack 食堂 (else tea).
+// At most 2 at a time (3 from star 3), 6 s apart; the call rides along with the guest until served or timed out.
+const callCount = () => { let n = 0; for (const gu of GUESTS) if (gu.call) n++; return n; };
+function tryCall(gu, k, p) {
+  if (!S.unlocked.tea || gu.call || Math.random() >= p) return false;
+  if (callCount() >= callMax() || S.stats.time - lastCallAt < CALL_GAP) return false;
+  if ((k === 'milk' && !S.unlocked.milk) || (k === 'rice' && !S.unlocked.dining)) k = 'tea';
+  const t = callT(); gu.call = { k, t, max: t }; lastCallAt = S.stats.time; RUN.calls++;
+  sfx('ring'); firstTime('call'); lineSay(gu, { tea: 'G22', milk: 'G23', rice: 'G24' }[k]);
+  return true;
+}
+function callExpire(gu) { gu.call = null; gu.callGone = .25; RUN.callsMissed++; lineSay(gu, 'G21'); }   // no anger, no fee lost, no hearts lost
+function serveCall(gu) {
+  const c = gu.call, fast = c.t > c.max / 2, [x, y] = guestSpot(gu);
+  gu.call = null; gu.heart = 1;
+  earn(callReward(fast), x, y - 12);   // straight into the wallet
+  addHearts(fast ? 2 : 1); S.stats.calls++; if (fast) S.stats.callsFast++;
+  lineSay(gu, fast ? 'G27' : 'G25|G26'); sfx('serve'); firstDone('call'); markDirty();
+}
+// ---- dining seats (4.3): a party (couple / family) takes a whole table; a guest alone sits at a half-taken table
+// first, keeping empty tables for parties. No free seat -> no breakfast (nobody queues for a seat).
+const seatOpen = i => !!S.unlocked[SEATS[i].need];
+function takeSeat(gu) {
+  let a = -1, best = 0;
+  for (let i = 0; i < SEATS.length; i += 2) {
+    if (!seatOpen(i)) continue;
+    const f0 = !SEAT_OCC[i], f1 = !SEAT_OCC[i + 1];
+    if (gu.mate) { if (f0 && f1) { a = i; break; } continue; }
+    const s = f0 && f1 ? 1 : f0 || f1 ? 2 : 0;
+    if (s > best) { best = s; a = f0 ? i : i + 1; }
+  }
+  if (a < 0) return false;
+  gu.seat = a; SEAT_OCC[a] = gu; gu.served = false; gu.claim = null;
+  if (gu.mate) { gu.seat2 = a + 1; SEAT_OCC[a + 1] = gu; }
+  return true;
+}
+function leaveSeat(gu) {
+  for (const i of [gu.seat, gu.seat2]) if (i >= 0 && SEAT_OCC[i] === gu) SEAT_OCC[i] = null;
+  if (gu.mate && gu.seat2 >= 0) unpark(gu, gu.mate.mode === 'park' ? [tcx(SEATS[gu.seat2].at), tcy(SEATS[gu.seat2].at)] : null);
+  gu.seat = gu.seat2 = -1; gu.served = false; gu.claim = null;
+}
+function serveSeat(gu) { gu.served = true; gu.claim = null; setSt(gu, 'eat'); gu.tt = EAT_T; sfx('eat'); lineSay(gu, 'G15'); }
+// plates on a table: 'set' while someone eats there, 'eaten' for 3 s after
+function tableState(ti) {
+  for (const i of [ti * 2, ti * 2 + 1]) { const gu = SEAT_OCC[i]; if (gu && gu.st === 'eat') return 'set'; }
+  return T - TABLE_EATEN[ti] < 3 ? 'eaten' : 'empty';
+}
+// where the innkeeper hands things over (4.1): a sleeper at the futon's centre, a bather at the water's edge, a diner on
+// the seat, anyone else where they stand. guestTile = the tile the arrow / bot goes to for it.
+function guestSpot(gu) {
+  if (gu.st === 'sleep' && gu.room) return ROOM[gu.room].cleanC;
+  if (gu.st === 'bathing' && gu.slot >= 0) return [SLOTS[gu.slot].x * TILE + 8, 4 * TILE - 2];
+  if ((gu.st === 'seated' || gu.st === 'eat') && gu.seat >= 0) return [tcx(SEATS[gu.seat].at), tcy(SEATS[gu.seat].at)];
+  return [gu.x, gu.y];
+}
+function guestTile(gu) {
+  if (gu.st === 'sleep' && gu.room) return ROOM[gu.room].cleanT;
+  if (gu.st === 'bathing' && gu.slot >= 0) return [SLOTS[gu.slot].x, 4];
+  if ((gu.st === 'seated' || gu.st === 'eat') && gu.seat >= 0) return SEATS[gu.seat].at;
+  return tileOf(gu);
+}
 // a free bath slot: the onsen first; at night the roten first (4.12)
 function freeSlot() {
   const order = SLOTS.map((s, i) => i), night = dayLight().night >= .5;
@@ -2664,8 +2837,18 @@ function freeSlot() {
   for (const i of order) if (slotOpen(i) && !SLOT_OCC[i]) return i;
   return -1;
 }
+// The guest state machine v2 (4.12):
+//   arrive -> queue (patience; runs out = angry) -> check-in (zones) -> toRoom -> sleep (a call may come 1 s in)
+//   -> wake: messy room, tip, check out -> [dining] toSeat -> seated (<= SEAT_WAIT) -> eat -> breakfast fee
+//   -> [onsen] toBath -> towel (<= BATH_WAIT) -> toSlot -> bathing (20% milk call as they get in) -> [milk] toMilk -> milk
+//   -> [shop, 30%] toBrowse -> browse -> souvenir fee -> leave.  Every step that is closed or full is skipped.
 function updGuest(gu, dt) {
-  gu.t += dt; if (gu.heart > 0) gu.heart -= dt;
+  gu.t += dt; if (gu.heart > 0) gu.heart -= dt; if (gu.heart2 > 0) gu.heart2 -= dt; if (gu.embT > 0) gu.embT -= dt; if (gu.callGone > 0) gu.callGone -= dt;
+  if (gu.call && (gu.call.t -= dt) <= 0) callExpire(gu);
+  if (!gu.inside && gu.y < 29 * TILE) {   // in through the door
+    gu.inside = true; if (gu.type === 'couple') gu.heart = 1;   // a couple comes in with a pink heart
+    lineSay(gu, freeRoom() ? (S.unlocked.onsen ? 'G01|G03' : 'G01') : 'G02');
+  }
   const walk = () => stepPath(gu, dt, gu.spd);
   switch (gu.st) {
     case 'arrive': case 'queue': {
@@ -2675,20 +2858,59 @@ function updGuest(gu, dt) {
       if (gu.ready) { gu.dir = 'up'; if (gu.st === 'arrive') setSt(gu, 'queue'); }
       if (gu.st === 'queue') {
         gu.pat -= dt;
-        if (i === 0 && gu.ready) gu.front += dt;
-        if (gu.pat <= 0) { Q.splice(i, 1); S.stats.angry++; guestLeave(gu, true); SFX.hmph(); markDirty(); }
+        if (i === 0 && gu.ready) { gu.front += dt; if (gu.front >= 3 && gu.front - dt < 3 && !deskManned()) lineSay(gu, 'G04'); }
+        if (gu.pat < PATIENCE * .4 && gu.pat + dt >= PATIENCE * .4) lineSay(gu, 'G05');
+        if (gu.pat <= 0) { Q.splice(i, 1); S.stats.angry++; guestLeave(gu, true); SFX.hmph(); lineSay(gu, 'G20'); markDirty(); }
       }
       break;
     }
-    case 'toBath': goTo(gu, TOWEL_SPOT[0], TOWEL_SPOT[1]); if (walk()) { setSt(gu, 'towel'); gu.wait = BATH_WAIT; gu.dir = 'left'; } break;
+    case 'toRoom': {
+      const rm = ROOM[gu.room]; goTo(gu, rm.stand[0], rm.stand[1]);
+      if (walk()) { setSt(gu, 'sleep'); gu.tt = SLEEP_T; gu.rolled = false; S.rooms[gu.room] = 'occupied'; if (gu.mate) gu.mate.mode = 'park'; lineSay(gu, dayLight().night > .5 ? 'G07|G33' : 'G07'); markDirty(); }
+      break;
+    }
+    case 'sleep':
+      gu.tt -= dt;
+      if (!gu.rolled && gu.t >= 1) { gu.rolled = true; const r = CALL_ROLL[ROOM[gu.room].trait]; if (r) tryCall(gu, r[0], r[1]); }
+      if (gu.tt <= 0) {
+        const id = gu.room, rm = ROOM[id]; S.rooms[id] = 'messy'; S.piles[id] = (S.piles[id] || 0) + fee('tip', { rm, gu, pref: gu.pref });
+        RT[id].guest = null; RT[id].cleanP = 0; gu.room = null; gu.dir = 'down'; markDirty();
+        unpark(gu); lineSay(gu, 'G09');
+        guestNext(gu, 'room');   // the room is free first: breakfast, the bath and souvenirs come after checking out
+      }
+      break;
+    case 'toSeat': {
+      const se = SEATS[gu.seat]; goTo(gu, se.at[0], se.at[1]);
+      if (walk()) { setSt(gu, 'seated'); gu.dir = se.face; if (gu.mate) { gu.mate.mode = 'seat'; gu.mate.goal = null; } lineSay(gu, 'G14'); }
+      break;
+    }
+    case 'seated':   // waiting for rice; handed over -> 'eat' (serveSeat)
+      if (gu.t >= SEAT_WAIT) { RUN.hungry++; lineSay(gu, 'G21'); leaveSeat(gu); guestNext(gu, 'seat'); }   // not angry, no fee
+      break;
+    case 'eat':
+      gu.tt -= dt;
+      if (gu.tt <= 0) {
+        S.piles.dining = (S.piles.dining || 0) + fee('meal', { gu }); S.stats.diners++; gu.heart = 1; SFX.meow();
+        TABLE_EATEN[gu.seat >> 1] = T; leaveSeat(gu); markDirty();
+        guestNext(gu, 'seat');
+      }
+      break;
+    case 'toBath': goTo(gu, TOWEL_SPOT[0], TOWEL_SPOT[1]); if (walk()) { setSt(gu, 'towel'); gu.wait = BATH_WAIT; gu.dir = 'left'; if (!S.basket) lineSay(gu, 'G12'); } break;
     case 'towel':
       if (S.basket > 0) { S.basket--; SFX.pop(); markDirty(); setSt(gu, 'toSlot'); gu.wait = BATH_WAIT; gu.goal = null; }
-      else { gu.wait -= dt; if (gu.wait <= 0) guestToRoom(gu); }
+      else { gu.wait -= dt; if (gu.wait <= 0) guestNext(gu, 'bath'); }
       break;
     case 'toSlot': {
       if (gu.slot < 0) { const s = freeSlot(); if (s >= 0) { SLOT_OCC[s] = gu; gu.slot = s; } }
-      if (gu.slot >= 0) { goTo(gu, SLOTS[gu.slot].x, 4); if (walk()) { setSt(gu, 'bathing'); gu.tt = BATH_T; SFX.splash(); } }
-      else { goTo(gu, WAIT_SPOT[0], WAIT_SPOT[1]); if (walk()) gu.dir = 'up'; gu.wait -= dt; if (gu.wait <= 0) guestToRoom(gu); }
+      if (gu.slot >= 0) {
+        goTo(gu, SLOTS[gu.slot].x, 4);
+        if (walk()) {
+          setSt(gu, 'bathing'); gu.tt = BATH_T; SFX.splash(); if (gu.mate) gu.mate.mode = 'park';
+          tryCall(gu, BATH_CALL[0], BATH_CALL[1]);
+          lineSay(gu, SLOTS[gu.slot].roten && dayLight().night > .5 ? 'G10|G34' : 'G10');
+        }
+      }
+      else { goTo(gu, WAIT_SPOT[0], WAIT_SPOT[1]); if (walk()) gu.dir = 'up'; gu.wait -= dt; if (gu.wait <= 0) guestNext(gu, 'bath'); }
       break;
     }
     case 'bathing':
@@ -2696,41 +2918,42 @@ function updGuest(gu, dt) {
       if (gu.tt <= 0) {
         const sl = SLOTS[gu.slot], pid = sl.roten ? 'roten' : 'onsen';
         S.piles[pid] = (S.piles[pid] || 0) + fee('bath', { gu, slot: sl }); markDirty();
-        gu.look = { fur: gu.look.fur, outfit: 'yukata' }; gu.heart = 1; SFX.meow();
+        gu.look = Object.assign({}, gu.look, { outfit: 'yukata', bag: false }); gu.heart = 1; SFX.meow();
+        if (gu.mate && gu.mate.kind === 'cat') gu.mate.look = Object.assign({}, gu.mate.look, { outfit: 'yukata' });
+        unpark(gu, [sl.x * TILE + 8, 4 * TILE + 8]);
         if (SLOT_OCC[gu.slot] === gu) SLOT_OCC[gu.slot] = null; gu.slot = -1; gu.dir = 'down';
-        if (S.unlocked.milk) { setSt(gu, 'toMilk'); gu.goal = null; } else guestToRoom(gu);
+        if (S.unlocked.milk) { setSt(gu, 'toMilk'); gu.goal = null; } else guestNext(gu, 'bath');
       }
       break;
-    case 'toMilk': goTo(gu, MILK_SPOT[0], MILK_SPOT[1]); if (walk()) { setSt(gu, 'milk'); gu.tt = MILK_T; gu.dir = 'up'; SFX.milk(); } break;
+    case 'toMilk': goTo(gu, MILK_SPOT[0], MILK_SPOT[1]); if (walk()) { setSt(gu, 'milk'); gu.tt = MILK_T; gu.dir = 'up'; SFX.milk(); lineSay(gu, 'G13'); } break;
     case 'milk':
       gu.tt -= dt;
-      if (gu.tt <= 0) { S.piles.milk = (S.piles.milk || 0) + fee('milk', { gu }); markDirty(); gu.heart = 1; SFX.meow(); guestToRoom(gu); }
+      if (gu.tt <= 0) { S.piles.milk = (S.piles.milk || 0) + fee('milk', { gu }); markDirty(); gu.heart = 1; SFX.meow(); guestNext(gu, 'bath'); }
       break;
-    case 'toRoom': {
-      const rm = ROOM[gu.room]; goTo(gu, rm.stand[0], rm.stand[1]);
-      if (walk()) { setSt(gu, 'sleep'); gu.tt = SLEEP_T; S.rooms[gu.room] = 'occupied'; markDirty(); }
-      break;
-    }
-    case 'sleep':
+    case 'toBrowse': goTo(gu, SPOT.browse[0], SPOT.browse[1]); if (walk()) { setSt(gu, 'browse'); gu.tt = BROWSE_T; gu.dir = 'up'; lineSay(gu, 'G35'); } break;
+    case 'browse':
       gu.tt -= dt;
-      if (gu.tt <= 0) {
-        const id = gu.room, rm = ROOM[id]; S.rooms[id] = 'messy'; S.piles[id] = (S.piles[id] || 0) + fee('tip', { rm, gu });
-        RT[id].guest = null; RT[id].cleanP = 0; gu.room = null; gu.dir = 'down'; markDirty();
-        if (S.unlocked.onsen) { setSt(gu, 'toBath'); gu.goal = null; } else guestLeave(gu, false);   // bathe on the way out: the room is free first
-      }
+      if (gu.tt <= 0) { S.piles.shop = (S.piles.shop || 0) + fee('souv', { gu }); if (BROWSE.occ === gu) BROWSE.occ = null; gu.heart = 1; markDirty(); guestLeave(gu, false); }
       break;
     case 'leave': case 'angry': if (walk()) gu.gone = true; break;
   }
+  updMate(gu, dt);
 }
 function checkIn(gu, rm) {
   Q.shift(); gu.room = rm.id; RT[rm.id].guest = gu; S.rooms[rm.id] = 'reserved';
-  S.piles.recep = (S.piles.recep || 0) + fee('room', { rm, gu }); S.stats.guests++; gu.ck = 0;
-  setSt(gu, 'toRoom'); gu.goal = null;
-  SFX.bell(); markDirty();
+  S.piles.recep = (S.piles.recep || 0) + fee('room', { rm, gu }); S.stats.guests++; S.dayLog.g++; gu.ck = 0;
+  setSt(gu, 'toRoom'); gu.goal = null; gu.embT = .8;   // the room's emblem shows over the guest for 0.8 s (2.6)
+  const pf = PREF[gu.type]; gu.pref = !!(pf && pf(rm));
+  if (gu.pref) { addHearts(1); gu.heart2 = 1.6; lineSay(gu, { elder: 'G29', couple: 'G30', family: 'G31' }[gu.type]); }   // favourite room: hearts +1, tip x1.5
+  if (roomCombo(rm)) { addHearts(1); lineSay(gu, 'G28'); }                                                                // a combo room: hearts +1 (4.5)
+  S.album.furs[gu.look.fur] = true; if (gu.type !== 'regular') S.album.types[gu.type] = true;
+  const rc = STAFF.find(s => s.role === 'recep' && s.atDesk); if (rc && !P.atDesk) gainXp(rc, 1);
+  SFX.bell(); markDirty(); lineSay(gu, 'G06');
 }
-// staff (4.7): need = the unlock that hires them; home = where they idle. Roles with behaviour so far: recep (stays at
-// the desk), maid (cleans the nearest unclaimed messy room), porter (keeps the towel basket stocked). The others
-// (chef, waiter, clerk, the shop owner) stand at their post until their systems land (SPEC_v2 15.2 stage 2).
+// staff (4.7): need = the unlock that hires them; home = where they idle. Roles: recep (stays at the desk), maid
+// (cleans the nearest unclaimed messy room), porter (keeps the towel basket stocked), chef (keeps the dining counter
+// stocked, 4.3), waiter (counter -> the longest-waiting diners, 2 at a time). The clerk and the shop owner stand at
+// their post until their systems land (stage 2B). Staff never take calls (4.2).
 const STAFF_DEF = {
   recep:   { name: '小樱', role: 'recep',  need: 'recep',   home: REST[1],        look: { fur: 'calico', outfit: 'kimono' } },
   maid1:   { name: '雪球', role: 'maid',   need: 'maid1',   home: REST[0],        look: { fur: 'white', outfit: 'apron' } },
@@ -2749,8 +2972,43 @@ const homeOf = s => areaOpen(areaAt(s.home[0], s.home[1])) && walkable(s.home[0]
 function ensureStaff() {
   for (const id in STAFF_DEF) if (S.unlocked[STAFF_DEF[id].need] && !STAFF.some(s => s.id === id)) {
     const d = STAFF_DEF[id], h = d.role === 'recep' ? DESK_SPOT : d.home;
-    STAFF.push({ id, name: d.name, role: d.role, home: d.home, zone: d.zone || null, look: d.look, x: h[0] * TILE + 8, y: h[1] * TILE + 8, dir: 'down', moving: false, walkT: 0, path: [], goal: null, job: null, carry: 0, tt: 0, loading: false, atDesk: false, working: false });
+    STAFF.push({ id, name: d.name, role: d.role, home: d.home, zone: d.zone || null, look: d.look, x: h[0] * TILE + 8, y: h[1] * TILE + 8, dir: 'down', moving: false, walkT: 0, path: [], goal: null, job: null, carry: 0, tt: 0, loading: false, atDesk: false, working: false,
+      tray: [], jobs: [], cooking: false });
   }
+}
+const hasChef = () => !!S.unlocked.chef;
+const hasWaiter = () => STAFF.some(s => s.role === 'waiter');
+const dinerWaiting = gu => gu.st === 'seated' && !gu.served;
+// seated diners still waiting for rice, the longest-waiting first
+const waitingDiners = () => GUESTS.filter(dinerWaiting).sort((a, b) => b.t - a.t);
+// a waiter serves from the floor beside the seat (above or below it), whichever is nearer
+function serveTile(se, s) {
+  const [x, y] = se.at, c = [[x, y - 1], [x, y + 1]].filter(([a, b]) => walkable(a, b));
+  return c.sort((p, q) => dist(s.x, s.y, tcx(p), tcy(p)) - dist(s.x, s.y, tcx(q), tcy(q)))[0] || se.at;
+}
+function updWaiter(s, dt, walk) {
+  s.jobs = s.jobs.filter(gu => gu.claim === s && dinerWaiting(gu) && GUESTS.includes(gu));   // served by someone else / gave up
+  if (s.tray.length > s.jobs.length) for (const gu of waitingDiners()) { if (s.jobs.length >= s.tray.length) break; if (!gu.claim) { gu.claim = s; s.jobs.push(gu); } }
+  s.working = false;
+  if (s.tray.length && s.jobs.length) {   // carry it to the first claimed diner
+    const gu = s.jobs[0]; if (s.jobGu !== gu) { s.jobGu = gu; s.serveAt = serveTile(SEATS[gu.seat], s); }   // picked once per diner (no flip-flopping)
+    goTo(s, s.serveAt[0], s.serveAt[1]);
+    if (walk()) {
+      const [x, y] = guestSpot(gu); s.tray.pop(); s.jobs.shift();
+      FX.push({ k: 'give', it: 'rice', x0: s.x, y0: s.y - 12, x1: x, y1: y - 10, t: 0, life: .3 });
+      serveSeat(gu); gainXp(s, 1); lineSay(s, 'S15');
+    }
+    return;
+  }
+  const at = s.id === 'waiter2' ? [2, 22] : [4, 22];   // below the counter
+  if (s.tray.length) { goTo(s, at[0], at[1]); if (walk()) { while (s.tray.length) { s.tray.pop(); if (PASS.n < PASS_MAX) PASS.n++; } } return; }   // nobody left: back on the counter
+  const want = waitingDiners().filter(gu => !gu.claim).length;
+  if (PASS.n > 0 && want > 0) {
+    goTo(s, at[0], at[1]);
+    if (walk()) { s.dir = 'up'; const n = Math.min(WAITER_CARRY, PASS.n, want); for (let i = 0; i < n; i++) s.tray.push('rice'); PASS.n -= n; sfx('take'); }
+    return;
+  }
+  const h = homeOf(s); goTo(s, h[0], h[1]); if (walk()) s.dir = 'down';
 }
 function updStaff(s, dt) {
   const walk = () => stepPath(s, dt, STAFF_SPEED);
@@ -2765,7 +3023,7 @@ function updStaff(s, dt) {
     s.working = false;
     if (s.job) {
       const rm = ROOM[s.job]; goTo(s, rm.stand[0], rm.stand[1]);
-      if (walk()) { s.working = true; s.dir = rm.left ? 'left' : 'right'; RT[s.job].cleanP += dt / (MAID_CLEAN_T * rm.cleanMul); if (RT[s.job].cleanP >= 1) finishClean(s.job); }
+      if (walk()) { s.working = true; s.dir = rm.left ? 'left' : 'right'; RT[s.job].cleanP += dt / (MAID_CLEAN_T * rm.cleanMul); if (RT[s.job].cleanP >= 1) { gainXp(s, 4); finishClean(s.job); } }
     } else { const h = homeOf(s); goTo(s, h[0], h[1]); if (walk()) s.dir = 'down'; }
     return;
   }
@@ -2775,14 +3033,24 @@ function updStaff(s, dt) {
       if (walk()) { s.dir = 'up'; s.tt += dt; while (s.tt >= .12 && s.carry < 6) { s.tt -= .12; s.carry++; } if (s.carry >= 6) { s.loading = false; s.tt = 0; } }
     } else if (s.carry > 0 && S.basket < BASKET_MAX) {
       goTo(s, BASKET_SPOT[0], BASKET_SPOT[1]);
-      if (walk()) { s.dir = 'right'; s.tt += dt; while (s.tt >= .1 && s.carry > 0 && S.basket < BASKET_MAX) { s.tt -= .1; s.carry--; S.basket++; markDirty(); } }
+      if (walk()) { s.dir = 'right'; s.tt += dt; while (s.tt >= .1 && s.carry > 0 && S.basket < BASKET_MAX) { s.tt -= .1; s.carry--; S.basket++; gainXp(s, 1); markDirty(); } }
       else s.tt = 0;
     } else if (s.carry === 0 && S.basket <= 6) { s.loading = true; s.tt = 0; }
     else { const h = homeOf(s); goTo(s, h[0], h[1]); if (walk()) s.dir = 'down'; }
     return;
   }
-  // chef / waiters / clerk / owner (and a porter without an onsen): stand at the post
-  const h = homeOf(s); goTo(s, h[0], h[1]); if (walk()) s.dir = s.role === 'chef' ? 'up' : 'down';
+  if (s.role === 'chef') {   // at the stove: one portion onto the counter every CHEF_T until it holds PASS_MAX (then the fire rests)
+    const h = homeOf(s); goTo(s, h[0], h[1]); s.cooking = false;
+    if (walk()) {
+      s.dir = 'up';
+      if (S.unlocked.dining && PASS.n < PASS_MAX) { s.cooking = true; s.tt += dt; if (s.tt >= CHEF_T) { s.tt = 0; PASS.n++; gainXp(s, 1); sfx('cook'); lineSay(s, 'S12'); } }
+      else s.tt = 0;
+    }
+    return;
+  }
+  if (s.role === 'waiter') { updWaiter(s, dt, walk); return; }
+  // clerk / owner (and a porter without an onsen): stand at the post
+  const h = homeOf(s); goTo(s, h[0], h[1]); if (walk()) s.dir = 'down';
 }
 function finishClean(id) {
   S.rooms[id] = 'clean'; RT[id].cleanP = 0; RT[id].claim = null;
@@ -2822,12 +3090,88 @@ function pour(u, dt) {
   }
   if (padNeed(u) <= 0) unlock(u.id);
 }
+// ---- the tray (4.1). Everyone waiting for a tray item: calls, seated diners and (stage 2B) the VIP's current wish.
+// A want: { e, k, x, y, left (s), call | seat | give() }. x, y = where it is handed over (within DELIVER_R).
+function trayWants() {
+  const L = [];
+  for (const gu of GUESTS) {
+    if (gu.call) { const [x, y] = guestSpot(gu); L.push({ e: gu, k: gu.call.k, x, y, left: gu.call.t, call: true }); }
+    if (dinerWaiting(gu)) { const [x, y] = guestSpot(gu); L.push({ e: gu, k: 'rice', x, y, left: SEAT_WAIT - gu.t, seat: true }); }
+  }
+  vipWants(L);
+  return L;
+}
+function vipWants(L) {}   // stage 2B: push the VIP's current tea / kaiseki wish { e: vip, k, x, y, left, tile, give() }
+const countK = (tr, k) => { let n = 0; for (const x of tr) if (x === k) n++; return n; };
+const wantCount = (k, L) => { let n = 0; for (const w of L || trayWants()) if (w.k === k) n++; return n; };
+function staffHeld(k) { let n = 0; for (const s of STAFF) if (s.tray.length) n += countK(s.tray, k); return n; }
+const heldCount = k => countK(P.tray, k) + staffHeld(k);
+// pick-up points: standing in the zone hands you one portion every t seconds, only while somebody still wants one
+const PICKUPS = [
+  { id: 'urn1', k: 'tea', t: .3, on: () => !!S.unlocked.tea },
+  { id: 'urn2', k: 'tea', t: .3, on: () => !!S.unlocked.garden },
+  { id: 'milk', k: 'milk', t: .3, on: () => !!S.unlocked.milk },
+  { id: 'pass', k: 'rice', t: .15, on: () => !!S.unlocked.dining },
+];
+const inZone = z => dist(P.x, P.y, z.c[0], z.c[1]) <= z.r;
+const canPick = (pk, L) => pk.on() && P.tray.length < trayCap() && wantCount(pk.k, L) - heldCount(pk.k) > 0 && (pk.id !== 'pass' || PASS.n > 0);
+// what the innkeeper would cook standing at the stove right now: a kaiseki box for the VIP (3 s, only by hand), else
+// rice while nobody's chef (1 s a portion, only what is wanted). Rice for seated diners goes onto the counter when a
+// waiter is hired (he carries it; SPEC_v2 18.2), else onto the tray.
+function stoveJob(L) {
+  if (!S.unlocked.dining) return null;
+  if (P.tray.length < trayCap() && !P.tray.includes('kaiseki') && wantCount('kaiseki', L) - heldCount('kaiseki') > 0) return { k: 'kaiseki', to: 'tray', t: KAISEKI_T };
+  if (hasChef() || wantCount('rice', L) - heldCount('rice') - PASS.n <= 0) return null;
+  const forCalls = L.filter(w => w.k === 'rice' && !w.seat).length - countK(P.tray, 'rice'), room = P.tray.length < trayCap(), passRoom = hasWaiter() && PASS.n < PASS_MAX;
+  if (forCalls <= 0 && passRoom) return { k: 'rice', to: 'pass', t: STOVE_T };
+  if (room) return { k: 'rice', to: 'tray', t: STOVE_T };
+  return passRoom ? { k: 'rice', to: 'pass', t: STOVE_T } : null;
+}
+const stoveBusy = () => P.cookT > 0 || STAFF.some(s => s.cooking);
+function trayZones(dt) {
+  const L = trayWants();
+  let inAny = false;
+  for (const pk of PICKUPS) {
+    const z = ZONE[pk.id];
+    if (!pk.on() || !inZone(z)) { P.pick[pk.id] = 0; continue; }
+    inAny = true;
+    if (!canPick(pk, L)) { P.pick[pk.id] = 0; continue; }
+    P.pick[pk.id] = (P.pick[pk.id] || 0) + dt;
+    if (P.pick[pk.id] >= pk.t) { P.pick[pk.id] = 0; P.tray.push(pk.k); if (pk.id === 'pass') PASS.n--; sfx('take'); }
+  }
+  const atStove = !!S.unlocked.dining && inZone(ZONE.stove), sj = atStove ? stoveJob(L) : null;
+  inAny = inAny || atStove;
+  if (sj) {
+    if (P.cookK !== sj.k) { P.cookK = sj.k; P.cookT = 0; }
+    P.cookT += dt;
+    if (P.cookT >= sj.t) { P.cookT = 0; P.cookK = null; if (sj.to === 'pass') PASS.n++; else P.tray.push(sj.k); sfx('cook'); }
+  } else { P.cookT = 0; P.cookK = null; }
+  // put back: what nobody waits for any more (a call timed out) goes back at any pick-up zone, one every 0.15 s
+  let ex = null;
+  if (inAny) for (const k of TRAY_KINDS) if (countK(P.tray, k) > Math.max(0, wantCount(k, L) - staffHeld(k))) { ex = k; break; }
+  if (ex) {
+    P.putT += dt;
+    if (P.putT >= .15) { P.putT = 0; P.tray.splice(P.tray.lastIndexOf(ex), 1); if (ex === 'rice' && inZone(ZONE.pass) && PASS.n < PASS_MAX) PASS.n++; SFX.pop(); }
+  } else P.putT = 0;
+  // hand over: the nearest one within DELIVER_R who waits for something on the tray, after DELIVER_T there
+  let best = null, bd = DELIVER_R + .001;
+  if (P.tray.length) for (const w of L) if (P.tray.includes(w.k)) { const d = dist(P.x, P.y, w.x, w.y); if (d < bd) { bd = d; best = w; } }
+  if (!best || best.e !== P.giveTo || best.k !== P.giveK) { P.giveTo = best ? best.e : null; P.giveK = best ? best.k : null; P.giveT = 0; }
+  if (best) { P.giveT += dt; if (P.giveT >= DELIVER_T) { P.giveT = 0; P.giveTo = P.giveK = null; giveTo(best); } }
+}
+function giveTo(w) {
+  const i = P.tray.indexOf(w.k); if (i < 0) return;
+  P.tray.splice(i, 1);
+  FX.push({ k: 'give', it: w.k, x0: P.x, y0: P.y - 12, x1: w.x, y1: w.y - 10, t: 0, life: .3 });
+  if (w.call) serveCall(w.e); else if (w.seat) serveSeat(w.e); else if (w.give) w.give();
+}
 function zones(dt) {
   const ptx = Math.floor(P.x / TILE), pty = Math.floor(P.y / TILE);
   P.atDesk = ptx === DESK_SPOT[0] && pty === DESK_SPOT[1];
-  // check-in: the front guest, someone at the desk, a clean empty room
+  // check-in: the front guest, someone at the desk, a clean empty room (their favourite kind first)
   const f = Q[0];
-  if (f && f.st === 'queue' && f.ready) { const rm = freeRoom(); if (rm && deskManned()) { f.ck += dt / CHECKIN_T; if (f.ck >= 1) checkIn(f, rm); } }
+  if (f && f.st === 'queue' && f.ready) { const rm = freeRoom(f); if (rm && deskManned()) { f.ck += dt / CHECKIN_T; if (f.ck >= 1) checkIn(f, rm); } }
+  trayZones(dt);
   // fish piles: step near it, take it all (the net widens the reach: 4.8)
   const nr = NET_R[netLvl()];
   for (const id in S.piles) if (S.piles[id] > 0) { const [tx, ty] = PILE_AT[id]; if (dist(P.x, P.y, tx * TILE + 8, ty * TILE + 8) <= nr) collect(id); }
@@ -2854,7 +3198,8 @@ function unlock(id) {
   const u = UNLOCK[id], s0 = star(), xy = padXY(u) || [P.x / TILE | 0, P.y / TILE | 0];
   const over = (S.paid[id] || 0) - u.price; if (over > 0) S.money += over;   // paid in before a price cut: give the rest back
   S.unlocked[id] = true; S.paid[id] = u.price;
-  S.hearts += u.hearts | 0;
+  addHearts(u.hearts);
+  if (id === 'dining') firstTime('dine');   // the "[stove] -> [rice] -> [table]" card (7.4; stage 3 draws it)
   for (const rm of ROOMS) if (rm.open === id) { S.rooms[rm.id] = 'clean'; POPA[rm.id] = T; }
   if (id === 'onsen') S.basket = BASKET_MAX;
   if (u.hat) S.equip.hat = id;   // bought = worn (4.11)
@@ -2874,10 +3219,12 @@ function padsSeen() { for (const id of PADPOS.keys()) if (!PADSEEN.has(id)) { PA
 
 // ============================================================ guide (arrow) + hints + bubbles
 // The single "what next" brain: the arrow draws it, the balance bot walks it. here = you're already doing it (no arrow).
-// v1 rules on the v2 map (the v2 rule list, SPEC_v2 6, lands with the new systems). Order: keep doing the job you're
-// standing in > a pile 1-3 steps away > towels on your head go to the basket > a pad you can afford (gates first) >
-// a guest at the counter or walking in > a pile that pays for a pad > a messy room blocking the queue > towels > the
-// biggest pile > while you have fish, the cheapest pad (part payment is kept) > the room whose sleeper wakes first.
+// v1 rules on the v2 map + the stage-2A tray rules (SPEC_v2 6 rules 3, 10, 11; the full v2 list lands in stage 3).
+// Order: keep doing the job you're standing in (incl. picking up / cooking something wanted, handing it over) > take
+// what's on the tray to whoever waits for it > a pile 1-3 steps away > towels on your head go to the basket > a pad
+// you can afford (gates first) > a guest at the counter or walking in > a pile that pays for a pad > fetch a call's
+// thing (only if it can still arrive in time) > breakfast (counter / stove) > a messy room blocking the queue > towels >
+// the biggest pile > while you have fish, the cheapest pad (part payment is kept) > the room whose sleeper wakes first.
 // The shop booths (hats / pets) and the statue are never pointed at here.
 function gT(kind, x, y, tx, ty, here) { return { kind, x, y, tx, ty, here: !!here }; }
 const T_DESK = here => gT('desk', DESK_SPOT[0] * TILE + 8, DESK_SPOT[1] * TILE + 8, DESK_SPOT[0], DESK_SPOT[1], here);
@@ -2888,10 +3235,26 @@ const T_PAD = (u, here) => { const [tx, ty] = padXY(u); return Object.assign(gT(
 const T_PILE = id => { const [tx, ty] = PILE_AT[id]; return gT('pile', tx * TILE + 8, ty * TILE + 8, tx, ty); };
 const towelWanted = () => S.basket === 0 && GUESTS.some(gu => gu.st === 'towel');
 const guidePads = () => visiblePads().filter(u => !u.booth);
+// pick-up points: the tile the arrow / bot goes to and the arrow kind (6)
+const PICK_TILE = { urn1: SPOT.urn1, urn2: SPOT.urn2, milk: MILK_SPOT, pass: [3, 22], stove: [2, 20] };
+const PICK_KIND = { urn1: 'urn', urn2: 'urn', milk: 'milk', pass: 'pass', stove: 'stove' };
+const T_PICK = (id, here) => { const z = ZONE[id], t = PICK_TILE[id]; return gT(PICK_KIND[id], z.c[0], z.c[1], t[0], t[1], here); };
+const wantTile = w => w.tile || guestTile(w.e);
+const tilesBetween = (a, b) => { const p = findPath(a[0], a[1], b[0], b[1]); return p ? p.length : 1e4; };
+// where a tray item comes from: tea from the nearer urn, milk from the machine, rice from the counter (or the stove
+// while nobody's chef and the counter is empty), kaiseki from the stove
+function sourceOf(k, from) {
+  if (k === 'tea') { const a = S.unlocked.tea, b = S.unlocked.garden; if (a && b) return dist(tcx(from), tcy(from), ZONE.urn1.c[0], ZONE.urn1.c[1]) <= dist(tcx(from), tcy(from), ZONE.urn2.c[0], ZONE.urn2.c[1]) ? 'urn1' : 'urn2'; return a ? 'urn1' : b ? 'urn2' : null; }
+  if (k === 'milk') return S.unlocked.milk ? 'milk' : null;
+  if (k === 'rice') return !S.unlocked.dining ? null : hasChef() || PASS.n > 0 ? 'pass' : 'stove';
+  if (k === 'kaiseki') return S.unlocked.dining ? 'stove' : null;
+  return null;
+}
 function guideTarget() {
   if (!S.tut.moved) return null;
   const f = Q[0], waiting = !!(f && f.st === 'queue' && f.ready), free = freeRoom();
   const coming = !S.unlocked.recep && Q.length > 0 && !!free;   // a guest at the counter or walking in, a room ready, nobody hired
+  const L = trayWants(), [ptx, pty] = tileOf(P);
   // 0. you're in the middle of a job: keep at it
   if (P.atDesk && coming) return T_DESK(true);
   for (const rm of ROOMS) if (S.rooms[rm.id] === 'messy' && inCleanZone(rm)) return T_CLEAN(rm, true);
@@ -2900,8 +3263,22 @@ function guideTarget() {
     if (!S.unlocked.porter && P.towels < towelCap() && inShelfZone() && (P.towels > 0 || S.basket <= 2 || towelWanted())) return T_SHELF(true);
   }
   if (P.pouring && S.money > 0 && PADPOS.has(P.pouring)) return T_PAD(UNLOCK[P.pouring], true);
+  for (const pk of PICKUPS) if (inZone(ZONE[pk.id]) && canPick(pk, L)) return T_PICK(pk.id, true);   // picking up something wanted
+  if (inZone(ZONE.stove) && stoveJob(L)) return T_PICK('stove', true);                                 // cooking something wanted
+  if (P.giveTo) { const w = L.find(v => v.e === P.giveTo && v.k === P.giveK); if (w) { const t = wantTile(w); return gT('deliver', w.x, w.y, t[0], t[1], true); } }
+  // 0b (6 rule 3). something on the tray that someone waits for -> the most urgent of them who can still be reached
+  if (P.tray.length) {
+    let bw = null, late = null, spd = playerSpeed();
+    for (const w of L) {
+      if (!P.tray.includes(w.k)) continue;
+      const t = wantTile(w), eta = (Math.abs(t[0] - ptx) + Math.abs(t[1] - pty)) * TILE / spd;   // a quick lower bound
+      if (eta * 1.2 < w.left) { if (!bw || w.left < bw.left) bw = w; } else if (eta < w.left && (!late || w.left > late.left)) late = w;   // tight, may still make it
+    }
+    bw = bw || late;   // nobody reachable in time: no arrow for it (the portion goes back at a pick-up point)
+    if (bw) { const t = wantTile(bw); return gT('deliver', bw.x, bw.y, t[0], t[1]); }
+  }
   // 1. a fish pile two or three steps away is always worth grabbing (the desk pile, a room's tip)
-  const [ptx, pty] = tileOf(P); let near = null, nd = 4;
+  let near = null, nd = 4;
   for (const id in S.piles) if (S.piles[id] > 0) {
     const [tx, ty] = PILE_AT[id]; if (Math.abs(tx - ptx) + Math.abs(ty - pty) >= nd) continue;
     const p = findPath(ptx, pty, tx, ty); if (p && p.length < nd) { nd = p.length; near = id; }
@@ -2921,6 +3298,23 @@ function guideTarget() {
     for (const id in S.piles) if (S.piles[id] > 0 && (!pid || S.piles[id] > S.piles[pid])) pid = id;
     for (const u of gp) need = Math.min(need, padNeed(u));
     if (pid && S.money + S.piles[pid] >= need) return T_PILE(pid); }
+  // 2c (6 rule 10). a call nobody is bringing yet that can still be served in time -> where its thing is picked up
+  //     ((path to the pick-up + path on to the guest) x 16 / speed x 1.2 < time left); late ones are not pointed at
+  if (P.tray.length < trayCap()) {
+    const calls = L.filter(w => (w.call || w.give) && wantCount(w.k, L) - heldCount(w.k) > 0).sort((a, b) => a.left - b.left);
+    for (const w of calls.slice(0, 3)) {
+      const s = sourceOf(w.k, [ptx, pty]); if (!s) continue;
+      const pt = PICK_TILE[s], n = tilesBetween([ptx, pty], pt) + tilesBetween(pt, wantTile(w));
+      if (n * TILE / playerSpeed() * 1.2 < w.left) return T_PICK(s);
+    }
+  }
+  // 2d (6 rule 11). breakfast: diners wait and nobody else covers them -> the counter (rice on it, no waiter) or the
+  //     stove (no chef; with a waiter the innkeeper cooks onto the counter for him - 18.2)
+  if (S.unlocked.dining && L.some(w => w.seat)) {
+    const need = wantCount('rice', L) - heldCount('rice');
+    if (!hasChef() && need - PASS.n > 0 && (hasWaiter() || P.tray.length < trayCap())) return T_PICK('stove');
+    if (!hasWaiter() && PASS.n > 0 && need > 0 && P.tray.length < trayCap()) return T_PICK('pass');
+  }
   // 3. a guest is stuck because no room is clean, and the maids can't keep up -> the nearest messy room
   if (waiting && !free) {
     const messy = GUEST_ROOMS.filter(rm => S.rooms[rm.id] === 'messy');
@@ -2964,7 +3358,10 @@ function bubbles() {
     else if (gu.st === 'toSlot' && gu.slot < 0 && gu.wait < BATH_WAIT * .6) { b = 'dots'; u = urgOf(gu.wait / BATH_WAIT); }
     else if (gu.st === 'milk') b = 'milk';
     else if (gu.st === 'angry') { b = 'angry'; u = 2; }
-    if (gu.heart > 0) { b = 'heart'; u = 0; }
+    else if (gu.st === 'seated' && !gu.served) { b = 'rice'; u = urgOf(1 - gu.t / SEAT_WAIT); }
+    if (gu.embT > 0) { b = 'emb'; u = 0; }                // the room's emblem right after check-in (2.6)
+    else if (gu.heart2 > 0) { b = 'heart2'; u = 0; }      // favourite room: a sparkly heart (4.6)
+    else if (gu.heart > 0) { b = 'heart'; u = 0; }
     gu.bub = b; gu.urg = u;
   }
 }
@@ -3009,7 +3406,7 @@ function gameUpdate(dt) {
   updPlayer(dt);
   spawnGuests(dt);
   for (const gu of GUESTS.slice()) updGuest(gu, dt);
-  for (let i = GUESTS.length - 1; i >= 0; i--) if (GUESTS[i].gone) GUESTS.splice(i, 1);
+  for (let i = GUESTS.length - 1; i >= 0; i--) if (GUESTS[i].gone) { if (GUESTS[i].call) RUN.callsMissed++; GUESTS.splice(i, 1); }
   for (const s of STAFF) updStaff(s, dt);
   zones(dt);
   padsUpdate();
@@ -3127,19 +3524,69 @@ function padLabels(u) {
   txt(label, lx + fi.width + 1, py, 7, S.money >= need ? '#ffe9a8' : '#ffffff', 'left');
   if (named) txt(u.name, cx, over ? y - 13 : y - 5, 7, '#ffffff');
 }
-// futons of a room (ground layer): main / west rooms one, cottages two (A + B), suites one
+// futons of a room (ground layer): main / west rooms one, cottages two (A + B), suites one. A couple shares one futon
+// (two heads); a family's kitten takes futon B in a cottage, else squeezes in beside its parent (4.6).
 function drawFutons(rm) {
   const by = (rm.y0 + 2) * TILE, rs = S.rooms[rm.id], s = popScale(POPA[rm.id]), gu = RT[rm.id] && RT[rm.id].guest;
-  const one = (fx, main) => {
-    if (main && rs === 'occupied' && gu && s === 1) {   // sleeping: futon, head on the pillow, duvet over the head
+  const one = (fx, heads) => {
+    if (heads && rs === 'occupied' && s === 1) {   // sleeping: futon, head(s) on the pillow, duvet over
       const fr = Math.floor(T * 1.2) & 1;
       drawObj(futonArt('sleep', fr), fx, by, 1);
-      drawA(catSleepHead(gu.look.fur), fx * TILE + 8, rm.y0 * TILE + 13, 6, 8);
+      for (const [fur, dx] of heads) drawA(catSleepHead(fur), fx * TILE + 8 + dx, rm.y0 * TILE + 13, 6, 8);
       drawObj(futonArt('cover', fr), fx, by, 1);
     } else drawObj(futonArt(rs === 'messy' ? 'messy' : 'clean', 0), fx, by, 1, s);
   };
-  one(rm.futon[0], true);
-  if (rm.futonB) one(rm.futonB[0], false);
+  let hA = null, hB = null;
+  if (gu && gu.st === 'sleep') {
+    const m = gu.mate; hA = [[gu.look.fur, 0]];
+    if (m && m.kind === 'kitten' && rm.futonB) hB = [[m.look.fur, 0]];
+    else if (m) hA = [[gu.look.fur, -3], [m.look.fur, 3]];
+  }
+  one(rm.futon[0], hA);
+  if (rm.futonB) one(rm.futonB[0], hB);
+}
+// a follower walking (partner = a cat sprite, kitten = kittenSprite 10x14 anchored (5,13))
+function drawMate(m) {
+  if (m.kind === 'cat') { drawCat(m, m.look); return; }
+  const view = m.dir === 'left' || m.dir === 'right' ? 'side' : m.dir, fr = m.moving ? 1 + (Math.floor(m.walkT * 7) & 1) : 0;
+  let c = kittenSprite(view, fr, m.look.fur); if (m.dir === 'left') c = flipOf(c);
+  drawA(c, R(m.x), R(m.y), 5, 13);
+}
+// a cat sitting on a seat cushion, side-on to its table (catSit faces right; frame 1 = eating), or a kitten (kittenSit)
+function drawSitter(seat, look, kitten, eating) {
+  const se = SEATS[seat], x = tcx(se.at), y = tcy(se.at) + 4, left = se.face === 'left';
+  let c = kitten ? kittenSit(look.fur) : catSit(eating ? Math.floor(T * 2) & 1 : 0, look);
+  if (left) c = flipOf(c);
+  if (kitten) drawA(c, x, y, 5, 11); else drawA(c, x, y, 8, 23);
+}
+// a guest and its partner / kitten in the y-sorted list
+function guestDraws(L, gu) {
+  const m = gu.mate;
+  if (gu.st === 'sleep') return;
+  if (gu.st === 'bathing') {   // a couple shares one slot (8 px apart); a kitten sits on the edge where its parent stood
+    const bx = SLOTS[gu.slot].x * TILE + 8, by = 3 * TILE + 10, fr = Math.floor(T * 1.4 + gu.id * .37) & 1;
+    if (m && m.kind === 'cat') L.push({ y: by, f: () => { drawA(catBathing(gu.look.fur, fr), bx - 4, by, 9, 9); drawA(catBathing(m.look.fur, fr ^ 1), bx + 4, by + 1, 9, 9); } });
+    else L.push({ y: by, f: () => drawA(catBathing(gu.look.fur, fr), bx, by, 9, 9) });
+    if (m && m.kind === 'kitten') L.push({ y: 4 * TILE + 12, f: () => drawA(kittenSit(m.look.fur), bx, 4 * TILE + 12, 5, 11) });
+    return;
+  }
+  if ((gu.st === 'seated' || gu.st === 'eat') && gu.seat >= 0) {
+    const y = tcy(SEATS[gu.seat].at) + 4;
+    L.push({ y, f: () => drawSitter(gu.seat, gu.look, false, gu.st === 'eat') });
+    if (m && m.mode === 'park' && gu.seat2 >= 0) L.push({ y: y + .01, f: () => drawSitter(gu.seat2, m.look, m.kind === 'kitten', gu.st === 'eat') });
+    else if (m && VIS(m.x, m.y, 24)) L.push({ y: m.y, f: () => drawMate(m) });
+    return;
+  }
+  if (VIS(gu.x, gu.y, 24)) L.push({ y: gu.y, f: () => drawCat(gu, gu.look, gu.ox) });
+  if (m && m.mode !== 'park' && VIS(m.x, m.y, 24)) L.push({ y: m.y, f: () => drawMate(m) });
+}
+// the hand tray (4.1): in front of the chest, beside the head when walking up; portions stagger 2 px each
+function drawTray(e, items) {
+  if (!items || !items.length) return;
+  const up = e.dir === 'up', sd = e.dir === 'left' ? -1 : e.dir === 'right' ? 1 : 0;
+  const x = R(e.x) + (up ? 7 : sd * 5) - CX, y = R(e.y) - (up ? 14 : 8) - CY;
+  g.fillStyle = OUT; g.fillRect(x - 6, y, 12, 3); g.fillStyle = '#b07a48'; g.fillRect(x - 5, y + 1, 10, 1);
+  items.forEach((k, i) => drawC(itemIcon(k), x - 3 + i * 2, y - 3 - (i & 1)));
 }
 function drawScene(vw, vh, live, noPlayer) {
   g.fillStyle = '#243a22'; g.fillRect(0, 0, vw, vh);
@@ -3179,11 +3626,7 @@ function drawScene(vw, vh, live, noPlayer) {
     if (VIS(x, y - 8, 24)) L.push({ y, f: () => { const c = areaSignArt(a.n, lit), s = lit ? popScale(POPA['pad:' + gate.id]) : 1; if (s >= 1) drawA(c, x, y, 7, 17); else if (s > .02) g.drawImage(c, R(x - 7 * s) - CX, R(y - 17 * s) - CY, R(c.width * s) || 1, R(c.height * s) || 1); } });
   }
   if (live) {
-    for (const gu of GUESTS) {
-      if (gu.st === 'sleep' || !VIS(gu.x, gu.y, 24)) continue;
-      if (gu.st === 'bathing') { const bx = SLOTS[gu.slot].x * TILE + 8, by = 3 * TILE + 10; L.push({ y: by, f: () => drawA(catBathing(gu.look.fur, Math.floor(T * 1.4 + gu.id * .37) & 1), bx, by, 9, 9) }); }
-      else L.push({ y: gu.y, f: () => drawCat(gu, gu.look, gu.ox) });
-    }
+    for (const gu of GUESTS) guestDraws(L, gu);
     for (const s of STAFF) if (VIS(s.x, s.y, 24)) L.push({ y: s.y, f: () => drawCat(s, s.look) });
     if (!noPlayer) L.push({ y: P.y + .01, f: () => drawCat(P, PLAYER_LOOK) });
   }
@@ -3204,21 +3647,44 @@ function drawOverlays() {
   g.globalAlpha = 1;
   const f = Q[0]; if (f && f.ck > 0 && f.ready) ring(R(f.x) - CX, R(f.y) - 30 - CY, f.ck, '#ffe14a');
   for (const rm of ROOMS) if (S.rooms[rm.id] === 'messy' && RT[rm.id].cleanP > 0) ring(rm.cleanC[0] - CX, rm.y0 * TILE - 2 - CY, RT[rm.id].cleanP);
-  for (const rm of ROOMS) if (S.rooms[rm.id] === 'occupied' && RT[rm.id].guest) drawA(bubbleArt('zzz', 0), rm.futon[0] * TILE + 8 + (rm.left ? 5 : -5), rm.y0 * TILE + 3 + R(Math.sin(T * 2)), 7, 12);
-  for (const gu of GUESTS) if (gu.bub && gu.st !== 'sleep') {
-    const bath = gu.st === 'bathing', bx = bath ? SLOTS[gu.slot].x * TILE + 8 : R(gu.x) + gu.ox, by = bath ? 3 * TILE : R(gu.y) - 20;
-    drawA(bubbleArt(gu.bub, gu.urg), bx, by + (gu.urg === 2 ? R(Math.sin(T * 6)) : 0), 7, 12);
+  for (const rm of ROOMS) { const gu = RT[rm.id].guest; if (S.rooms[rm.id] === 'occupied' && gu && !gu.call) drawA(bubbleArt('zzz', 0), rm.futon[0] * TILE + 8 + (rm.left ? 5 : -5), rm.y0 * TILE + 3 + R(Math.sin(T * 2)), 7, 12); }
+  // the head-bubble anchor of a guest: over the futon / in the bath / over the seat / over the head
+  const head = gu => gu.st === 'sleep' && gu.room ? [ROOM[gu.room].futon[0] * TILE + 8 + (ROOM[gu.room].left ? 5 : -5), ROOM[gu.room].y0 * TILE + 3]
+    : gu.st === 'bathing' ? [SLOTS[gu.slot].x * TILE + 8, 3 * TILE] : (gu.st === 'seated' || gu.st === 'eat') && gu.seat >= 0 ? [tcx(SEATS[gu.seat].at), tcy(SEATS[gu.seat].at) - 16] : [R(gu.x) + gu.ox, R(gu.y) - 20];
+  for (const gu of GUESTS) {
+    const [bx, by] = head(gu);
+    if (gu.bub && gu.st !== 'sleep') {
+      const wob = gu.urg === 2 ? R(Math.sin(T * 6)) : 0;
+      if (gu.bub === 'emb') { drawA(bubbleArt('blank', 0), bx, by, 7, 12); if (gu.room) drawA(emblemArt(ROOM[gu.room].emb), bx, by - 7, 3, 3); }
+      else drawA(bubbleArt(gu.bub, gu.urg), bx, by + wob, 7, 12);
+    }
+    // a call (4.2): gold-rimmed bubble with the wanted thing, rim white -> orange -> red with the time left; over the
+    // normal bubble when there is one; a sleeper's shows over the futon and a little bell lights over the room's door
+    const cy = by - (gu.bub && gu.st !== 'sleep' ? 13 : 0);
+    if (gu.call) {
+      const u = urgOf(gu.call.t / gu.call.max);
+      drawA(bubbleArt(gu.call.k, u, true), bx, cy + (u === 2 ? R(Math.sin(T * 6)) : 0), 7, 12);
+      if (gu.st === 'sleep' && gu.room) { const d = ROOM[gu.room].door; if (VIS(tcx(d), tcy(d), 24)) g.drawImage(wallDecorArt('bell'), d[0] * TILE - CX, (d[1] - 1) * TILE - CY); }
+    } else if (gu.callGone > 0 && gu.st !== 'sleep') {   // a call that timed out shrinks away
+      const k = gu.callGone / .25, c = bubbleArt('blank', 0, true), w = Math.max(1, R(14 * k)), h = Math.max(1, R(13 * k));
+      g.drawImage(c, R(bx - w / 2) - CX, R(cy - h) - CY, w, h);
+    }
   }
   // towel stacks on heads (the top layers lag a little when walking)
   const stack = (e, n, sway) => { const tw = towelArt(); for (let i = 0; i < n; i++) drawA(tw, R(e.x + sway * i / Math.max(4, n)), R(e.y) - 17 - i * 2, 5, 2); };   // the first towel rests on the head (ear tips are 18px up)
   if (P.towels > 0) stack(P, P.towels, P.sway);
   for (const s of STAFF) if (s.carry > 0) stack(s, s.carry, 0);
+  // trays (4.1): the innkeeper's and the waiters'
+  drawTray(P, P.tray);
+  for (const s of STAFF) if (s.tray.length) drawTray(s, s.tray);
+  if (P.cookK) ring(R(P.x) - CX, R(P.y) - 30 - CY, P.cookT / (P.cookK === 'kaiseki' ? KAISEKI_T : STOVE_T), P.cookK === 'kaiseki' ? '#ffd23f' : '#ffe9a8');   // cooking at the stove (kaiseki: gold)
   for (const fx of FX) {
     if (fx.t < 0) continue;
     const fr = clamp(Math.floor(fx.t / fx.life * 4), 0, 3);
     if (fx.k === 'spark') drawA(sparkleArt(fr), fx.x, fx.y, 4, 4);
     else if (fx.k === 'poof') drawA(poofArt(fr), fx.x, fx.y, 8, 6);
     else if (fx.k === 'pour') { const p = fx.t / fx.life; drawA(fishIcon(), lerp(fx.x0, fx.x1, p), lerp(fx.y0, fx.y1, p) - Math.sin(p * Math.PI) * 12, 4, 3); }
+    else if (fx.k === 'give') { const p = fx.t / fx.life; drawA(itemIcon(fx.it), lerp(fx.x0, fx.x1, p), lerp(fx.y0, fx.y1, p) - Math.sin(p * Math.PI) * 8, 3, 3); }   // handed over: the portion hops across
   }
   for (const u of visiblePads()) { const [tx, ty] = padXY(u); if (VIS(tx * TILE + 8, ty * TILE + 8, 20)) padLabels(u); }
   for (const p of POPS) txt(p.s, p.x - CX, p.y - CY, p.size, p.col, 'center', OUT, Math.min(1, p.life / p.max * 2));
@@ -3234,7 +3700,7 @@ function drawGuide() {
   }
   const gt = GUIDE; if (!gt || gt.here) return;
   const fr = Math.floor(T * 2.5) & 1, sx = gt.x - CX, sy = gt.y - CY;
-  let lift = gt.kind === 'shelf' ? 26 : gt.kind === 'desk' || gt.kind === 'clean' ? 22 : gt.kind === 'pile' ? 19 : 15;
+  let lift = { shelf: 26, desk: 22, clean: 22, pile: 19, deliver: 22, vip: 22, photo: 22, urn: 20, milk: 20, pass: 20, stove: 20, slot: 14, suite: 15 }[gt.kind] || 15;   // 6: lift by kind
   if (gt.kind === 'pad' && PADPOS.has(gt.id)) { const { over, named } = padLayout(UNLOCK[gt.id]); lift = 15 + (over ? 8 : 0) + (named ? 9 : 0); }   // stay clear of the price / name
   if (sx > 4 && sx < W - 4 && sy - lift > 18 && sy < H - 2) { drawC(arrowArt(fr), sx, sy - lift + R(Math.sin(T * 4) * 2)); return; }
   // off screen: an arrow on the screen edge pointing at it
@@ -3264,6 +3730,9 @@ function drawHUD() {
       drawC(sparkleArt(clamp(Math.floor((T - starPopAt) / .6 * 4), 0, 3)), x, 8);
     } else drawC(starIcon(i < star(), i < goldStars()), x, 8);
   }
+  // second row (4.2): a bell pill with the number of open calls, only while there are any (stage 3 lays out the full row)
+  const nc = callCount();
+  if (nc > 0) { pill(2, 17, 21, 11); drawC(bellIcon(), 8, 22); txt(String(nc), 14, 22.5, 7, '#ffe9a8', 'left'); }
 }
 function drawFly() {
   for (const f of FX) if (f.k === 'fly' && f.t >= 0) {
@@ -3298,12 +3767,16 @@ function onPress(p) {
   if (state === 'play') { JOY.on = true; JOY.bx = p.x; JOY.by = p.y; JOY.dx = 0; JOY.dy = 0; }
 }
 function resetWorld() {
-  GUESTS.length = 0; Q.length = 0; STAFF.length = 0; FX.length = 0; POPS.length = 0; SLOT_OCC.fill(null); AREA_FADE.length = 0;
+  GUESTS.length = 0; Q.length = 0; STAFF.length = 0; FX.length = 0; POPS.length = 0; SLOT_OCC.fill(null); SEAT_OCC.fill(null); AREA_FADE.length = 0;
   for (const rm of ROOMS) RT[rm.id] = { guest: null, cleanP: 0, claim: null };
   for (const k in POPA) delete POPA[k];
   DECOR_SLOT.clear(); padsUpdate();
   PADSEEN.clear(); for (const id of PADPOS.keys()) PADSEEN.add(id);
-  Object.assign(P, { x: 17 * TILE + 8, y: 27 * TILE + 8, dir: 'up', moving: false, walkT: 0, towels: 0, dist: 0, sway: 0, atDesk: false, pourAcc: 0, pouring: null, padOn: null, padT: 0, shelfT: 0, basketT: 0 });
+  // calls, trays, the counter and followers are not saved (10.1): they start empty
+  Object.assign(P, { x: 17 * TILE + 8, y: 27 * TILE + 8, dir: 'up', moving: false, walkT: 0, towels: 0, dist: 0, sway: 0, atDesk: false, pourAcc: 0, pouring: null, padOn: null, padT: 0, shelfT: 0, basketT: 0,
+    tray: [], pick: {}, cookT: 0, cookK: null, giveT: 0, giveTo: null, giveK: null, putT: 0 });
+  PASS.n = 0; BROWSE.occ = null; TABLE_EATEN.fill(-9); FIRST_Q.length = 0; lastCallAt = -99;
+  for (const k in RUN) RUN[k] = 0;
   spawnT = 1.5; guideClock = 0; GUIDE = null; celebrateAt = 0; starPopAt = -9; DISP = S.money; lastEarnT = S.stats.time;
   rebuildWorld(); ensureStaff(); updCam(0, true);
 }

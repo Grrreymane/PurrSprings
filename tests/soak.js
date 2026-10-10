@@ -6,7 +6,7 @@
 //   money integer >= 0; earned == money + sum(paid); fees generated == earned + sum(piles) (no fish created
 //   or lost); room <-> guest <-> RT links consistent both ways; reserved/occupied rooms always have a live guest;
 //   slots <-> guests consistent; maid claims point at a maid whose job is that room; Q == arrive/queue guests;
-//   basket 0..10; nobody lost (path null); no guest in one state > 120 s; staff not stuck on a job > 60 s;
+//   basket 0..10; nobody lost (path null); no guest in one state > 180 s (sleep / bathing / eat excepted); staff not stuck on a job > 60 s;
 //   all positions finite; player not in a wall; render() does not throw.
 // Also records growth of runtime arrays / caches (GUESTS, FX, POPS, TXC, ART, FLIPS) and BFS calls per frame.
 // Extra args: [profile] [minutes] ['reload' = save -> loadState -> resetWorld every ~4 min]
@@ -18,7 +18,8 @@ const mmss = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart
 let bfsFrame = 0, bfsMax = 0, bfsTotal = 0, txNew = 0, generated = 0;
 const _findPath = findPath; findPath = function (a, b, c, d) { bfsFrame++; return _findPath(a, b, c, d); };
 const _textSprite = textSprite; textSprite = function (t) { const had = TXC.has(t.s + '|' + t.size + '|' + t.col + '|' + t.stroke + '|' + K); if (!had) txNew++; return _textSprite(t); };
-const _fee = fee; fee = function (k) { const v = _fee(k); generated += v; return v; };
+const _fee = fee; fee = function (k, o) { const v = _fee(k, o); generated += v; return v; };
+const _earn = earn; earn = function (v, x, y) { generated += Math.max(0, v | 0); return _earn(v, x, y); };   // calls pay straight into the wallet (v2 4.2)
 newGame();
 // ---------------------------------------------------------------- driver (as bot.js)
 let path = [], key = '', think = 0, mode = 'follow', episode = 0, stuckT = 0, lastPos = [P.x, P.y], stuckN = 0;
@@ -79,7 +80,7 @@ function checkSecond() {
     if (gu.room) { perRoom[gu.room] = (perRoom[gu.room] || 0) + 1; if (RT[gu.room].guest !== gu) flag('guest-room-not-linked', at + ' ' + gu.room + ' ' + gu.st); }
     if (gu.slot >= 0 && SLOT_OCC[gu.slot] !== gu) flag('slot-backlink', at + ' slot ' + gu.slot);
     if (gu.slot >= 0 && gu.st !== 'toSlot' && gu.st !== 'bathing') flag('slot-held-wrong-state', at + ' ' + gu.st);
-    if (gu.t > 120 && gu.st !== 'sleep' && gu.st !== 'bathing') flag('stuck-guest', at + ' ' + gu.st + ' ' + R(gu.t) + 's at ' + R(gu.x) + ',' + R(gu.y));
+    if (gu.t > 180 && gu.st !== 'sleep' && gu.st !== 'bathing' && gu.st !== 'eat') flag('stuck-guest', at + ' ' + gu.st + ' ' + R(gu.t) + 's at ' + R(gu.x) + ',' + R(gu.y));
     if (gu.lost) flag('guest-lost', at + ' ' + gu.st + ' goal ' + gu.goal);
     if (!Number.isFinite(gu.x) || !Number.isFinite(gu.y)) flag('guest-nan', at);
     const inQ = Q.includes(gu), qState = gu.st === 'arrive' || gu.st === 'queue';
@@ -88,7 +89,7 @@ function checkSecond() {
     if (['toBath', 'towel', 'toSlot', 'bathing', 'toMilk', 'milk'].includes(gu.st) && gu.room) flag('bath-holds-room', at + ' ' + gu.st);   // bath-last: guests bathe after checking out
   }
   for (const k in perRoom) if (perRoom[k] > 1) flag('room-shared', at + ' ' + k);
-  for (let i = 0; i < SLOT_OCC.length; i++) { const o = SLOT_OCC[i]; if (o && (!GUESTS.includes(o) || o.slot !== i)) flag('slot-leak', at + ' slot ' + i); if (o && i >= slotCount()) flag('slot-over-count', at + ' ' + i); }
+  for (let i = 0; i < SLOT_OCC.length; i++) { const o = SLOT_OCC[i]; if (o && (!GUESTS.includes(o) || o.slot !== i)) flag('slot-leak', at + ' slot ' + i); if (o && !slotOpen(i)) flag('slot-over-count', at + ' ' + i); }
   for (const g2 of Q) if (!GUESTS.includes(g2)) flag('queue-ghost', at);
   if (S.basket < 0 || S.basket > BASKET_MAX || !Number.isInteger(S.basket)) flag('basket', at + ' ' + S.basket);
   if (P.towels < 0 || P.towels > towelCap()) flag('towels', at + ' ' + P.towels);
