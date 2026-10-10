@@ -311,6 +311,33 @@
       const d = document.createElement('div'); d.textContent = log.join(' | '); d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;background:#000;color:#0f0;font:14px monospace;padding:4px;z-index:9';
       document.body.appendChild(d); FREEZE_AT();
     },
+    // stage 3 guide v2 (SPEC_v2 6): the arrow with its icon (and the edge arrow with the icon on its tail)
+    arrow_deliver() { sc.calls(); GUIDE = guideTarget(); FREEZE_AT(); },
+    arrow_pile() {
+      newGame(); S.tut.moved = true; unl(['room2']); S.money = 0; S.piles.room2 = 30; resetWorld(); go('play'); spawnT = 1e9;
+      place(15, 22, 'up'); ff(.3, false); GUIDE = guideTarget(); FREEZE_AT();
+    },
+    arrow_edge() {   // the biggest pile is up at the onsen, you are at the desk
+      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'shoes1', 'onsen', 'recep']); S.money = 0; S.piles.onsen = 60; resetWorld(); go('play'); spawnT = 1e9;
+      place(14, 25, 'up'); ff(.3, false); GUIDE = guideTarget(); FREEZE_AT();
+    },
+    arrow_clean() {   // a guest waits at the counter, both rooms messy, no maid
+      newGame(); S.tut.moved = true; unl(['room2']); resetWorld(); go('play'); spawnT = 1e9;
+      S.rooms.room1 = S.rooms.room2 = 'messy'; addGuest('regular'); const gu = GUESTS[GUESTS.length - 1]; Object.assign(gu, { x: tcx(QSPOTS[0]), y: tcy(QSPOTS[0]), st: 'queue', ready: true });
+      place(16, 21, 'up'); ff(.3, false); GUIDE = guideTarget(); FREEZE_AT();
+    },
+    arrow_vip() {   // the VIP waits on the red carpet, a clean suite
+      newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); resetWorld(); go('play'); spawnT = 1e9;
+      vipArrive(); ff(8, false); place(19, 22, 'left'); ff(.3, false); GUIDE = guideTarget(); FREEZE_AT();
+    },
+    arrow_slot() {   // you own decor and a room has none: its A slot
+      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen', 'recep', 'shop', 'd_scroll']); S.money = 0; resetWorld(); go('play'); spawnT = 1e9;
+      place(17, 21, 'up'); ff(.3, false); GUIDE = guideTarget(); FREEZE_AT();
+    },
+    arrow_pad() {   // money for a pad
+      newGame(); S.tut.moved = true; unl(['room2', 'room3']); S.money = 40; resetWorld(); go('play'); spawnT = 1e9;
+      place(15, 24, 'up'); ff(.3, false); GUIDE = guideTarget(); FREEZE_AT();
+    },
     share_v2() {
       newGame(); S.tut.moved = true; unl(ALL.concat(['h_straw', 'h_beret', 'p_duck'])); S.done = true; S.equip = { hat: 'h_beret', pet: 'p_duck' }; S.hearts = 3200; S.stats.guests = 1840; S.earned = 412000; S.album.vip = { kawa: 3, ozeki: 2, sakura: 1 };
       S.album.photos = [{ v: 'kawa', d: 5, h: null, p: null }, { v: 'ozeki', d: 11, h: 'h_straw', p: 'p_duck' }]; S.combos = { c_ga: 3, c_zen: 6 }; S.album.furs = { calico: true, white: true }; resetWorld(); go('play'); ff(.5, false); makeShare();

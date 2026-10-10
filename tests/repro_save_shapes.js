@@ -24,7 +24,7 @@ for (const raw of [
 // the locked-room pile: the guide arrow points at it (rule 6) though no path exists
 localStorage.setItem(SAVE + 'state', '{"piles":{"room5":9},"tut":{"moved":true}}'); S = loadState(); resetWorld(); go('play');
 const gt = guideTarget(), [sx, sy] = tileOf(P);
-console.log('locked-room pile: guideTarget =', JSON.stringify(gt), '| path from player =', JSON.stringify(findPath(sx, sy, gt.tx, gt.ty)));
+console.log('locked-room pile: guideTarget =', JSON.stringify(gt), '| path from player =', gt ? JSON.stringify(findPath(sx, sy, gt.tx, gt.ty)) : '- (no arrow: a 9-fish pile is under the rule-15 minimum)');
 // paid > price with 0 money: standing on the pad never unlocks it (pour() returns on money <= 0 before the unlock check)
 localStorage.setItem(SAVE + 'state', '{"money":0,"paid":{"room2":30}}'); S = loadState(); resetWorld(); go('play'); S.tut.moved = true;
 Object.assign(P, { x: 18 * TILE + 8, y: 20 * TILE + 8 });

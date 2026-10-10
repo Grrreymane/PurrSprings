@@ -2,8 +2,9 @@
 //   node D:/Minigame/_workflow/tools/headless.js D:/Minigame/Hotelgame tests/smoke.js --seed 1
 // New game -> 5 minutes of game time with a guide-following driver -> render every few frames, check no
 // errors / NaN; then every screen renders (title, celebration, share card); then a save round trip
-// (save -> fresh load -> 5 more minutes) keeps money and unlocks.
-const DT = 1 / 30, errs = [];
+// (save -> fresh load -> 5 more minutes) keeps money and unlocks; staged round trips (VIP, decor, star 5 at night); round
+// trips at moments a new game really reaches (a call + its tea on the tray, a VIP mid-service); odd save shapes.
+const DT = 1 / 30, errs = [], roundTrips = [];
 const bad = (tag, m) => { if (errs.length < 30) errs.push(tag + ': ' + m); };
 function check(tag) {
   if (!Number.isFinite(S.money) || S.money < 0 || S.money !== Math.floor(S.money)) bad(tag, 'money ' + S.money);
@@ -94,6 +95,39 @@ run(300, 'after-load');
   BANNER_Q.length = 0; run(5, 'after-night5-load');
   if (BANNER_Q.some(b => b.kind === 'gold')) bad('night5-roundtrip', 'gold banner replayed');
   run(60, 'after-night5-load'); }
+// SPEC_v2 14.4: round trips at moments a real game reaches (a fresh new game, the same guide follower): save -> load while
+// (a) a call is open and its thing is on the tray, (b) a VIP is mid-service (following you, or seated / soaking with part
+// of its gift unpaid). Nothing of it is saved (10.1): loading starts with an empty tray, no calls, no VIP, half of the
+// VIP's unpaid gift in the cash box (once; the next VIP then needs the full gap); money, unlocks, hearts and decor come
+// back; the game plays on.
+{ newGame();
+  const until = (cond, sec, tag) => { const n = Math.round(sec / DT); for (let i = 0; i < n; i++) { drive(DT); try { update(DT); } catch (e) { bad(tag, 'update threw ' + (e && e.stack || e)); return false; } if (state === 'celebrate') { S.done = true; go('play'); } if (i % 30 === 0) check(tag); if (cond()) return true; } return false; };
+  const keep = () => ({ money: S.money, unlocked: Object.keys(S.unlocked).sort().join(','), hearts: S.hearts, decor: JSON.stringify(S.decor), guests: S.stats.guests });
+  const trip = (tag, extra) => {
+    const a = keep(), recep = S.piles.recep || 0, owe = VIPG ? S.vipOwe : 0;
+    try { render(); } catch (e) { bad(tag, 'render threw ' + (e && e.stack || e)); }
+    saveNow();
+    if (/"tray"|"call":\{|"st":"(follow|seated|soak|toSuite)"/.test(JSON.stringify(S))) bad(tag, 'runtime state leaked into the save');
+    S = defaults(); resetWorld(); continueGame();
+    const b = keep();
+    if (JSON.stringify(a) !== JSON.stringify(b)) bad(tag, JSON.stringify(a) + ' -> ' + JSON.stringify(b));
+    if (P.tray.length || PASS.n || callCount() || VIPG || SEAT_OCC.some(Boolean)) bad(tag, 'tray / counter / calls / VIP / seats not empty after loading');
+    if ((S.piles.recep || 0) - recep !== R(owe * .5)) bad(tag, 'refund ' + ((S.piles.recep || 0) - recep) + ' want ' + R(owe * .5));
+    if (S.vipOwe) bad(tag, 'vipOwe not cleared');
+    if (extra) extra(owe);
+    run(60, tag + '-after');
+  };
+  // (a) a call open + its thing on the tray (star 2: tea)
+  if (until(() => P.tray.length > 0 && GUESTS.some(gu => gu.call && P.tray.includes(gu.call.k)), 20 * 60, 'trip-call')) { trip('trip-call'); roundTrips.push('call + its tea on the tray at ' + R(S.stats.time / 60) + ' min'); }
+  else bad('trip-call', 'no moment with a call open and its thing on the tray in 20 min');
+  // (b) a VIP following you to its suite, (c) a VIP seated after its first wish (part of the gift unpaid -> the refund)
+  for (const [tag, cond, max] of [['trip-vip-follow', () => VIPG && VIPG.st === 'follow', 45 * 60],
+    ['trip-vip-seated', () => VIPG && (VIPG.st === 'seated' || VIPG.st === 'soak') && VIPG.wi > 0 && S.vipOwe > 0, 30 * 60]]) {
+    if (!until(cond, max, tag)) { bad(tag, 'no such VIP moment within ' + max / 60 + ' min'); continue; }
+    const st = VIPG.st, wi = VIPG.wi, owe = S.vipOwe;
+    trip(tag, o => { if (o > 0 && vipT - S.stats.time < (VIP_GAP - VIP_JIT) * .7 - 1) bad(tag, 'the next VIP comes ' + R(vipT - S.stats.time) + ' s after a refund (full gap expected)'); });
+    roundTrips.push('VIP ' + st + (st !== 'follow' ? ' (wish ' + (wi + 1) + ', owed ' + owe + ')' : '') + ' at ' + R(S.stats.time / 60) + ' min');
+  } }
 // old / odd save shapes load without throwing
 // (+ shapes the game never writes: unknown / array / locked pile keys, Infinity, a part payment above a lowered price;
 //  the full v1 fixture set is exercised by tests/migrate_v1.js)
@@ -107,5 +141,5 @@ for (const raw of ['{"v":2,"decor":{"room1:A":"d_scroll","zz":1},"equip":{"hat":
   }
   catch (e) { bad('oldsave ' + raw, String(e && e.stack || e)); }
 }
-console.log(errs.length ? 'SMOKE FAIL\n  ' + errs.join('\n  ') : 'SMOKE OK  money ' + mid.money + ', guests ' + mid.guests + ', unlocked [' + mid.unlocked + '] after 5 min; round trip + 5 min OK');
+console.log(errs.length ? 'SMOKE FAIL\n  ' + errs.join('\n  ') : 'SMOKE OK  money ' + mid.money + ', guests ' + mid.guests + ', unlocked [' + mid.unlocked + '] after 5 min; round trip + 5 min OK; played round trips: ' + roundTrips.join(', '));
 if (errs.length) process.exitCode = 1;
