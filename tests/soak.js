@@ -56,6 +56,7 @@ const sum = o => Object.values(o).reduce((a, b) => a + b, 0);
 let base = 0;   // fish that existed before tracking started (tips handed out by loadState on reload)
 const rebase = () => { base = S.earned + sum(S.piles) - generated; };
 rebase();
+let lastH = 0, lastClock = -1;
 const staffJob = new Map(), peak = { guests: 0, fx: 0, pops: 0, txc: 0, art: 0, flips: 0, rots: 0, q: 0 };
 function checkSecond() {
   const t = S.stats.time, at = mmss(t);
@@ -109,9 +110,24 @@ function checkSecond() {
       if (s.job) { if (!j || j.job !== s.job) staffJob.set(s, { job: s.job, t }); else if (t - j.t > 60) flag('maid-stuck', at + ' ' + s.id + ' on ' + s.job + ' for ' + R(t - j.t) + 's'); }
       else staffJob.delete(s);
     }
-    if (s.role === 'porter' && (s.carry < 0 || s.carry > 6)) flag('porter-carry', at + ' ' + s.carry);
+    if (s.role === 'porter' && (s.carry < 0 || s.carry > porterCap(s))) flag('porter-carry', at + ' ' + s.carry + ' cap ' + porterCap(s));
   }
+  // stage 2C (SPEC_v2 14.3 as far as it exists): hearts never drop; star >= peak; gold stars only from star 5 and match the
+  // hearts; equip only owned pieces; the clock runs (in play) and stays in [0,1); day / day log / staff experience sane;
+  // the pet stays near you; the VIP is one at a time; the arrow never points at the statue; at most LIGHT_MAX lamps drawn
+  if (S.hearts < lastH) flag('hearts-drop', at + ' ' + lastH + ' -> ' + S.hearts); lastH = S.hearts;
+  if (star() < S.peak) flag('star<peak', at);
+  if (goldStars() > 5 || (star() < 5 && goldStars() > 0)) flag('gold', at + ' ' + goldStars());
+  for (const k of ['hat', 'pet']) { const id = S.equip[k]; if (id !== null && !(S.unlocked[id] && UNLOCK[id][k])) flag('equip', at + ' ' + k + '=' + id); }
+  if (!(S.clock >= 0 && S.clock < 1) || !Number.isInteger(S.day) || S.day < 1) flag('clock', at + ' ' + S.clock + ' day ' + S.day);
+  if (state === 'play' && S.clock === lastClock) flag('clock-stopped', at); lastClock = S.clock;
+  for (const k of ['g', 'h', 'best']) if (!Number.isInteger(S.dayLog[k]) || S.dayLog[k] < 0) flag('daylog', at + ' ' + k + '=' + S.dayLog[k]);
+  for (const k in S.staff) if (!Number.isInteger(S.staff[k]) || S.staff[k] < 0 || !STAFF_DEF[k]) flag('staff-xp', at + ' ' + k + '=' + S.staff[k]);
+  if (PET && dist(P.x, P.y, PET.x, PET.y) > 200) flag('pet-far', at + ' ' + R(dist(P.x, P.y, PET.x, PET.y)));
+  if (VIPG && SUITES.some(rm => RT[rm.id].guest && RT[rm.id].guest !== VIPG)) flag('suite-guest', at);
+  if (GUIDE && GUIDE.id === 'statue') flag('guide-statue', at);
   try { render(); } catch (e) { flag('render', String(e && e.message || e)); }
+  if (LIGHT_N > LIGHT_MAX) flag('lights>16', at + ' ' + LIGHT_N);
   peak.guests = Math.max(peak.guests, GUESTS.length); peak.fx = Math.max(peak.fx, FX.length); peak.pops = Math.max(peak.pops, POPS.length);
   peak.txc = Math.max(peak.txc, TXC.size); peak.art = Math.max(peak.art, Object.keys(ART).length); peak.flips = Math.max(peak.flips, FLIPS.size); peak.rots = Math.max(peak.rots, ROTS.size); peak.q = Math.max(peak.q, Q.length);
 }
@@ -140,8 +156,9 @@ for (let i = 0; i < steps; i++) {
   }
 }
 const invOk = Object.keys(inv).length === 0;
-console.log(`${PROFILE} ${MAXMIN}m seed? | sign ${signAt ? mmss(signAt) : '-'} | unlocked ${Object.keys(S.unlocked).length}/21 | money ${S.money} earned ${S.earned} | guests ${S.stats.guests} angry ${S.stats.angry} | reloads ${reloads} | stuck ${stuckN} | inv ${invOk ? 'OK' : 'FAIL'}`);
+console.log(`${PROFILE} ${MAXMIN}m | ★5 ${signAt ? mmss(signAt) : '-'} | unlocked ${Object.keys(S.unlocked).length}/${UNLOCKS.length + 1} | money ${S.money} earned ${S.earned} | guests ${S.stats.guests} angry ${S.stats.angry} | reloads ${reloads} | stuck ${stuckN} | inv ${invOk ? 'OK' : 'FAIL'}`);
 console.log(`  peaks: guests ${peak.guests} Q ${peak.q} FX ${peak.fx} POPS ${peak.pops} TXC ${peak.txc} ART ${peak.art} FLIPS ${peak.flips} ROTS ${peak.rots} | new text sprites ${txNew} (${(txNew / MAXMIN).toFixed(1)}/min) | BFS/frame max ${bfsMax} avg ${(bfsTotal / frames).toFixed(3)} | update() avg ${(upd / frames).toFixed(3)}ms max ${updMax.toFixed(2)}ms`);
 console.log('  every 10 min: ' + Object.entries(artAt).map(([k, v]) => mmss(+k) + ' art' + v.art + ' txc' + v.txc + ' txNew' + v.txNew + ' g' + v.guests + ' fx' + v.fx).join(' | '));
+console.log(`  2C: ♥ ${S.hearts} #${rankOf(S.hearts)} gold ${goldStars()} | day ${S.day} (best ${S.dayLog.best} guests) | staff Lv ${STAFF.filter(s => s.role !== 'owner').map(s => s.name + staffLv(s)).join(' ')} | equip ${S.equip.hat || '-'} / ${S.equip.pet || '-'} | boutique ${UNLOCKS.filter(u => u.booth && S.unlocked[u.id]).map(u => u.id).join(',') || '-'} | statue paid ${S.paid.statue || 0}`);
 for (const k in inv) console.log('  INVARIANT ' + k + ' x' + inv[k].n + ' first: ' + inv[k].first);
 if (!invOk) process.exitCode = 1;

@@ -66,12 +66,13 @@ patchFn('addGuest', [['PATIENCE_EARLY', '__C.patienceEarly'], ['PATIENCE', '__C.
 patchFn('bubbles', [['PATIENCE', '__C.patience'], ['BATH_WAIT', '__C.bathWait']]);
 patchFn('updGuest', [['BATH_WAIT', '__C.bathWait'], ['BATH_T', '__C.bathT'], ['SLEEP_T', '__C.sleepT']]);
 patchFn('unlock', [['S.basket = BASKET_MAX', 'S.basket = __C.basketStart']]);
-patchFn('zones', [['towelCap()', '__towelCap()'], ['CHECKIN_T', '__C.checkinT'], ['CLEAN_T', '__C.cleanT']]);
+patchFn('zones', [['towelCap()', '__towelCap()'], ['CLEAN_T', '__C.cleanT']]);
+patchFn('checkinT', [['CHECKIN_T', '__C.checkinT']]);   // v2 2C: the check-in time moved into checkinT() (receptionist levels)
 patchFn('guideTarget', [['towelCap()', '__towelCap()'], ['S.basket <= 2', 'S.basket <= __C.towelLow'],
   ['if (pid && S.money + S.piles[pid] >= need) return T_PILE(pid);', 'if (__C.pileFirst && pid && S.money + S.piles[pid] >= need) return T_PILE(pid);'],
   ['  // 6. the biggest fish pile', `  if (__C.cleanAhead) { let bm = null, bd = 1e9; for (const rm of ROOMS) if (S.rooms[rm.id] === 'messy' && !RT[rm.id].claim) { const c = futonC(rm), d = dist(P.x, P.y, c[0], c[1]); if (d < bd) { bd = d; bm = rm; } } if (bm) return T_CLEAN(bm, false); }
   // 6. the biggest fish pile`]]);
-patchFn('updStaff', [['s.carry < 6', 's.carry < __C.porterCarry'], ['s.carry >= 6', 's.carry >= __C.porterCarry'], ['S.basket <= 6', 'S.basket <= __C.porterRefill'], ['MAID_CLEAN_T', '__C.maidCleanT']]);
+patchFn('updStaff', [['const cap = porterCap(s);', 'const cap = __C.porterCarry + staffLv(s) - 1;'], ['S.basket <= 6', 'S.basket <= __C.porterRefill'], ['MAID_CLEAN_T', '__C.maidCleanT']]);   // v2 2C: porter levels
 patchFn('spawnGuests', [['guestRoomsOpen() + 3', 'guestRoomsOpen() + __C.spawnSlack']]);
 // skipBath / bathLast were v1 flow experiments; since v2 stage 2A the flow is fixed by SPEC_v2 4.12 (room -> breakfast ->
 // bath -> souvenirs), so both switches are ignored.

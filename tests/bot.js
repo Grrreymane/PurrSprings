@@ -8,8 +8,10 @@
 // every simulated second (+ the SPEC_v2 14.3 ones that exist so far). Ends at star 5. Extra args: [profile] [max minutes] [json]
 // v2 note: the timing checks print against the v2 targets (SPEC_v2 14.2) but stay informational until the balance stage;
 // green = invariants OK and star 5 reached. Every guide kind the bot sees must be one it knows (SPEC_v2 6 / WORKFLOW 5).
+// 'shopper' (14.1) = eager, then keeps playing AFTER minutes past star 5 (ARGS[2], default 120): boutique buys, gold stars.
 const PROFILE = ARGS[0] || 'eager', MAXMIN = +ARGS[1] || 50, JSONOUT = ARGS.includes('json');
-const PROF = { eager: { react: .3, distract: 0 }, casual: { react: 1, distract: .3 } }[PROFILE] || { react: .3, distract: 0 };
+const PROF = { eager: { react: .3, distract: 0 }, casual: { react: 1, distract: .3 }, shopper: { react: .3, distract: 0 } }[PROFILE] || { react: .3, distract: 0 };
+const AFTER = PROFILE === 'shopper' ? (+ARGS[2] || 120) * 60 : 0;
 const DT = 1 / 30;
 const mmss = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
 newGame();
@@ -106,12 +108,25 @@ function checkSecond() {
     if (e.y < MAPH && !e.moving && BLOCK[ty * MW + tx] && e.st !== 'bathing') flag('on-block', mmss(t) + ' ' + (e.st || e.role) + ' ' + tx + ',' + ty);
   }
   if (GUIDE && !GUIDE.here) { const [sx, sy] = tileOf(P); if (!findPath(sx, sy, GUIDE.tx, GUIDE.ty)) flag('guide-unreachable', mmss(t) + ' ' + GUIDE.kind + ' ' + GUIDE.tx + ',' + GUIDE.ty); }
+  if (GUIDE && GUIDE.id === 'statue') flag('guide-statue', mmss(t));
+  // stage 2C (14.3): equip only owned pieces; the clock / day / day log sane; staff experience; the porter's load; the pet
+  // near you; gold stars only from star 5; the rank 1..10; at most LIGHT_MAX lamps drawn
+  for (const k of ['hat', 'pet']) { const id = S.equip[k]; if (id !== null && !(S.unlocked[id] && UNLOCK[id][k])) flag('equip', mmss(t) + ' ' + k + '=' + id); }
+  if (!(S.clock >= 0 && S.clock < 1) || !Number.isInteger(S.day) || S.day < 1) flag('clock', mmss(t) + ' ' + S.clock + ' day ' + S.day);
+  for (const k of ['g', 'h', 'best']) if (!Number.isInteger(S.dayLog[k]) || S.dayLog[k] < 0) flag('daylog', mmss(t) + ' ' + k + '=' + S.dayLog[k]);
+  for (const k in S.staff) if (!Number.isInteger(S.staff[k]) || S.staff[k] < 0) flag('staff-xp', mmss(t) + ' ' + k + '=' + S.staff[k]);
+  for (const s of STAFF) if (s.role === 'porter' && (s.carry < 0 || s.carry > porterCap(s))) flag('porter-carry', mmss(t) + ' ' + s.carry);
+  if (PET && dist(P.x, P.y, PET.x, PET.y) > 200) flag('pet-far', mmss(t) + ' ' + R(dist(P.x, P.y, PET.x, PET.y)));
+  if (goldStars() > 5 || (star() < 5 && goldStars() > 0)) flag('gold', mmss(t) + ' ' + goldStars());
+  { const rk = rankOf(S.hearts); if (rk < 1 || rk > 10) flag('rank', mmss(t) + ' ' + rk); }
   try { render(); } catch (e) { renderErr++; flag('render', String(e && e.message || e)); }
+  if (LIGHT_N > LIGHT_MAX) flag('lights>16', mmss(t) + ' ' + LIGHT_N);
   peakQueue = Math.max(peakQueue, Q.length);
 }
 // ---------------------------------------------------------------- run
-const steps = Math.round(MAXMIN * 60 / DT);
-let lastSec = -1, fin = null;
+const steps = Math.round((MAXMIN * 60 + AFTER) / DT);
+let lastSec = -1, fin = null, goldAt5 = 0, lastGold = 0;
+const goldT = {};
 for (let i = 0; i < steps; i++) {
   drive(DT);
   update(DT);
@@ -122,7 +137,9 @@ for (let i = 0; i < steps; i++) {
   if (S.earned > lastEarned) { lastEarned = S.earned; lastEarnAt = t; }
   if (!fin && t - lastEarnAt > maxGap) { maxGap = t - lastEarnAt; maxGapAt = lastEarnAt; }
   if (Math.floor(t) !== lastSec) { lastSec = Math.floor(t); checkSecond(); }
-  if (star() >= 5 && !fin) { fin = t; break; }
+  if (star() >= 5 && !fin) { fin = t; goldAt5 = goldStars(); if (!AFTER) break; }
+  if (fin) { const gs = goldStars(); if (gs > lastGold) { for (let k = lastGold + 1; k <= gs; k++) goldT[k] = t; lastGold = gs; } }
+  if (fin && t - fin >= AFTER) break;
 }
 // ---------------------------------------------------------------- report
 const order = UNLOCKS.filter(u => unlockT[u.id] !== undefined).sort((a, b) => unlockT[a.id] - unlockT[b.id]);
@@ -141,6 +158,17 @@ else {
   console.log(`  2A: calls ${RUN.calls} made, ${S.stats.calls} served (${S.stats.callsFast} fast), ${RUN.callsMissed} missed | diners ${RUN.seated} seated, ${S.stats.diners} fed, ${RUN.hungry} hungry | ♥ ${S.hearts} | types ${Object.keys(S.album.types).join(',') || '-'}`);
   const med = a => a.length ? a.slice().sort((x, y) => x - y)[a.length >> 1] : 0, combosNow = GUEST_ROOMS.filter(rm => roomOpen(rm) && roomCombo(rm)).length;
   console.log(`  2B: decor ${Object.keys(S.decor).length} placed, combo rooms ${combosNow}, combos found ${Object.keys(S.combos).join(',') || '-'} (first ${firstCombo === null ? '-' : mmss(firstCombo)}) | VIPs ${RUN.vips} came, ${RUN.vipDone} done, ${RUN.vipLeft} left, med ${R(med(RUN.vipUsed))}s f ${med(RUN.vipF).toFixed(2)}, paid ${RUN.vipPaid} (${(RUN.vipPaid / Math.max(1, S.earned) * 100).toFixed(1)}% of income) | clerk ${RUN.clerk} | Q ${qualityQ().toFixed(2)}`);
+  // stage 2C: hearts / rank / gold stars, staff levels, days, and 14.2 B3 = the longest wait between two "new things" before star 5
+  const B3K = ['buy', 'first', 'vip', 'combo', 'rank', 'level', 'area'], nt = RUN.news.filter(n => B3K.includes(n[1]) && (!fin || n[0] <= fin)).map(n => n[0]);
+  let b3 = 0, b3At = 0; for (let i = 1; i < nt.length; i++) if (nt[i] - nt[i - 1] > b3) { b3 = nt[i] - nt[i - 1]; b3At = nt[i - 1]; }
+  console.log(`  2C: ♥ ${S.hearts} #${rankOf(S.hearts)} (${RUN.overtakes} overtakes) gold ${goldStars()} (at ★5 ${goldAt5}) | days ${S.day} | staff Lv ${STAFF.filter(s => s.role !== 'owner').map(s => s.name + staffLv(s)).join(' ')} (${RUN.levelups} level-ups) | B3 max ${R(b3)}s@${mmss(b3At)}`);
+  if (AFTER && fin) {
+    const buys = RUN.shop.map(([t, id]) => [t - fin, id]), first = buys.find(([, id]) => UNLOCK[id].hat), hour = buys.filter(([t]) => t <= 3600);
+    let gp = 0, gaps = []; for (const [t] of hour) { gaps.push(t - gp); gp = t; }
+    const med = a => a.length ? a.slice().sort((x, y) => x - y)[a.length >> 1] : 0;
+    console.log(`  shopper (${AFTER / 60} min after ★5): first hat ${first ? mmss(first[0]) : '-'} (G1 <= 3:00) | 1st hour ${hour.length} pieces (G2 >= 7), gap med ${mmss(med(gaps))} max ${mmss(gaps.length ? Math.max(...gaps) : 0)} | gold ★ after ★5: ${Object.entries(goldT).map(([k, t]) => k + '@' + mmss(t - fin)).join(' ') || '-'} (G3 ★1 <= 15:00, ★3 <= 100:00)`);
+    console.log('    buys: ' + buys.map(([t, id]) => mmss(t) + ' ' + id).join(', '));
+  }
   console.log('  arrow: ' + Object.entries(kindN).sort((a, b) => b[1] - a[1]).map(([k, n]) => k + ' ' + n).join(', '));
   console.log('  checks: ' + checks.map(([n, ok]) => (ok ? 'ok ' : 'NO ') + n).join(' | '));
   for (const k in inv) console.log('  INVARIANT ' + k + ' x' + inv[k].n + ' first: ' + inv[k].first);

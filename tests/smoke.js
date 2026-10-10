@@ -78,6 +78,22 @@ run(300, 'after-load');
   if (S.decor['room1:A'] !== 'd_scroll' || !roomCombo(ROOM.room1)) bad('vip-roundtrip', 'decor lost');
   if (STAFF.some(x => x.bag)) bad('vip-roundtrip', 'a bag after loading');
   run(120, 'after-vip-load'); }
+// stage 2C: star 5 at night with a hat, a pet, gold stars and levelled staff -> save -> load: equip, clock, day, hearts and
+// experience come back; the boutique / gold stars don't replay their events; everything renders (light pass on)
+{ for (const u of UNLOCKS) if (!u.need5) { S.unlocked[u.id] = true; S.paid[u.id] = u.price; }
+  for (const id of ['h_straw', 'p_duck']) { S.unlocked[id] = true; S.paid[id] = UNLOCK[id].price; }
+  for (const rm of ROOMS) if (roomOpen(rm) && !S.rooms[rm.id]) S.rooms[rm.id] = 'clean';
+  S.peak = 5; S.done = true; S.equip = { hat: 'h_straw', pet: 'p_duck' }; S.clock = .85; S.day = 3; S.hearts = Math.max(S.hearts, 2000); S.staff.maid1 = 150;
+  resetWorld(); go('play'); run(30, 'night5');
+  if (!PET || dist(P.x, P.y, PET.x, PET.y) > 200) bad('night5', 'the duck is not with the innkeeper');
+  if (LIGHT_N <= 0 || LIGHT_N > LIGHT_MAX) bad('night5', 'lamps drawn ' + LIGHT_N);
+  const mid2 = { equip: JSON.stringify(S.equip), clock: S.clock, day: S.day, hearts: S.hearts, xp: S.staff.maid1, gold: goldStars() };
+  saveNow(); continueGame();
+  const back2 = { equip: JSON.stringify(S.equip), clock: S.clock, day: S.day, hearts: S.hearts, xp: S.staff.maid1, gold: goldStars() };
+  if (JSON.stringify(mid2) !== JSON.stringify(back2)) bad('night5-roundtrip', JSON.stringify(mid2) + ' -> ' + JSON.stringify(back2));
+  BANNER_Q.length = 0; run(5, 'after-night5-load');
+  if (BANNER_Q.some(b => b.kind === 'gold')) bad('night5-roundtrip', 'gold banner replayed');
+  run(60, 'after-night5-load'); }
 // old / odd save shapes load without throwing
 // (+ shapes the game never writes: unknown / array / locked pile keys, Infinity, a part payment above a lowered price;
 //  the full v1 fixture set is exercised by tests/migrate_v1.js)

@@ -161,6 +161,46 @@
       newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen', 'recep', 'shop', 'd_scroll', 'd_ikebana']); S.decor['room1:A'] = 'd_scroll'; S.decor['room1:B'] = 'd_ikebana'; S.combos.c_ga = 1;
       resetWorld(); go('play'); spawnT = 1e9; sleepIn('room1'); place(17, 21, 'left'); ff(.3, false); FREEZE_AT();
     },
+    // ---- stage 2C (SPEC_v2 4.7 / 4.9 / 4.10 / 4.11): night light, staff levels, the boutique, the statue
+    lobby_night() {   // the lobby at night: lamps, the entrance noren, the hand lantern; HUD row 2 (moon, #rank, bell)
+      newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); S.hearts = 420; resetWorld(); go('play'); ff(30, false);
+      sleepIn('room1').call = { k: 'tea', t: 30, max: 50 }; S.piles.recep = 160; S.clock = .88; place(17, 26, 'down'); ff(.3, false); FREEZE_AT();
+    },
+    corridor_night() {   // the main corridor at night: taken rooms' andons glow brighter than empty ones
+      newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); resetWorld(); go('play'); spawnT = 1e9; ff(5, false);
+      for (const r of ['room1', 'room4', 'room5', 'room8']) sleepIn(r); S.clock = .9; place(17, 14, 'down'); ff(.3, false); FREEZE_AT();
+    },
+    dusk() { newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); resetWorld(); go('play'); ff(30, false); S.clock = .69; place(29, 26, 'up'); ff(.3, false); FREEZE_AT(); },
+    garden_day() { newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); resetWorld(); go('play'); ff(40, false); S.clock = .3; place(29, 24, 'down'); ff(.3, false); FREEZE_AT(); },
+    garden_night() { newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); resetWorld(); go('play'); ff(40, false); S.clock = .86; place(29, 24, 'down'); ff(.3, false); FREEZE_AT(); },
+    roten_night() {   // the star-view bath at night: stars on the water, deck lanterns, bathers
+      newGame(); S.tut.moved = true; unl(ALL); S.done = true; resetWorld(); go('play'); spawnT = 1e9; ff(3, false);
+      for (const [i, r] of [[5, 'room2'], [7, 'room3'], [8, 'room4']]) { const gu = bathe(i, r); }
+      S.clock = .93; place(31, 5, 'up'); ff(.3, false); FREEZE_AT();
+    },
+    celebrate5() { sc.celebrate(); },
+    boutique_tryon() {   // star 5: trying the straw hat on at the hat booth; the mirror, the pet booth, the covered statue
+      newGame(); S.tut.moved = true; unl(ALL); S.done = true; S.money = 3400; resetWorld(); go('play'); spawnT = 1e9; ff(2, false);
+      place(5, 31, 'down'); ff(.4, false); FREEZE_AT();
+    },
+    boutique_mirror() {   // wearing the flower hat at the mirror, the duck at your feet
+      newGame(); S.tut.moved = true; unl(ALL.concat(['h_straw', 'h_flower', 'p_duck'])); S.equip = { hat: 'h_flower', pet: 'p_duck' }; S.done = true; resetWorld(); go('play'); spawnT = 1e9;
+      place(4, 32, 'left'); ff(.6, false); FREEZE_AT();
+    },
+    statue() {   // the covered golden statue, 40 % poured: the cloth has slid down
+      newGame(); S.tut.moved = true; unl(ALL); S.done = true; S.paid.statue = 400000; S.money = 20000; resetWorld(); go('play'); spawnT = 1e9; ff(2, false);
+      place(14, 32, 'left'); ff(.3, false); FREEZE_AT();
+    },
+    statue_gold() { newGame(); S.tut.moved = true; unl(ALL.concat(['statue'])); S.done = true; resetWorld(); go('play'); spawnT = 1e9; ff(2, false); place(14, 32, 'left'); ff(.3, false); FREEZE_AT(); },
+    staff_names() {   // walking past the staff rest spots: the nearest one's name + level badge; Lv3 / Lv5 trims
+      newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); S.staff = { maid1: 300, maid2: 70, porter: 25, recep: 150 }; resetWorld(); go('play'); spawnT = 1e9;
+      for (const s of STAFF) { s.x = tcx(homeOf(s)); s.y = tcy(homeOf(s)); }
+      place(21, 26, 'up'); ff(.2, false); FREEZE_AT();
+    },
+    levelup() {   // a maid levels up: gold Lv2 over her head + sparkles
+      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen', 'recep', 'maid1']); S.staff.maid1 = 19; resetWorld(); go('play'); spawnT = 1e9;
+      const m = STAFF.find(s => s.id === 'maid1'); m.x = tcx(REST[0]); m.y = tcy(REST[0]); place(19, 27, 'up'); ff(.2, false); gainXp(m, 1); FREEZE_AT(.3);
+    },
     map() { newGame(); S.tut.moved = true; if (window.MAPU) unl(window.MAPU); resetWorld(); go('play'); ff(25, false); place(17, 27, 'up'); mapView(); },
     mapAll() { newGame(); S.tut.moved = true; unl(ALL.concat(['maid4'])); S.done = true; resetWorld(); go('play'); ff(40, false); place(17, 27, 'up'); mapView(); },
     migrated_v1_s5() {
