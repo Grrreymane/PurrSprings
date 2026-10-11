@@ -111,7 +111,7 @@ let lastSec = -1, reloads = 0, nextReload = 60 + Math.random() * 240, menus = 0,
 for (let i = 0; i < steps; i++) {
   drive(DT);
   const a = process.hrtime.bigint(); update(DT); const ms = Number(process.hrtime.bigint() - a) / 1e6; if (S.stats.time > 30) upMax = Math.max(upMax, ms);
-  if (state === 'celebrate') { signAt = signAt || S.stats.time; S.done = true; go('play'); }
+  if (state === 'celebrate') { signAt = signAt || S.stats.time; S.done = true; go('play'); } if (state === 'card') modalClose();
   const t = S.stats.time;
   if (Math.floor(t) !== lastSec) { lastSec = Math.floor(t); checkSecond(); if (lastSec % 1800 === 0) snaps.push([mmss(t), caches()]); }
   if (MENUS && t >= nextMenu) {   // the menu at a random moment: nothing in the game moves while it is open

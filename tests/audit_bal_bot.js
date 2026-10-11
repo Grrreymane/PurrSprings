@@ -422,7 +422,7 @@ for (let i = 0; i < steps * 10; i++) {
   if (state === 'play') bSakura(DT);
   if (bHintHidden && star() >= 5 && !COMBO.s_fish.hint) { COMBO.s_fish.hint = true; COMBO.s_tea.hint = true; }
   if (bHintGold && star() >= 5) for (const id in bHintGold) if (!COMBO[id].hint && goldStars() >= bHintGold[id]) { COMBO[id].hint = true; AUDN.push([S.stats.time, 'hint', id]); }
-  if (state === 'celebrate') { S.done = true; go('play'); }
+  if (state === 'celebrate') { S.done = true; go('play'); } if (state === 'card') modalClose();
   const t = t0();
   if (S.unlocked.recep && recepAt === null) { recepAt = t; base = { g: S.stats.guests, a: S.stats.angry }; }
   arrTick(t); swTick(t);

@@ -10,7 +10,7 @@ function aDrive(dt) {
 }
 const out = []; let cur = null;
 for (let i = 0; i < 45 * 60 / DT && out.length < 3; i++) {
-  aDrive(DT); update(DT); if (state === 'celebrate') { S.done = true; go('play'); }
+  aDrive(DT); update(DT); if (state === 'celebrate') { S.done = true; go('play'); } if (state === 'card') modalClose();
   const v = VIPG;
   if (v && (!cur || cur.v !== v)) cur = { v, t0: S.stats.time, arrow: null, seen: null, greet: null, kinds: {} };
   if (cur && cur.v === v) {

@@ -66,7 +66,7 @@ if (typeof MUSIC_DBG === 'undefined') {
   let fin = null;
   for (let i = 0; i < 45 * 60 * 30; i++) {
     follow(DT); update(DT); watch('play');
-    if (state === 'celebrate' && st > 4) { S.done = true; go('play'); }   // hear a few seconds of fest
+    if (state === 'celebrate' && st > 4) { S.done = true; go('play'); } if (state === 'card') modalClose();   // hear a few seconds of fest
     if (star() >= 5 && fin === null) fin = S.stats.time;
     if (fin !== null && S.stats.time - fin > 8 * 60) break;
   }
@@ -85,7 +85,7 @@ if (typeof MUSIC_DBG === 'undefined') {
       const g = spots[Math.floor(Math.random() * spots.length)], [sx, sy] = tileOf(P); path = findPath(sx, sy, g[0], g[1]) || [];
     }
     step(); update(DT); watch('wander');
-    if (state === 'celebrate') { S.done = true; go('play'); }
+    if (state === 'celebrate') { S.done = true; go('play'); } if (state === 'card') modalClose();
   }
   // ---- report
   let perMin = 0; for (let i = 0; i < swT.length; i++) { let n = 0; for (let j = i; j < swT.length && swT[j] < swT[i] + 60; j++) n++; perMin = Math.max(perMin, n); }

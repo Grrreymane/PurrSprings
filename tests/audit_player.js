@@ -43,7 +43,7 @@ const onScreen = (wx, wy) => wx - cam.x >= 0 && wx - cam.x < W && wy - cam.y >= 
 const total = (audMin + audPost) * 60, aT0 = S.stats.time;
 for (let i = 0, n = Math.round(total / DT); i < n; i++) {
   aDrive(DT); update(DT);
-  if (state === 'celebrate') { if (star5 === null) star5 = S.stats.time; S.done = true; go('play'); }
+  if (state === 'celebrate') { if (star5 === null) star5 = S.stats.time; S.done = true; go('play'); } if (state === 'card') modalClose();
   if (star5 === null && star() >= 5) star5 = S.stats.time;
   if (star5 !== null && audPost === 0 && !audFix) break;
   if (star5 !== null && !audFix && S.stats.time > star5 + audPost * 60) break;

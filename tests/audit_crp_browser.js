@@ -68,7 +68,7 @@ srv.listen(0, async () => {
         for (const rm of ROOMS) if (roomOpen(rm) && !S.rooms[rm.id]) S.rooms[rm.id] = 'clean';
         S.peak = 5; S.done = true; S.equip = { hat: 'h_straw', pet: 'p_shiba' }; S.clock = .85;
         for (const sl of DSLOTS) if (roomOpen(sl.rm)) S.decor[sl.key] = sl.k === 'A' ? 'd_scroll' : 'd_ikebana';
-        resetWorld(); go('play'); for (let i = 0; i < 30 * 40; i++) { update(DT); if (state === 'celebrate') { S.done = true; go('play'); } }
+        resetWorld(); go('play'); for (let i = 0; i < 30 * 40; i++) { update(DT); if (state === 'celebrate') { S.done = true; go('play'); } if (state === 'card') modalClose(); }
         window.__garden = []; for (let ty = 0; ty < MH; ty++) for (let tx = 0; tx < MW; tx++) { const ar = areaAt(tx, ty); if (ar && ar.id === 'garden' && walkable(tx, ty)) __garden.push([tx, ty]); }
         window.__crowd = () => { while (GUESTS.length < GUEST_MAX) { const q = Q.length < QSPOTS.length - 1; addGuest(); if (q) continue; const gu = GUESTS[GUESTS.length - 1]; Q.splice(Q.indexOf(gu), 1); const t = __garden[Math.floor(Math.random() * __garden.length)]; gu.x = tcx(t); gu.y = tcy(t); guestLeave(gu, false); } };
         __crowd(); P.x = tcx([30, 22]); P.y = tcy([30, 23]);
@@ -90,7 +90,7 @@ srv.listen(0, async () => {
         if (path.length) { const [tx, ty] = path[0], cx = tx * 16 + 8, cy = ty * 16 + 8, dx = cx - P.x, dy = cy - P.y, d = Math.hypot(dx, dy); if (d < 1.5) path.shift(); botMove = d > .01 ? { x: dx / d * Math.min(1, d / 3), y: dy / d * Math.min(1, d / 3) } : null; } else botMove = null; }; })(); newGame(); 1`);
       console.log('memory: boot', await mem(), '| ART', await inGame('Object.keys(ART).length'));
       for (let c = 1; c <= 2; c++) {
-        await inGame(`for (let i = 0; i < 30 * 60 * 40; i++) { __drv(1/30); update(1/30); if (i % 3 === 0) render(); if (state === 'celebrate') { S.done = true; go('play'); } } 1`);
+        await inGame(`for (let i = 0; i < 30 * 60 * 40; i++) { __drv(1/30); update(1/30); if (i % 3 === 0) render(); if (state === 'celebrate') { S.done = true; go('play'); } if (state === 'card') modalClose(); } 1`);
         console.log('memory: ' + c * 40 + ' min', await mem(), '| ART', await inGame("Object.keys(ART).length + ' FLIPS ' + FLIPS.size + ' TXC ' + TXC.size"));
       }
       await inGame("for (const k in ART) delete ART[k]; FLIPS.clear(); TXC.clear(); GHOSTS.clear(); FACES.clear(); 1");

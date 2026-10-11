@@ -132,7 +132,7 @@ function bannerParts(b) {
     case 'milestone': return { rim: '#e0a030', parts: [{ img: menuIcon('cat'), gap: 3 }, { t: '第' + b.id + '位客人！', c: dk }] };
     case 'gift': return { rim: '#ffc21f', parts: [{ img: menuIcon('house'), gap: 3 }, { t: '旅馆扩建啦！', c: dk, z: 8 }] };
   }
-  return null;
+  return bannerV21a(b);   // v2.1 core A: season, festival, press, mom (seasons.js)
 }
 function drawBanner() {
   const b = BANNER_Q[0]; if (!b) return;
@@ -189,6 +189,9 @@ const FIRST_CARD = {
   kaiseki: () => [{ img: padIcon('chef') }, { img: itemIcon('kaiseki'), s: 2 }, '亲手做'],
   photo: () => [{ img: menuIcon('camera') }, { img: faceOf(VIP_LOOK.kawa) }, '站在旁边'],
   tryon: () => [{ img: padIcon('hat') }, { img: ARROW_R }, { img: faceOf(lookWith('straw')) }, '站着换装'],
+  // v2.1 core A: the first festival (a check-in lights a lantern), the first reporter (what it checks: 16.4)
+  fest: () => [{ img: bellIcon(), s: 2 }, { img: ARROW_R }, { img: lanternIcon(true), s: 2 }, '入住点灯'],
+  press: () => [{ img: padIcon('recep') }, { img: padIcon('decor') }, { img: padIcon('basket') }, { img: padIcon('milk') }, '记者打分'],
 };
 // the first VIP's 3-step picture card (G1): greet it -> lead it to a suite -> do what its gold bubble shows. One row of
 // icons + 2-character labels; the step you are on sits in a gold frame, the ones done are ticked. It stays up until the

@@ -38,10 +38,11 @@ setup(['room2', 'room3', 'onsen', 'recep']); ensureStaff();
   const b = BANNER_Q.find(x => x.kind === 'day'); ok(b && b.id === 5 && b.g === 12 && b.h === 30 && b.rec === true, 'sunrise banner day 5, yesterday 12 guests / 30 hearts, new record: ' + JSON.stringify(b));
   ok(SFXLOG.includes('dawn'), 'birdsong'); ok(LINES.some(([w, k]) => w && w.role === 'recep' && k === 'S03'), 'receptionist S03'); eq(RUN.days, 1, 'counted');
   BANNER_Q.length = 0; S.clock = .095; S.dayLog = { g: 5, h: 2, best: 12 }; run(2.5); const b2 = BANNER_Q.find(x => x.kind === 'day'); ok(b2 && b2.rec === false, 'no trophy below the record');
-  BANNER_Q.length = 0; S.clock = .095; S.dayLog = { g: 3, h: 0, best: 0 }; run(2.5); const b3 = BANNER_Q.find(x => x.kind === 'day'); ok(b3 && b3.rec === false, 'the first day is not a "record"');
-  SFXLOG.length = 0; S.clock = .675; run(2.5); ok(SFXLOG.includes('dusk'), 'the temple bell at dusk'); eq(S.day, 7, 'dusk does not change the day');
+  // (v2.1: day 7 would start autumn, and a season's first morning shows the season banner instead: stay in summer)
+  BANNER_Q.length = 0; S.day = 4; S.clock = .095; S.dayLog = { g: 3, h: 0, best: 0 }; run(2.5); const b3 = BANNER_Q.find(x => x.kind === 'day'); ok(b3 && b3.rec === false, 'the first day is not a "record"');
+  SFXLOG.length = 0; S.clock = .675; run(2.5); ok(SFXLOG.includes('dusk'), 'the temple bell at dusk'); eq(S.day, 5, 'dusk does not change the day');
   // wrap: midnight passes without a new day
-  S.clock = .995; run(3); eq(S.day, 7, 'midnight: same day'); ok(S.clock < .02, 'clock wrapped'); }
+  S.clock = .995; run(3); eq(S.day, 5, 'midnight: same day'); ok(S.clock < .02, 'clock wrapped'); }
 // ---- smooth: per frame the tint, its alpha and the night factor move only a little (no steps, nothing blinks)
 { let maxA = 0, maxN = 0, maxC = 0, prev = dayLight(0); const ch = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
   for (let i = 1; i <= 360 * 30; i++) { const d = dayLight(i / (360 * 30)); maxA = Math.max(maxA, Math.abs(d.a - prev.a)); maxN = Math.max(maxN, Math.abs(d.night - prev.night));

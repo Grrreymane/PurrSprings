@@ -44,6 +44,7 @@ function gameUpdate(dt) {
   for (const s of STAFF) updStaff(s, dt);
   staffChat();
   updVip(dt);
+  v21aTick(dt);   // v2.1 core A: seasons, festivals, the press, mom, the year report (systems/seasons.js)
   zones(dt);
   padsUpdate();
   { const bo = boutiqueOpen(); if (bo && !boutiqueWas) boutiqueOpened(); boutiqueWas = bo; }
@@ -81,6 +82,6 @@ function update(dt) {
 function audioTick(dt) {
   const a = state === 'title' ? null : areaAt(Math.floor(P.x / TILE), Math.floor(P.y / TILE));
   musicWant({ song: state === 'title' ? 'title' : state === 'celebrate' ? 'fest' : a ? a.music : 'lobby', night: state === 'title' ? 0 : dayLight().night,
-    star: star(), menu: state === 'menu', area: a ? a.id : null, shishi: !!S.unlocked.g_shishi, shishiT: T });
+    star: star(), menu: state === 'menu' || state === 'card', area: a ? a.id : null, shishi: !!S.unlocked.g_shishi, shishiT: T, season: seasonNow(), fest: FEST.on });   // v2.1 (16.11): the season's layer; fest while a festival is on; paused cards muffle like the menu
   musicTick(dt);
 }

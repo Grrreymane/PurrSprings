@@ -24,7 +24,8 @@ function menuPress(p) {
   }
   if (pg === 'book') {
     if (MENU.sel) { MENU.sel = null; SFX.click(); return; }
-    for (let i = 0; i < 4; i++) if (inR(p, [24 + i * 33, 64, 31, 15])) { if (MENU.tab !== i) { MENU.tab = i; sfx('page'); } return; }
+    for (let i = 0; i < 4; i++) if (inR(p, [24 + i * 33, 64, 31, 15])) { if (MENU.tab !== i) { MENU.tab = i; MENU.pg = 0; sfx('page'); } return; }
+    if (MENU.tab === 1) { const pages = Math.ceil(COMBOS.length / 6); if (inR(p, PG_PREV) && MENU.pg > 0) { MENU.pg--; sfx('page'); } if (inR(p, PG_NEXT) && MENU.pg < pages - 1) { MENU.pg++; sfx('page'); } return; }   // v2.1: 12 combos, 6 a page
     if (MENU.tab === 0) VIPS.forEach((v, i) => { if ((S.album.vip[v.id] | 0) > 0 && inR(p, [24 + (i % 3) * 45, 84 + (i / 3 | 0) * 94, 44, 90])) { MENU.sel = v.id; SFX.click(); } });
     return;
   }
@@ -135,21 +136,28 @@ function drawVipPhoto(id) {
   if (S.gifts.includes(id)) { const gi = giftArt(v.gift); g.drawImage(gi, 82, 222, 16, 16); }
   txt('×' + (S.album.vip[id] | 0), 90, 250, 7, '#8a3a1a', 'center', null);
 }
-function drawBookCombo() {
-  COMBOS.forEach((c, i) => {
-    const y = 84 + i * 31, found = !!S.combos[c.id], ownA = !!S.unlocked[c.a], ownB = !!S.unlocked[c.b];
-    cell(24, y, 132, 29, found);
-    if (found) { g.fillStyle = OUT; g.fillRect(29, y + 7, 15, 15); g.fillStyle = c.col; g.fillRect(30, y + 8, 13, 13); g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(30, y + 8, 13, 1); txt(c.plate, 36.5, y + 14.5, 8, '#ffffff'); }
-    else if (!hinted(c)) { drawC(menuIcon('lock'), 36, y + 14); txt('？？？', 52, y + 14.5, 8, '#8a7a68', 'left', null); return; }
-    else { g.fillStyle = '#b0a088'; g.fillRect(30, y + 8, 13, 13); txt('?', 36.5, y + 14.5, 8, '#ffffff'); }
-    const slot = (own, id, x) => { if (own) { g.globalAlpha = found ? 1 : .45; drawC(decorIcon(id), x, y + 14); g.globalAlpha = 1; } else { g.fillStyle = '#d8c8a8'; g.fillRect(x - 5, y + 9, 10, 10); txt('?', x, y + 14.5, 7, '#8a7a68', 'center', null); } };
-    slot(ownA, c.a, 55); txt('+', 63, y + 14.5, 7, '#8a7a68', 'center', null); slot(ownB, c.b, 71);
+function drawBookCombo() {   // v2.1: 12 combos, 6 a page (the seasonal ones show their season's icon)
+  const pages = Math.ceil(COMBOS.length / 6); MENU.pg = clamp(MENU.pg, 0, pages - 1);
+  COMBOS.slice(MENU.pg * 6, MENU.pg * 6 + 6).forEach((c, i) => {
+    const y = 82 + i * 27, found = !!S.combos[c.id], ownA = !!S.unlocked[c.a], ownB = !!S.unlocked[c.b];
+    cell(24, y, 132, 25, found);
+    if (found) { g.fillStyle = OUT; g.fillRect(29, y + 5, 15, 15); g.fillStyle = c.col; g.fillRect(30, y + 6, 13, 13); g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(30, y + 6, 13, 1); txt(c.plate, 36.5, y + 12.5, 8, '#ffffff'); }
+    else if (!hinted(c)) { drawC(menuIcon('lock'), 36, y + 12); txt('？？？', 52, y + 12.5, 8, '#8a7a68', 'left', null); return; }
+    else { g.fillStyle = '#b0a088'; g.fillRect(30, y + 6, 13, 13); txt('?', 36.5, y + 12.5, 8, '#ffffff'); }
+    const slot = (own, id, x) => { if (own) { g.globalAlpha = found ? 1 : .45; drawC(decorIcon(id), x, y + 12); g.globalAlpha = 1; } else { g.fillStyle = '#d8c8a8'; g.fillRect(x - 5, y + 7, 10, 10); txt('?', x, y + 12.5, 7, '#8a7a68', 'center', null); } };
+    slot(ownA, c.a, 55); txt('+', 63, y + 12.5, 7, '#8a7a68', 'center', null); slot(ownB, c.b, 71);
+    if (c.season !== undefined) drawC(seasonIcon(c.season), 125, y + 12);
     if (found) {
-      txt(c.name, 82, y + 14.5, 8, '#5a3a1a', 'left', null);
+      txt(c.name, 82, y + 12.5, 8, '#5a3a1a', 'left', null);
       const n = GUEST_ROOMS.filter(rm => roomOpen(rm) && roomCombo(rm) === c).length;
-      drawC(padIcon('room'), 139, y + 14); txt(String(n), 146, y + 14.5, 7, '#8a3a1a', 'left', null);
+      drawC(padIcon('room'), 139, y + 12); txt(String(n), 146, y + 12.5, 7, '#8a3a1a', 'left', null);
     }
   });
+  if (pages > 1) {
+    menuBtn(PG_PREV, menuIcon('prev'), '上页', MENU.pg > 0 ? 'wood' : 'dim', 7);
+    menuBtn(PG_NEXT, menuIcon('next'), '下页', MENU.pg < pages - 1 ? 'wood' : 'dim', 7);
+    txt((MENU.pg + 1) + '/' + pages, 90, 263, 8, '#8a3a1a', 'center', null);
+  }
 }
 function drawBookGuest() {
   const L = ALBUM_FURS.map(f => [ALBUM_LOOK[f], !!S.album.furs[f], null]).concat(ALBUM_TYPES.map(t => [ALBUM_LOOK[t], !!S.album.types[t], t]));

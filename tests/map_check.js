@@ -100,6 +100,7 @@ const SPECSTATES = [
 for (const [name, ids, s5, exp] of SPECSTATES) { setState(ids, s5); const r = check(name, exp); lines.push(name.padEnd(11) + ' walkable ' + r.walk + ' reached ' + r.reached + ' points ' + r.pts); }
 // ---- 3. every unlock state along a full buy order (the first buyable item in table order each time)
 setState([], false);
+S.fests = [1, 1, 1, 1];   // v2.1: the seasonal decor is on sale once a festival of its season has been held
 let n = 0, guard = 0;
 while (guard++ < 200) {
   const u = UNLOCKS.find(x => padEligible(x));

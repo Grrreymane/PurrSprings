@@ -31,7 +31,7 @@ const PROPS = [
   // garden
   { k: 'urn', at: [26, 25], need: 'garden', img: () => urnArt() },
   { k: 'shishi', at: [26, 16], need: 'g_shishi', img: () => shishiArt(T % 20 >= .3 && T % 20 < .9 ? 1 : 0) },   // tips over every 20 s (in step with the audio's knock)
-  { k: 'tree', at: [38, 9], need: 'garden', img: () => treeArt('pine') },
+  { k: 'tree', at: [38, 9], need: 'garden', img: () => treeArt('pine', seasonNow()) },   // v2.1: the season's tree
   { k: 'yukimi', at: [31, 17], need: 'garden', img: () => yukimiArt() },
   { k: 'rock', at: [35, 16], need: 'garden', img: () => rockArt(0) }, { k: 'rock', at: [37, 17], need: 'garden', img: () => rockArt(1) },
   { k: 'lamp', at: [33, 18], need: 'garden', img: () => gardenLampArt(lampLit()) }, { k: 'lamp', at: [26, 27], need: 'garden', img: () => gardenLampArt(lampLit()) },

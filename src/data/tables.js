@@ -73,6 +73,7 @@ const UNLOCKS = [
   UN('h_crown', '皇冠', 90000, [], 50, 'hat', 'hat', '戴上：小皇冠', { need5: true, hat: 'crown' }),
   UN('h_gold', '金铃', 150000, [], 50, 'hat', 'hat', '走路带金光', { need5: true, hat: 'goldband' }),
   UN('statue', '金像', 1000000, ['shop'], 100, [13, 33], 'statue', '每位小费+1', { need5: true, at: [11, 33] }),   // + shop: SPEC_v2 10.2 (18.2)
+  ...UNLOCKS_V21A,   // v2.1 core A (data/tables-v21a.js): the seasonal decor
 ];
 const UNLOCK = NUL(); UNLOCKS.forEach(u => { UNLOCK[u.id] = u; });
 UNLOCKS.forEach(u => {
@@ -103,6 +104,7 @@ const COMBOS = [
   { id: 'c_fuku', a: 'd_maneki', b: 'd_daruma', col: '#e0b030', emb: 'fuku', plate: '福', name: '好运连连', hint: true },
   { id: 's_fish', a: 'd_maneki', b: 'd_tank', col: '#d8b048', emb: 'fish', plate: '鱼', name: '招财进鱼', hint: false },
   { id: 's_tea', a: 'd_scroll', b: 'd_bonsai', col: '#4ab8a8', emb: 'tea2', plate: '茶', name: '茶禅一味', hint: false },
+  ...COMBOS_V21A,    // v2.1 core A: the seasonal combos + two hidden ones
 ];
 const COMBO = NUL(); COMBOS.forEach(c => { COMBO[c.id] = c; });
 const HINT_GOLD = { s_fish: 3, s_tea: 4 };

@@ -12,6 +12,7 @@ function onPress(p) {
     return;
   }
   if (state === 'menu') { menuPress(p); return; }
+  if (state === 'card') { modalPress(p); return; }   // v2.1: a paused card closes on a tap after 0.8 s (yearly.js)
   if (state === 'play') { JOY.on = true; JOY.bx = p.x; JOY.by = p.y; JOY.dx = 0; JOY.dy = 0; }
 }
 function resetWorld() {
@@ -34,6 +35,7 @@ function resetWorld() {
   LINE = LINE_NEXT = null; lineCD = -99; for (const k in LSAID) delete LSAID[k]; INFO = null;   // stage 3 UI: no line / card carried over
   spawnT = 1.5; guideClock = 0; GUIDE = null; celebrateAt = 0; starPopAt = -9; DISP = S.money; lastEarnT = S.stats.time;
   rebuildWorld(); ensureStaff(); updCam(0, true); updPet(0);
+  v21aReset();   // v2.1 core A runtime: festival / reporter / cards (seasons.js)
 }
 function newGame() { S = defaults(); resetWorld(); saveNow(); hasSave = true; go('play'); }
 function continueGame() {

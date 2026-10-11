@@ -23,7 +23,7 @@ function redressOf(sl, n) {
   const rc = roomCombo(sl.rm), o = S.decor[otherSlot(sl).key];
   if (!rc || !o || (n[rc.id] || 0) < 2) return null;
   for (const c of COMBOS) if (c !== rc && hinted(c) && !S.combos[c.id] && S.unlocked[c.a] && S.unlocked[c.b] && (o === c.a || o === c.b)) return o === c.a ? c.b : c.a;
-  return null;
+  return sl.k === 'A' ? seasonStart() : null;   // v2.1: a seasonal combo whose pieces stand in no room yet: start it here (seasons.js)
 }
 const DOOR_OF = NUL(); DOORS.forEach(d => { if (d.room) DOOR_OF[d.room] = d; });
 // what a slot cycles through (4.5): (1) pieces that make a known combo with the other slot, (2) pieces standing in no room
@@ -34,6 +34,8 @@ function slotCycle(sl) {
   const own = decorOwned().filter(id => id !== other && id !== cur), known = id => comboKnown(comboOf(other, id));
   const L0 = own.filter(known).concat(own.filter(id => !known(id) && !placed.has(id)), own.filter(id => !known(id) && placed.has(id)));
   const n = comboUse(), L = L0.map((id, i) => [id, i, pieceKey(sl, id, n)]).sort((a, b) => a[2] - b[2] || a[1] - b[1]).map(x => x[0]);
+  const rd = redressOf(sl, n), ri = rd ? L.indexOf(rd) : -1; if (ri > 0) { L.splice(ri, 1); L.unshift(rd); }   // v2.1: the piece the arrow shows comes first,
+  if (ri >= 0) L.rd = rd;                                                                                       // and the swaps stop on it (slotZone)
   if (cur) L.push(null);
   L.push(cur);
   return L;
@@ -71,7 +73,7 @@ function slotZone(dt, ptx, pty) {
   if (!ps.cyc) ps.cyc = slotCycle(sl);
   if (ps.cyc.length < 2) { ps.stop = true; return; }   // nothing to swap to
   const id = ps.cyc[ps.n % ps.cyc.length]; ps.n++;
-  if (setDecor(sl, id)) ps.stop = true;   // a combo: stop here
+  if (setDecor(sl, id) || (id && id === ps.cyc.rd)) ps.stop = true;   // a combo: stop here (v2.1: or the re-dress piece the arrow showed)
 }
 // rule 14 of the arrow (6): slots where an owned piece completes a combo the arrow may point at (hint), nearest first;
 // if there are none, the A slots of the open rooms without any decor (while you own some), nearest first; with no bare
@@ -80,7 +82,9 @@ function slotCands() {
   const own = decorOwned(); if (!own.length) return [];
   const d = sl => Math.abs(tcx(sl.at) - P.x) + Math.abs(tcy(sl.at) - P.y), by = (a, b) => d(a) - d(b);
   const combo = DSLOTS.filter(sl => roomOpen(sl.rm) && !roomCombo(sl.rm) && !!slotPiece(sl, true));
-  if (combo.length) return combo.sort(by);
+  // v2.1: a combo never made before goes first (a seasonal combo started by a re-dress, not its old combo back)
+  const made = sl => S.combos[(comboOf(S.decor[otherSlot(sl).key], slotPiece(sl, true)) || {}).id] ? 1 : 0;
+  if (combo.length) return combo.sort((a, b) => made(a) - made(b) || by(a, b));
   const bare = DSLOTS.filter(sl => sl.k === 'A' && roomOpen(sl.rm) && !S.decor[sl.key] && !S.decor[otherSlot(sl).key]);
   if (bare.length) return bare.sort(by);
   const n = comboUse();

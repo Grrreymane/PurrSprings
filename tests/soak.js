@@ -22,6 +22,8 @@ const _fee = fee; fee = function (k, o) { const v = _fee(k, o); generated += v; 
 const _earn = earn; earn = function (v, x, y) { generated += Math.max(0, v | 0); return _earn(v, x, y); };   // calls pay straight into the wallet (v2 4.2)
 // v2.0.1 G3: a call the tea runner brings pays its tip into the cash box (not a fee, not the wallet)
 const _serveCall = serveCall; serveCall = function (gu, by) { const p0 = S.piles.recep || 0; const r = _serveCall(gu, by); if (by) generated += (S.piles.recep || 0) - p0; return r; };
+// v2.1: a festival's red packet and the yearly prize are put into the cash box (not fees)
+for (const fn of ['festEnd', 'yearReport']) { const f0 = eval(fn); eval(fn + ' = function (...a) { const p0 = S.piles.recep || 0; const r = f0(...a); generated += (S.piles.recep || 0) - p0; return r; }'); }
 newGame();
 // ---------------------------------------------------------------- driver (as bot.js)
 let path = [], key = '', think = 0, mode = 'follow', episode = 0, stuckT = 0, lastPos = [P.x, P.y], stuckN = 0;
@@ -149,7 +151,7 @@ for (let i = 0; i < steps; i++) {
   update(DT);
   const ms = Number(process.hrtime.bigint() - t0) / 1e6; upd += ms; updMax = Math.max(updMax, ms); frames++;
   bfsMax = Math.max(bfsMax, bfsFrame); bfsTotal += bfsFrame;
-  if (state === 'celebrate') { signAt = signAt || S.stats.time; S.done = true; go('play'); }
+  if (state === 'celebrate') { signAt = signAt || S.stats.time; S.done = true; go('play'); } if (state === 'card') modalClose();
   const t = S.stats.time;
   if (Math.floor(t) !== lastSec) { lastSec = Math.floor(t); checkSecond(); }
   if (Math.floor(t / 600) * 600 === Math.floor(t) && !artAt[Math.floor(t)]) artAt[Math.floor(t)] = { art: Object.keys(ART).length, txc: TXC.size, txNew, guests: GUESTS.length, fx: FX.length, money: S.money };

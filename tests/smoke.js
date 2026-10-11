@@ -101,7 +101,7 @@ run(300, 'after-load');
 // VIP's unpaid gift in the cash box (once; the next VIP then needs the full gap); money, unlocks, hearts and decor come
 // back; the game plays on.
 { newGame();
-  const until = (cond, sec, tag) => { const n = Math.round(sec / DT); for (let i = 0; i < n; i++) { drive(DT); try { update(DT); } catch (e) { bad(tag, 'update threw ' + (e && e.stack || e)); return false; } if (state === 'celebrate') { S.done = true; go('play'); } if (i % 30 === 0) check(tag); if (cond()) return true; } return false; };
+  const until = (cond, sec, tag) => { const n = Math.round(sec / DT); for (let i = 0; i < n; i++) { drive(DT); try { update(DT); } catch (e) { bad(tag, 'update threw ' + (e && e.stack || e)); return false; } if (state === 'celebrate') { S.done = true; go('play'); } if (state === 'card') modalClose(); if (i % 30 === 0) check(tag); if (cond()) return true; } return false; };
   const keep = () => ({ money: S.money, unlocked: Object.keys(S.unlocked).sort().join(','), hearts: S.hearts, decor: JSON.stringify(S.decor), guests: S.stats.guests });
   const trip = (tag, extra) => {
     const a = keep(), recep = S.piles.recep || 0, owe = VIPG ? S.vipOwe : 0;

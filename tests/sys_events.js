@@ -14,7 +14,7 @@ function setup(list) {
   S.peak = starOf(S); S.basket = BASKET_MAX; S.tut.moved = true; S.done = true; resetWorld(); go('play'); spawnT = 1e9;
   SFXLOG.length = 0; LINES.length = 0; BANNER_Q.length = 0; FIRST_Q.length = 0;
 }
-const run = (sec, f) => { for (let i = 0, n = Math.round(sec / DT); i < n; i++) { update(DT); if (state === 'celebrate') go('play'); if (f && f()) return true; } return false; };
+const run = (sec, f) => { for (let i = 0, n = Math.round(sec / DT); i < n; i++) { update(DT); if (state === 'celebrate') go('play'); if (state === 'card') modalClose(); if (f && f()) return true; } return false; };
 const newsOf = k => RUN.news.filter(n => n[1] === k).length;
 const line = k => LINES.some(([, x]) => x.split('|').includes(k));
 const buy = id => { S.money += padNeed(UNLOCK[id]); unlock(id); };
@@ -71,7 +71,7 @@ setup(); newGame(); S.tut.moved = true;
     think -= DT;
     if (think <= 0) { think = .3; const t = guideTarget(); if (!t || t.here) { path = []; key = ''; } else if (t.tx + ',' + t.ty !== key || !path.length) { key = t.tx + ',' + t.ty; const [sx, sy] = tileOf(P); path = findPath(sx, sy, t.tx, t.ty) || []; } }
     if (path.length) { const [tx, ty] = path[0], dx = tx * 16 + 8 - P.x, dy = ty * 16 + 8 - P.y, d = Math.hypot(dx, dy); if (d < 1.5) path.shift(); botMove = d > .01 ? { x: dx / d * Math.min(1, d / 3), y: dy / d * Math.min(1, d / 3) } : null; } else botMove = null;
-    update(DT); if (state === 'celebrate') { S.done = true; go('play'); }
+    update(DT); if (state === 'celebrate') { S.done = true; go('play'); } if (state === 'card') modalClose();
   }
   botMove = null;
   const B3 = ['buy', 'first', 'vip', 'combo', 'rank', 'level', 'area'], ts = RUN.news.filter(n => B3.includes(n[1])).map(n => n[0]);

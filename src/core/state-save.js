@@ -9,6 +9,10 @@ function defaults() {
     equip: { hat: null, pet: null }, staff: {}, vipNext: 0, opts: { lines: true }, gift: false,
     vipOwe: 0,   // the unpaid gift of a VIP seated in a suite right now (10.1: half of it goes to the cash box on load)
     vipAt: 0,    // when the next VIP is due after one left (game seconds, stats.time): a reload must not bring it sooner (18.2)
+    // v2.1 core A (16.13; seasons.js loadV21a cleans them): the year's starting totals, trophies, magazine covers,
+    // festival medals, mom's visits, the reporter's / festival's last season, festivals held per season, "popular" left
+    year: { g: 0, e: 0, h: 0, combos: 0, n: 1 }, awards: [], covers: [], medals: [], mom: 0, momY: 1,
+    pressS: 0, fest: { s: 0, n: 0, goal: 1, end: true }, fests: [0, 0, 0, 0], popT: 0, popTV: false,
   };
 }
 const starOf = s => 1 + (s.unlocked.onsen ? 1 : 0) + (s.unlocked.dining ? 1 : 0) + (s.unlocked.garden ? 1 : 0) + (s.unlocked.roten ? 1 : 0);
@@ -96,6 +100,7 @@ function loadState(rawIn) {
     Object.defineProperty(s, 'vipRefunded', { value: true });   // not saved: the next VIP then needs the full gap (no reload shortcut)
   }
   s.vipOwe = 0;
+  loadV21a(s, raw);   // v2.1 core A's fields (seasons.js)
   return s;
 }
 let S;   // set at boot (loadState needs STAFF_DEF, defined below)
@@ -124,6 +129,7 @@ function fee(k, o) {
   else if (k === 'bath') { if (o.slot && o.slot.roten) m *= dayLight().night >= .5 ? 1.8 : 1.2; else if (S.unlocked.bigbath) m *= 1.5; m *= ty.bath || 1; }
   else if (k === 'milk' || k === 'tea') m *= ty.milk || 1;   // an elder pays x1.5 for milk and tea alike
   else if (k === 'meal') m *= ty.meal || 1;
+  m *= feeV21a(k, o);   // v2.1: the seasons, a seasonal combo in its season, "popular" after the press (seasons.js)
   m *= 1 + .05 * goldStars();
   let v = R((STARS[star()][k] || 0) * m);
   if (k === 'tip' && S.unlocked.statue) v += 1;
@@ -144,7 +150,7 @@ const CALL_FAST = .3;   // served within the first 30 % of its time = fast (x1.5
 // a call's reward (4.2): 3 x room fee x Q, x1.5 when served in the first half of its time; gold stars +5% each
 const callReward = fast => R(3 * STARS[star()].room * qualityQ() * (fast ? 1.5 : 1) * (1 + .05 * goldStars()));
 // seconds between guests (3.3): more rooms -> more guests; gold stars -3% each
-function spawnGap() { return Math.max(1.8, STARS[star()].gap * Math.min(1, 9 / Math.max(1, guestRoomsOpen()))) * (1 - .03 * goldStars()); }
+function spawnGap() { return Math.max(1.8, STARS[star()].gap * Math.min(1, 9 / Math.max(1, guestRoomsOpen()))) * (1 - .03 * goldStars()) / festSpawnK(); }   // v2.1: a festival x1.3
 
 // ---- price pads on the ground (3.5). PADPOS = the pads shown right now (id -> tile). At most PAD_MAX progress pads:
 // every gate whose prerequisites are met, then part-paid ones, then the cheapest. Decor (2 shop pads, stable slots),
@@ -155,6 +161,7 @@ function padEligible(u) {
   for (const r of u.req) if (!S.unlocked[r]) return false;
   if (u.need5 && star() < 5) return false;
   if (u.vip && !(S.album.vip[u.vip] > 0)) return false;
+  if (u.when && !u.when()) return false;   // v2.1: on sale only once (seasonal decor: after that season's first festival)
   return areaOpen(AREA[u.area]);
 }
 function padsUpdate() {

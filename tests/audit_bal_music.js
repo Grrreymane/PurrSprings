@@ -68,7 +68,7 @@ function watch() {
 }
 for (let i = 0; i < 90 * 60 * 30; i++) {
   follow(DT); update(DT); watch();
-  if (state === 'celebrate' && st > 4) { S.done = true; go('play'); }
+  if (state === 'celebrate' && st > 4) { S.done = true; go('play'); } if (state === 'card') modalClose();
   if (star() >= 5 && fin === null) fin = S.stats.time;
   if (fin !== null && S.stats.time - fin > MIN * 60) break;
 }

@@ -1,6 +1,6 @@
 // ============================================================ render
 // cat sprites are 16x24 with the anchor at (8,23) (4 rows of head room for hats): catSprite / catBow (art block).
-// Tiles: tileArt(ch, tx, ty, nb, season) draws every v2 char; season is 0 until v2.1's calendar.
+// Tiles: tileArt(ch, tx, ty, nb, season) draws every v2 char; season = seasonNow() (v2.1: the world is rebuilt when it changes).
 // static world layer: tiles, doors, locked shade, scenery - redrawn only when something unlocks
 const WORLD = mk(MAPW, MAPH);
 // one door tile of the static layer; a combo room's noren takes the combo's colour + emblem (4.5), so it is repainted
@@ -9,26 +9,26 @@ function paintDoor(dr) {
   if (!dr) return;
   const [tx, ty] = dr.at, wg = WORLD.getContext('2d'), nb = { u: ch(tx, ty - 1), d: ch(tx, ty + 1), l: ch(tx - 1, ty), r: ch(tx + 1, ty) };
   wg.imageSmoothingEnabled = false; wg.clearRect(tx * TILE, ty * TILE, TILE, TILE);
-  const base = tileArt(dr.base || '.', tx, ty, nb, 0); if (base) wg.drawImage(base, tx * TILE, ty * TILE);
+  const base = tileArt(dr.base || '.', tx, ty, nb, seasonNow()); if (base) wg.drawImage(base, tx * TILE, ty * TILE);
   const rm = dr.room ? ROOM[dr.room] : null, c = rm ? roomCombo(rm) : null;
   // a room door shows its own room's floor through the doorway, and what lies outside (corridor / west hall / gravel)
   const fl = rm ? [rm.floor, tileLook(tx + (rm.left ? 1 : -1), ty) || ch(tx + (rm.left ? 1 : -1), ty)] : null;
-  wg.drawImage(doorArt(dr.kind, doorIsOpen(dr), c ? c.col : dr.col || null, c ? c.emb : dr.emb || null, !!dr.gold, tx, ty, fl), tx * TILE, ty * TILE);   // gates paint their own ground: they need where they stand
+  wg.drawImage(doorArt(dr.kind, doorIsOpen(dr), c ? c.col : dr.col || null, c ? c.emb : dr.emb || null, !!dr.gold, tx, ty, fl, seasonNow()), tx * TILE, ty * TILE);   // gates paint their own ground: they need where they stand (v2.1: in the season's colours)
 }
 const tubBusy = rm => !!VIPG && VIPG.suite === rm.id && (VIPG.st === 'soak' || (VIPG.st === 'seated' && VIPG.actT > 0 && vipWish() === 'bath'));
 // a VIP's face, 8x8 from its front sprite (photo frames, the polaroid; the album crops its own)
-function vipFace(id) { return art('vipface:' + id, () => { const v = VIP[id], c = mk(8, 8); c.getContext('2d').drawImage(catSprite('down', 0, { fur: v.fur, outfit: 'robe', robe: v.robe, hat: v.hat || null }), 4, 6, 8, 8, 0, 0, 8, 8); return c; }); }
+function vipFace(id) { return art('vipface:' + id, () => { const v = VIP[id], c = mk(8, 8); c.getContext('2d').drawImage(catSprite('down', 0, v.look || { fur: v.fur, outfit: 'robe', robe: v.robe, hat: v.hat || null }), 4, 6, 8, 8, 0, 0, 8, 8); return c; }); }   // v2.1: mom has her own look
 function rebuildWorld() {
   buildObjects(); buildBlock(); padsUpdate(); buildLights();
   for (const o of OBJS) if (o.light && areaOpen(areaAt(o.tx, o.ty))) {   // scenery lamps (map.js SCENERY); a locked area stays dark (the lower garden until v2.1)
     const [r, dy, k] = o.light;
     LIGHTS.push({ x: o.tx * TILE + o.fw * 8, y: o.ty * TILE + dy, r, col: k === 'deck' ? DECK_COL : LAMP_COL, room: null });
   }
-  const wg = WORLD.getContext('2d'); wg.imageSmoothingEnabled = false; wg.clearRect(0, 0, MAPW, MAPH);
+  const wg = WORLD.getContext('2d'), sea = seasonNow(); wg.imageSmoothingEnabled = false; wg.clearRect(0, 0, MAPW, MAPH);
   for (let ty = 0; ty < MH; ty++) for (let tx = 0; tx < MW; tx++) {
     const c = MAP[ty][tx], nb = { u: ch(tx, ty - 1), d: ch(tx, ty + 1), l: ch(tx - 1, ty), r: ch(tx + 1, ty) };
     if (c === 'D') paintDoor(DOOR_AT[ty * MW + tx]);
-    else { const t = tileArt(c, tx, ty, nb, 0, TILE_LOOK[ty * MW + tx]); if (t) wg.drawImage(t, tx * TILE, ty * TILE); }   // looks: room floors / walls (A1) ...
+    else { const t = tileArt(c, tx, ty, nb, sea, TILE_LOOK[ty * MW + tx]); if (t) wg.drawImage(t, tx * TILE, ty * TILE); }   // looks: room floors / walls (A1) ...
   }
   // wall decor (2.4): gift shelf + photo frames on the lobby's north wall, the dining menu boards, the garden wall lamp
   const wall = (k, tx, ty) => wg.drawImage(wallDecorArt(k), tx * TILE, ty * TILE);
@@ -39,7 +39,7 @@ function rebuildWorld() {
   // scenery on the two v2.1 areas: a bamboo grove over the shrine ground, flagstone clutter on the plaza (no shade, no sign)
   for (const a of AREAS) if (a.scenery && !areaOpen(a)) {
     for (let y = a.r[1]; y <= a.r[3]; y++) for (let x = a.r[0]; x <= a.r[2]; x++) {
-      if (a.scenery === 'bamboo') wg.drawImage(bambooGroveArt(x, y), x * TILE, (y + 1) * TILE - 24);
+      if (a.scenery === 'bamboo') wg.drawImage(bambooGroveArt(x, y, sea), x * TILE, (y + 1) * TILE - 24);
       else wg.drawImage(plazaDecor(x, y), x * TILE, y * TILE);
     }
   }
@@ -187,9 +187,9 @@ function drawScene(vw, vh, live, noPlayer, card) {
   const sx = clamp(CX, 0, MAPW), sy = clamp(CY, 0, MAPH), sw = Math.min(vw - (sx - CX), MAPW - sx), sh = Math.min(vh - (sy - CY), MAPH - sy);
   if (sw > 0 && sh > 0) g.drawImage(WORLD, sx, sy, sw, sh, sx - CX, sy - CY, sw, sh);
   // animated water (visible tiles only): onsen, roten, the koi pond
-  const fr = Math.floor(T / .4) & 3, water = (x0, x1, y0, y1, fn) => { for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) if (VIS(tx * TILE + 8, ty * TILE + 8, 12)) g.drawImage(fn(fr, tx, ty), tx * TILE - CX, ty * TILE - CY); };
+  const fr = Math.floor(T / .4) & 3, sea = seasonNow(), water = (x0, x1, y0, y1, fn) => { for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) if (VIS(tx * TILE + 8, ty * TILE + 8, 12)) g.drawImage(fn(fr, tx, ty, sea), tx * TILE - CX, ty * TILE - CY); };   // v2.1: + the season (pondArt)
   if (S.unlocked.onsen) water(13, 21, 2, 3, waterArt);   // jade-green rock bath
-  if (S.unlocked.roten) { water(27, 37, 2, 3, rotenWaterArt); if (VIS(32 * TILE, 20, 40)) g.drawImage(waterfallArt(fr), 31 * TILE - CX, -CY); }   // milky water in a hinoki rim (A4)
+  if (S.unlocked.roten) { water(27, 37, 2, 3, rotenWaterArt); if (VIS(32 * TILE, 20, 40)) g.drawImage(waterfallArt(fr, seasonNow()), 31 * TILE - CX, -CY); }   // milky water in a hinoki rim (A4)
   if (S.unlocked.garden) water(27, 30, 15, 17, pondArt);
   if (S.unlocked.koi) for (let i = 0; i < 3; i++) {   // three koi circle the pond
     const a = T * .35 + i * 2.1, x = 29 * TILE + Math.cos(a) * 22, y = 16 * TILE + 8 + Math.sin(a) * 12;
@@ -205,6 +205,7 @@ function drawScene(vw, vh, live, noPlayer, card) {
     S.gifts.forEach((id, i) => { if (i < 6) drawA(giftArt(VIP[id].gift), (12 + (i >> 1)) * TILE + (i & 1 ? 12 : 4), 22 * TILE + 8, 4, 4); });
     S.album.photos.slice(-3).reverse().forEach((p, i) => g.drawImage(vipFace(p.v), (20 + i) * TILE + 4 - CX, 22 * TILE + 5 - CY));
   }
+  drawWallV21a();   // v2.1: trophies, the newest cover, the family photo, festival lantern strings (seasons.js)
   // ---- ground layer: desk spot hint, price pads, futons, cushions, ground props, fish piles
   if (marks && !S.unlocked.recep && Q[0] && Q[0].st === 'queue' && Q[0].ready && !P.atDesk) {   // "stand here" glow behind the counter while a guest waits
     g.globalAlpha = .4 + .25 * Math.sin(T * 5); g.fillStyle = '#ffe9a8';
@@ -215,7 +216,7 @@ function drawScene(vw, vh, live, noPlayer, card) {
   if (marks) for (const u of visiblePads()) { const [tx, ty] = padXY(u); if (VIS(tx * TILE + 8, ty * TILE + 8, 20)) drawPad(u); }
   for (const rm of ROOMS) if (roomOpen(rm) && VIS(rm.cleanC[0], rm.cleanC[1], 48)) drawFutons(rm);
   for (const se of SEATS) if (S.unlocked[se.need] && VIS(tcx(se.at), tcy(se.at), 16)) drawA(cushionArt(), tcx(se.at), tcy(se.at), 6, 3);
-  for (const o of OBJS) if (o.ground && VIS(o.tx * TILE + o.fw * 8, (o.ty + o.fh) * TILE - 8, 48)) drawObj(o.img(), o.tx, (o.ty + o.fh) * TILE, o.fw, popScale(POPA[o.uid]));
+  for (const o of OBJS) if (o.ground && VIS(o.tx * TILE + o.fw * 8, (o.ty + o.fh) * TILE - 8, 48)) drawObj(propImg(o), o.tx, (o.ty + o.fh) * TILE, o.fw, popScale(POPA[o.uid]));
   if (marks && decorOwned().length) for (const sl of DSLOTS) if (!S.decor[sl.key] && roomOpen(sl.rm) && VIS(tcx(sl.at), tcy(sl.at), 12)) drawA(slotMarkArt(), tcx(sl.at), tcy(sl.at) + 2, 6, 3);   // empty decor slots (4.5)
   if (live) for (const id in S.piles) if (S.piles[id] > 0) {
     const [tx, ty] = PILE_AT[id]; if (!VIS(tx * TILE + 8, ty * TILE + 8, 24)) continue;
@@ -224,7 +225,7 @@ function drawScene(vw, vh, live, noPlayer, card) {
   }
   // ---- y-sorted props, area boards and cats
   const L = [];
-  for (const o of OBJS) { if (o.ground) continue; const by = (o.ty + o.fh) * TILE; if (VIS(o.tx * TILE + o.fw * 8, by - 16, 64)) L.push({ y: by, f: () => drawObj(o.img(), o.tx, by, o.fw, popScale(POPA[o.uid])) }); }
+  for (const o of OBJS) { if (o.ground) continue; const by = (o.ty + o.fh) * TILE; if (VIS(o.tx * TILE + o.fw * 8, by - 16, 64)) L.push({ y: by, f: () => drawObj(propImg(o), o.tx, by, o.fw, popScale(POPA[o.uid])) }); }   // propImg: v2.1 snow caps in winter
   for (const a of AREAS) if (a.sign && !areaOpen(a)) {   // star-n board at a locked area; lights up (and pops) once its gate pad shows
     const gate = UNLOCK[a.open], lit = PADPOS.has(gate.id), x = tcx(a.sign), y = (a.sign[1] + 1) * TILE - 1;
     if (VIS(x, y - 8, 24)) L.push({ y, f: () => { const c = areaSignArt(a.n, lit), s = lit ? popScale(POPA['pad:' + gate.id]) : 1; if (s >= 1) drawA(c, x, y, 7, 17); else if (s > .02) g.drawImage(c, R(x - 7 * s) - CX, R(y - 17 * s) - CY, R(c.width * s) || 1, R(c.height * s) || 1); } });

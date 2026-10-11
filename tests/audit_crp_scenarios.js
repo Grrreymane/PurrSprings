@@ -5,7 +5,7 @@
 // C. a full tray of things nobody wants any more + a new want of another kind: where does the arrow send you?
 // D. the menu opened at awkward moments (celebration due, a key held, a banner / line / first card up)
 const DT = 1 / 30;
-const step = (n, f) => { for (let i = 0; i < n; i++) { if (f) f(i); update(DT); if (state === 'celebrate') { S.done = true; go('play'); } } };
+const step = (n, f) => { for (let i = 0; i < n; i++) { if (f) f(i); update(DT); if (state === 'celebrate') { S.done = true; go('play'); } if (state === 'card') modalClose(); } };
 let bad = 0; const check = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + m); if (!c) bad++; };
 function star4() {
   newGame(); S.tut.moved = true;

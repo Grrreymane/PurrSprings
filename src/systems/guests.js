@@ -54,6 +54,7 @@ function unpark(gu, at) { const m = gu.mate; if (!m) return; if (at) { m.x = at[
 function roomRank(rm) { const [a, b] = decorOf(rm); return (rm.cottage ? 4 : 0) + (comboOf(a, b) ? 2 : (a || b) ? 1 : 0); }
 const roomFree = rm => roomOpen(rm) && S.rooms[rm.id] === 'clean' && !RT[rm.id].guest;
 function freeRoom(gu) {
+  if (gu && gu.press) return pressRoom();   // v2.1: the reporter gets the best free room (16.4, press.js)
   const pf = gu && PREF[gu.type];
   let best = null, bp = false;
   for (const rm of GUEST_ROOMS) {
