@@ -8,7 +8,8 @@ const { execFile } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..');
-const headless = path.resolve(root, '../_workflow/tools/headless.js');
+// git worktrees live outside D:/Minigame, so fall back to the workspace copy
+const headless = [path.resolve(root, '../_workflow/tools/headless.js'), 'D:/Minigame/_workflow/tools/headless.js'].find(p => require('fs').existsSync(p));
 const QUICK = [['smoke.js', 1], ['map_check.js', 1], ['ui_check.js', 2]];
 const FULL = QUICK.concat([['smoke.js', 2], ['migrate_v1.js', 1], ['lines_check.js', 3], ['music_check.js', 1]]);
 const run = ([file, seed]) => new Promise(done => {
