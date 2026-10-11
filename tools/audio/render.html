@@ -17,16 +17,24 @@ const want = (o) => () => musicWant(o);
 const SONG40 = (song, area, night, extra) => ({ sec: 40, tl: [[0, want(Object.assign({ song, night, star: 5, area }, extra || {}))]] });
 const SFX_LIST = ['click', 'coin', 'coinBig', 'tick', 'pop', 'bell', 'sweep', 'splash', 'milk', 'meow', 'hmph', 'unlock', 'ring', 'take', 'serve', 'eat', 'cook',
   'vip', 'shutter', 'gong', 'swap', 'tryon', 'levelup', 'rankup', 'dawn', 'dusk', 'areaOpen', 'menuOpen', 'menuClose', 'page', 'quack', 'woof'];
-function sfxReel() {
-  const tl = [[0, want({ song: null, area: null })]]; let t = .5;
+function sfxReel() {   // every effect alone, one after another; segs = [name, from, to] for render.py's per-effect levels
+  const tl = [[0, want({ song: null, area: null })]], segs = []; let t = .5;
   for (const k of SFX_LIST) {
     const f = k === 'menuOpen' ? () => SFX.menu(true) : k === 'menuClose' ? () => SFX.menu(false) : k === 'coin' ? () => SFX.coin(0) : k === 'tick' ? () => { SFX.tick(.2); } : () => SFX[k]();
     tl.push([t, f]);
     if (k === 'tick') for (let i = 1; i < 8; i++) tl.push([t + i * .09, () => SFX.tick(i / 8)]);
     if (k === 'coin') for (let i = 1; i < 5; i++) tl.push([t + i * .12, () => SFX.coin(i)]);
-    t += k === 'dusk' ? 3.2 : k === 'unlock' || k === 'areaOpen' || k === 'gong' ? 1.9 : k === 'coin' || k === 'tick' ? 1.1 : 1.0;
+    const t1 = t + (k === 'dusk' ? 3.2 : k === 'unlock' || k === 'areaOpen' || k === 'gong' ? 1.9 : k === 'coin' || k === 'tick' ? 1.1 : 1.0);
+    segs.push([k, t, t1]); t = t1;
   }
-  return { sec: Math.ceil(t + 1), tl };
+  return { sec: Math.ceil(t + 1), tl, segs };
+}
+// 45 s of real play (sfx_busy.json: every SFX call a bot run made, at its sim time) over the lobby song = the in-game mix
+function sfxBusy(dry) {   // dry: the sound effects alone (no song, no ambience)
+  const x = new XMLHttpRequest(); x.open('GET', 'sfx_busy.json?t=' + Date.now(), false); x.send();
+  const d = JSON.parse(x.responseText), tl = [[0, want(dry ? { song: null, area: null } : { song: 'lobby', night: 0, star: 4, area: 'lobby' })]];
+  for (const [t, k, a] of d.events) tl.push([t, () => { const f = SFX[k]; if (typeof f === 'function') f.call(SFX, a === null ? undefined : a); }]);
+  return { sec: Math.ceil(d.sec + 2), tl };
 }
 const JOBS = {
   lobby_day: SONG40('lobby', 'lobby', 0),
@@ -45,6 +53,8 @@ const JOBS = {
   // the anti-repetition at work: lobby section A four times in a row = passes 0-3 (V0 / ornaments + swapped lead / echo / shifted phrase)
   lobby_A_x4: { sec: 102, tl: [[0, want({ song: 'lobby', night: 0, star: 5, area: 'lobby' })], [.2, () => { const p = _auCur(); p.sd = Object.assign({}, p.sd, { form: ['A'] }); }]] },
   sfx_reel: sfxReel(),
+  sfx_busy: sfxBusy(),
+  sfx_busy_dry: sfxBusy(true),
   // ~2.5 min walk: lobby -> onsen -> dining -> garden -> lobby at night (switches land on the next bar line)
   bgm_tour: { sec: 152, tl: [
     [0, want({ song: 'lobby', night: 0, star: 5, area: 'lobby' })],
@@ -98,7 +108,7 @@ const ORDER = Object.keys(JOBS).filter(n => n !== 'inst_cal' && n !== 'bus_test'
   const buf = await ctx.startRendering();
   const L = buf.getChannelData(0), R = buf.getChannelData(1), out = new Float32Array(L.length * 2);
   for (let j = 0; j < L.length; j++) { out[2 * j] = L[j]; out[2 * j + 1] = R[j]; }
-  const meta = { name: name + (solo ? '__' + solo : ''), sr, switches, voicesMax: MUSIC_DBG.voicesMax, sig: MUSIC_DBG.sig };
+  const meta = { name: name + (solo ? '__' + solo : ''), sr, switches, voicesMax: MUSIC_DBG.voicesMax, sig: MUSIC_DBG.sig, segs: job.segs || null };
   await fetch('/__wav?meta=' + encodeURIComponent(JSON.stringify(meta)), { method: 'POST', body: out.buffer });
   go();
 })().catch(e => fetch('/__log', { method: 'POST', body: 'ERR ' + (e && e.stack || e) }));

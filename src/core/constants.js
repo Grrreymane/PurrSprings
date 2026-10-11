@@ -1,9 +1,10 @@
 // ============================================================ constants
 const W = 180, H = 320, OUT = '#1b1b2f';           // logical pixels (portrait); everything is drawn at this size
 const SAVE = 'purr-springs-';                       // localStorage key prefix — unique per game
-const FONT = '"ZCOOL QingKe HuangYou","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif';
-// body text in a crisp pixel font; big headings keep the chunky display font
-const PFONT = '"Fusion Pixel","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif';   // fontFor(): >= 11 px the display font
+// every piece of text (titles, cover, share card, buttons, banners) uses the crisp pixel font Fusion Pixel (v2.0.1 F1);
+// FONT is the same font under its old name
+const PFONT = '"Fusion Pixel","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif';
+const FONT = PFONT;
 const TILE = 16, MW = 40, MH = 36, MAPW = MW * TILE, MAPH = MH * TILE;   // world: 40 x 36 tiles = 640 x 576 px (SPEC_v2 2)
 const rand = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;

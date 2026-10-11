@@ -14,22 +14,27 @@ function flushLayer() {
 }
 function layerBreak() { if (!LAYERED) { screenBase(); LAYERED = true; } flushLayer(); g.clearRect(0, 0, W, H); }
 function present() { if (!LAYERED) screenBase(); LAYERED = false; flushLayer(); }
-// Outlined text rendered once per (text, size, colours, scale). The outline is the glyphs stamped around
-// a circle rather than strokeText, so it hugs the fill with no hairline gap. Small text uses the pixel font.
-const TXC = new Map();
+// Outlined text rendered once per (text, size, colours, scale) in the pixel font at txtPx(size) = u device px per glyph
+// pixel. Baseline and every glyph edge land on whole device px (crisp); the outline is the glyphs stamped one glyph
+// pixel away in 8 directions (a pixel-art outline that hugs the fill: no strokeText hairline gap, WORKFLOW 3).
+// The glyphs' middle sits half a glyph pixel above the sprite's middle (t.y), as with the old 'middle' baseline.
+const TXC = new Map(), OUTL = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
+function pixText(s, px, col, stroke) {   // -> { cv, w, h, pad }; also used by the cover
+  const u = px / 12, m = document.createElement('canvas'), x = m.getContext('2d'), font = px + 'px ' + PFONT;
+  const r = stroke ? Math.max(1, R(u)) : 0, pad = r + 2;
+  x.font = font; m.width = Math.max(1, Math.ceil(x.measureText(s).width) + pad * 2); m.height = Math.ceil(16 * u) + pad * 2;
+  x.font = font; x.textBaseline = 'alphabetic'; x.textAlign = 'left';
+  const by = R(m.height / 2 + 4 * u);
+  if (stroke) { x.fillStyle = stroke; for (const [dx, dy] of OUTL) x.fillText(s, pad + dx * r, by + dy * r); }
+  x.fillStyle = col; x.fillText(s, pad, by);
+  return { cv: m, w: m.width, h: m.height, pad };
+}
 function textSprite(t) {
   const key = t.s + '|' + t.size + '|' + t.col + '|' + t.stroke + '|' + K;
   let c = TXC.get(key); if (c) return c;
   if (TXC.size > 400) TXC.clear();
-  const m = document.createElement('canvas'), x = m.getContext('2d'), font = t.size * K + 'px ' + fontFor(t.s, t.size);
-  const r = t.stroke ? Math.max(.75, t.size * .14) * K : 0, pad = Math.ceil(r) + 2;
-  x.font = font; m.width = Math.max(1, Math.ceil(x.measureText(t.s).width) + pad * 2); m.height = Math.ceil(t.size * K * 1.5) + pad * 2;
-  x.font = font; x.textBaseline = 'middle'; x.textAlign = 'left';
-  const oy = m.height / 2;
-  if (t.stroke) { x.fillStyle = t.stroke; for (const f of [1, .55]) for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; x.fillText(t.s, pad + Math.cos(a) * r * f, oy + Math.sin(a) * r * f); } }
-  x.fillStyle = t.col; x.fillText(t.s, pad, oy);
-  c = { cv: m, w: m.width, h: m.height, pad }; TXC.set(key, c); return c;
+  c = pixText(t.s, txtPx(t.size), t.col, t.stroke); TXC.set(key, c); return c;
 }
 try { if (document.fonts) { document.fonts.addEventListener('loadingdone', () => { TXC.clear(); TW.clear(); }); document.fonts.ready.then(() => { TXC.clear(); TW.clear(); }); } } catch (e) {}
 const ALLTEXT = [...new Set((SCRIPT_TEXT.match(/[^\x00-\x7f]/g) || []))].join('') + '0123456789+-/!?';
-try { if (document.fonts && document.fonts.load) { document.fonts.load('12px "ZCOOL QingKe HuangYou"', ALLTEXT).catch(() => {}); document.fonts.load('12px "Fusion Pixel"', ALLTEXT).catch(() => {}); } } catch (e) {}
+try { if (document.fonts && document.fonts.load) document.fonts.load('12px "Fusion Pixel"', ALLTEXT).catch(() => {}); } catch (e) {}
