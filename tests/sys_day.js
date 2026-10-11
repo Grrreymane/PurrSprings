@@ -48,7 +48,7 @@ setup(['room2', 'room3', 'onsen', 'recep']); ensureStaff();
   for (let i = 1; i <= 360 * 30; i++) { const d = dayLight(i / (360 * 30)); maxA = Math.max(maxA, Math.abs(d.a - prev.a)); maxN = Math.max(maxN, Math.abs(d.night - prev.night));
     const a = ch(d.col), b = ch(prev.col); maxC = Math.max(maxC, ...a.map((v, j) => Math.abs(v - b[j]))); prev = d; }
   ok(maxA < .001 && maxN < .003 && maxC <= 2, 'per frame: alpha ' + maxA.toFixed(5) + ', night ' + maxN.toFixed(5) + ', colour ' + maxC + '/255');
-  for (const [c, a, n] of [[0, .42, 1], [.06, .28, .6], [.10, .14, 0], [.3, 0, 0], [.62, .18, 0], [.68, .26, .3], [.8, .42, 1]]) { const d = dayLight(c); near(d.a, a, 1e-9, 'alpha at ' + c); near(d.night, n, 1e-9, 'night at ' + c); }
+  for (const [c, a, n] of [[0, .55, 1], [.06, .36, .6], [.10, .14, 0], [.3, 0, 0], [.62, .18, 0], [.68, .28, .3], [.8, .55, 1]]) { const d = dayLight(c); near(d.a, a, 1e-9, 'alpha at ' + c); near(d.night, n, 1e-9, 'night at ' + c); }
   ok(STAR_SPOTS.length >= 8 && STAR_SPOTS.length <= 12 && STAR_SPOTS.every(s => s.f <= .5), 'stars: ' + STAR_SPOTS.length + ', each <= 0.5 Hz'); }
 // ---- lamps
 setup();
@@ -63,7 +63,7 @@ setup();
 setup(ALL); P.x = 17 * 16 + 8; P.y = 13 * 16 + 8; updCam(0, true);
 { S.clock = .3; let L = frame(); ok(!L.some(e => e[0] === 'multiply' || e[0] === 'lighter'), 'daytime: no light pass'); eq(LIGHT_N, 0, 'no lamps by day');
   S.clock = .9; L = frame(); const tint = L.find(e => e[0] === 'multiply' && e[1] === 'img');
-  ok(tint && Math.abs(tint[2] - .42) < 1e-9 && tint[3] === DARK && tint[4] === 0 && tint[5] === 0 && DARK.width === W && DARK.height === H && DARK.getContext('2d').fillStyle === '#2a3468', 'night: one full-view multiply tint .42 #2a3468 (the DARK layer)');
+  ok(tint && Math.abs(tint[2] - .55) < 1e-9 && tint[3] === DARK && tint[4] === 0 && tint[5] === 0 && DARK.width === W && DARK.height === H && DARK.getContext('2d').fillStyle === '#2a3468', 'night: one full-view multiply tint .55 #2a3468 (the DARK layer; v2.1: .42 -> .55)');
   eq(L.filter(e => e[0] === 'multiply').length, 1, 'exactly one multiply fill');
   const glows = L.filter(e => e[0] === 'lighter'); ok(LIGHT_N > 8 && LIGHT_N <= LIGHT_MAX, 'lamps drawn in the main corridor: ' + LIGHT_N);
   ok(glows.length >= LIGHT_N, 'additive glows ' + glows.length);
@@ -89,7 +89,7 @@ setup(ALL); P.x = 17 * 16 + 8; P.y = 13 * 16 + 8; updCam(0, true);
   // multiply missing: a thin plain tint instead
   const real = ctx.globalCompositeOperation; let op = 'source-over';
   Object.defineProperty(ctx, 'globalCompositeOperation', { configurable: true, get: () => op, set: v => { if (v !== 'multiply') op = v; } });
-  L = frame(); const t2 = L.find(e => e[1] === 'img' && e[3] === DARK); ok(t2 && t2[0] === 'source-over' && Math.abs(t2[2] - .42 * .55) < 1e-9, 'fallback tint: plain .23');
+  L = frame(); const t2 = L.find(e => e[1] === 'img' && e[3] === DARK); ok(t2 && t2[0] === 'source-over' && Math.abs(t2[2] - .55 * .55) < 1e-9, 'fallback tint: plain .30');
   delete ctx.globalCompositeOperation; ctx.globalCompositeOperation = real; }
 // ---- the HUD sky dial: from star 2; the sun by day, the moon by night
 { const seen = []; const _sun = sunIcon, _moon = moonIcon; sunIcon = () => { seen.push('sun'); return _sun(); }; moonIcon = () => { seen.push('moon'); return _moon(); };

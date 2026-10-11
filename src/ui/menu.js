@@ -2,9 +2,11 @@
 // the UI keep going; the music drops to half behind it). Pages: home, sound, book (the album, 4 tabs), bought, inn.
 const MENU = { page: 'home', tab: 0, pg: 0, sel: null };
 const MENU_HIT = [134, 0, 46, 18], MPANEL = [16, 40, 148, 240], MBACK = [22, 46, 44, 16];
-const MENU_ROWS = [['play', '继续', 'orange', 72, null], ['sound', '声音', 'wood', 102, 'sound'], ['book', '图鉴', 'wood', 132, 'book'], ['bag', '已购', 'wood', 162, 'bought'], ['house', '旅馆', 'wood', 192, 'inn']];
+// v2.1 core B: + 装扮 (16.6, ui/menu-v21b.js); six rows 28 px apart, sound last
+const MENU_ROWS = [['play', '继续', 'orange', 70, null], ['dress', '装扮', 'wood', 98, 'dress'], ['book', '图鉴', 'wood', 126, 'book'], ['bag', '已购', 'wood', 154, 'bought'], ['house', '旅馆', 'wood', 182, 'inn'], ['sound', '声音', 'wood', 210, 'sound']];
 const SOUND_ROWS = [['music', '音乐', 76], ['sfx', '音效', 104], ['talk', '台词', 132]];
-const BOOK_TABS = ['贵宾', '组合', '客人', '伙伴'];
+const BOOK_TABS = ['贵宾', '组合', '客人', '伙伴'];   // v2.1: + 稀客 纪念 装扮 (menu-v21b.js pushes them)
+const bookTabW = () => BOOK_TABS.length > 4 ? 19 : 33;
 function toggleSound() { const on = !(musicOn || sfxOn); setMusicOn(on); setSfxOn(on); }
 function openMenu() { if (state !== 'play') return; go('menu'); Object.assign(MENU, { page: 'home', sel: null }); hold = false; sfx('menu'); }
 function closeMenu() { if (state === 'menu') go('play'); }
@@ -22,9 +24,10 @@ function menuPress(p) {
     }
     return;
   }
+  if (pg === 'dress') { dressPress(p); return; }   // v2.1 (menu-v21b.js)
   if (pg === 'book') {
     if (MENU.sel) { MENU.sel = null; SFX.click(); return; }
-    for (let i = 0; i < 4; i++) if (inR(p, [24 + i * 33, 64, 31, 15])) { if (MENU.tab !== i) { MENU.tab = i; MENU.pg = 0; sfx('page'); } return; }
+    for (let i = 0; i < BOOK_TABS.length; i++) if (inR(p, [24 + i * bookTabW(), 64, bookTabW() - 2, 15])) { if (MENU.tab !== i) { MENU.tab = i; MENU.pg = 0; sfx('page'); } return; }   // v2.1: 7 tabs (menu-v21b.js)
     if (MENU.tab === 1) { const pages = Math.ceil(COMBOS.length / 6); if (inR(p, PG_PREV) && MENU.pg > 0) { MENU.pg--; sfx('page'); } if (inR(p, PG_NEXT) && MENU.pg < pages - 1) { MENU.pg++; sfx('page'); } return; }   // v2.1: 12 combos, 6 a page
     if (MENU.tab === 0) VIPS.forEach((v, i) => { if ((S.album.vip[v.id] | 0) > 0 && inR(p, [24 + (i % 3) * 45, 84 + (i / 3 | 0) * 94, 44, 90])) { MENU.sel = v.id; SFX.click(); } });
     return;
@@ -35,7 +38,8 @@ function menuPress(p) {
     if (inR(p, PG_NEXT) && MENU.pg < pages - 1) { MENU.pg++; sfx('page'); }
     return;
   }
-  if (pg === 'inn' && inR(p, [50, 246, 80, 22])) { SFX.click(); makeShare(); }
+  if (pg === 'inn' && !MENU.sel && inR(p, INN_MAP_BTN)) { SFX.click(); sfx('page'); MENU.sel = 'map'; return; }   // v2.1: the map (16.10)
+  if (pg === 'inn' && !MENU.sel && inR(p, [50, 246, 80, 22])) { SFX.click(); makeShare(); }
 }
 const boughtList = () => Object.keys(S.unlocked).filter(id => UNLOCK[id] && id !== 'room1').reverse();   // newest first (keys keep the buying order)
 // album counts (7.6): VIPs 6, combos 6, guests 9 furs + 3 types, the 10 staff + the shop owner = 35
@@ -49,7 +53,8 @@ function albumCount() {
   const v = VIPS.filter(x => (S.album.vip[x.id] | 0) > 0).length, c = COMBOS.filter(x => S.combos[x.id]).length;
   const gs = ALBUM_FURS.filter(f => S.album.furs[f]).length + ALBUM_TYPES.filter(t => S.album.types[t]).length;
   const st = STAFF_IDS.filter(id => S.unlocked[STAFF_DEF[id].need]).length;
-  return { n: v + c + gs + st, m: VIPS.length + COMBOS.length + ALBUM_FURS.length + ALBUM_TYPES.length + STAFF_IDS.length };
+  const b = albumCountB();   // v2.1: rare guests + what you can wear
+  return { n: v + c + gs + st + b.n, m: VIPS.length + COMBOS.length + ALBUM_FURS.length + ALBUM_TYPES.length + STAFF_IDS.length + b.m };
 }
 const MBTN_COL = { orange: BTN_COL.orange, blue: BTN_COL.blue, wood: ['#6a4426', '#a8784a', '#d8a870'], dim: ['#5a5a64', '#8a8a94', '#a8a8b0'] };
 function menuBtn(r, icon, label, col, size) {
@@ -63,20 +68,21 @@ function menuBtn(r, icon, label, col, size) {
 function drawMenu() {
   g.fillStyle = 'rgba(12,8,28,.6)'; g.fillRect(0, 0, W, H);
   panel(16, 40, 148, 240);
-  const pg = MENU.page, title = { home: '菜单', sound: '声音', book: '图鉴', bought: '已购', inn: '旅馆' }[pg];
+  const pg = MENU.page, title = { home: '菜单', sound: '声音', book: '图鉴', bought: '已购', inn: MENU.sel === 'map' ? '地图' : '旅馆', dress: '装扮' }[pg];
   txt(title, 90, 56, pg === 'home' ? 13 : 11, '#8a3a1a', 'center', null);
   if (pg !== 'home') menuBtn(MBACK, menuIcon('back'), '返回', 'wood', 7);
   if (pg === 'home') { for (const [ic, lab, col, y] of MENU_ROWS) menuBtn([32, y, 116, 24], menuIcon(ic), lab, col); drawMenuFoot(); }
   else if (pg === 'sound') drawSoundPage();
   else if (pg === 'book') drawBookPage();
   else if (pg === 'bought') drawBoughtPage();
-  else if (pg === 'inn') drawInnPage();
+  else if (pg === 'inn') { if (MENU.sel === 'map') drawInnMapPage(); else { drawInnPage(); menuBtn(INN_MAP_BTN, menuIcon('map'), '地图', 'wood', 7); } }   // v2.1: the map
+  else if (pg === 'dress') drawDressPage();
 }
 // under the home buttons: the day, your stars (gold ones too) and hearts - one glance, no words
 function drawMenuFoot() {
-  for (let i = 0; i < 5; i++) drawC(starIcon(i < star(), i < goldStars()), 62 + i * 9, 236);
-  drawC(heartIcon(), 64, 252); txt(String(S.hearts), 70, 252.5, 7, '#8a3a1a', 'left', null);
-  drawC(menuIcon('day'), 104, 252); txt(String(S.day), 112, 252.5, 7, '#8a3a1a', 'left', null);
+  for (let i = 0; i < 5; i++) drawC(starIcon(i < star(), i < goldStars()), 62 + i * 9, 246);
+  drawC(heartIcon(), 64, 260); txt(String(S.hearts), 70, 260.5, 7, '#8a3a1a', 'left', null);
+  drawC(menuIcon('day'), 104, 260); txt(String(S.day), 112, 260.5, 7, '#8a3a1a', 'left', null);
 }
 function drawSoundPage() {
   for (const [k, lab, y] of SOUND_ROWS) {
@@ -90,14 +96,15 @@ function drawSoundPage() {
 function drawBookPage() {
   const { n, m } = albumCount();
   txt(n + '/' + m, 158, 56.5, 7, '#8a3a1a', 'right', null);
+  const tw = bookTabW();   // v2.1: seven tabs, 19 px each
   BOOK_TABS.forEach((lab, i) => {
-    const x = 24 + i * 33, on = MENU.tab === i;
-    g.fillStyle = OUT; g.fillRect(x, 64, 31, 15); g.fillStyle = on ? '#f0a048' : '#c8a070'; g.fillRect(x + 1, 65, 29, 13);
-    if (on) { g.fillStyle = '#ffc878'; g.fillRect(x + 2, 66, 27, 1); }
-    txt(lab, x + 15.5, 71.5, 7, on ? '#ffffff' : '#5a3a1a', 'center', on ? OUT : null);
+    const x = 24 + i * tw, on = MENU.tab === i;
+    g.fillStyle = OUT; g.fillRect(x, 64, tw - 2, 15); g.fillStyle = on ? '#f0a048' : '#c8a070'; g.fillRect(x + 1, 65, tw - 4, 13);
+    if (on) { g.fillStyle = '#ffc878'; g.fillRect(x + 2, 66, tw - 6, 1); }
+    txt(lab, x + (tw - 2) / 2, 71.5, 7, on ? '#ffffff' : '#5a3a1a', 'center', on ? OUT : null);
   });
   if (MENU.sel) { drawVipPhoto(MENU.sel); return; }
-  [drawBookVip, drawBookCombo, drawBookGuest, drawBookStaff][MENU.tab]();
+  [drawBookVip, drawBookCombo, drawBookGuest, drawBookStaff, drawBookRare, drawBookKeep, drawBookDress][MENU.tab]();
 }
 function cell(x, y, w, h, on) { g.fillStyle = on ? '#c89a5a' : '#c8b898'; g.fillRect(x, y, w, h); g.fillStyle = on ? '#fff8e4' : '#e8dcc0'; g.fillRect(x + 1, y + 1, w - 2, h - 2); }
 function drawBookVip() {
@@ -115,14 +122,14 @@ function drawBookVip() {
 // a photo with a VIP (7.6), redrawn from data: the VIP, the innkeeper in the hat of that day, the pet; 40 x 46 polaroid
 const PHOTOS = new Map();
 function photoCanvas(p) {
-  const key = p.v + ':' + p.h + ':' + p.p; let c = PHOTOS.get(key); if (c) return c;
+  const key = p.v + ':' + p.h + ':' + p.p + ':' + (p.o || ''); let c = PHOTOS.get(key); if (c) return c;
   c = mk(40, 46); const x = c.getContext('2d'); x.imageSmoothingEnabled = false;
   x.fillStyle = OUT; x.fillRect(0, 0, 40, 46); x.fillStyle = '#fbfbf6'; x.fillRect(1, 1, 38, 44);
   x.fillStyle = '#bfe3f0'; x.fillRect(3, 3, 34, 22); x.fillStyle = '#d8f0f8'; x.fillRect(3, 3, 34, 4);
   x.fillStyle = '#9ccf7a'; x.fillRect(3, 25, 34, 10); x.fillStyle = '#86bc66'; x.fillRect(3, 25, 34, 1);
   x.save(); x.beginPath(); x.rect(3, 3, 34, 32); x.clip();
   x.drawImage(catSprite('down', 0, VIP_LOOK[p.v]), 4, 9);
-  x.drawImage(catSprite('down', 0, lookWith(hatOf(p.h))), 19, 9);
+  x.drawImage(catSprite('down', 0, lookWith(hatOf(p.h), outfitOf(p.o))), 19, 9);   // v2.1: + the outfit of that day
   const pk = petOf(p.p); if (pk) { const pc = petSprite(pk, 'down', pk === 'shiba' ? 3 : 0); x.drawImage(pc, 37 - pc.width, 35 - pc.height); }
   x.restore();
   PHOTOS.set(key, c); return c;

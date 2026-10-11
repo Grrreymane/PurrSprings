@@ -30,6 +30,8 @@
   const bathe = (slot, room) => { const gu = guest({ st: 'bathing', t: 0, tt: 60, slot, room, x: SLOTS[slot].x * TILE + 8, y: 4 * TILE + 8 }); SLOT_OCC[slot] = gu; RT[room].guest = gu; S.rooms[room] = 'reserved'; return gu; };
   const sleepIn = (room) => { const rm = ROOM[room]; const gu = guest({ st: 'sleep', t: 0, tt: 60, room, x: rm.stand[0] * TILE + 8, y: rm.stand[1] * TILE + 8 }); RT[room].guest = gu; S.rooms[room] = 'occupied'; return gu; };
   const ALL = UNLOCKS.filter(u => !u.need5 && u.id !== 'maid4').map(u => u.id);
+  // v2.1 core B: a star-5 inn (every v2.0 room and area, its combos made) + the given unlocks
+  const b5 = extra => { newGame(); S.tut.moved = true; unl(ALL.concat(['maid4', 'roten'], extra || [])); S.done = true; S.peak = 5; S.stats.vips = 3; S.vipNext = VIPS.length; S.stats.time = 3000; for (const c of COMBOS) if (c.hint) S.combos[c.id] = 1; S.decor['room1:A'] = 'd_maneki'; S.decor['room1:B'] = 'd_daruma'; };
   // freeze the scene now (or after `after` more seconds of play): the next frames only render (14.4 shot scenes)
   const FREEZE_AT = after => { if (after) ff(after, false); update = dt => {}; };
   // the whole world at 2x (debug overview): the phone-sized view is rendered window by window and pasted together
@@ -455,6 +457,7 @@
       const dir = window.TLDIR || '.shots/tl/';
       fetch(dir + window.TL + '.json').then(r => r.json()).then(j => {
         S = loadState(j.S); resetWorld(); go('play'); Object.assign(P, j.P, { moving: false }); updCam(0, true);
+        if (window.BEFORE) eval(window.BEFORE);   // BEFORE: code run right after the load (start a fireworks show ...)
         const until = window.UNTIL ? () => eval(window.UNTIL) : null;
         for (let i = 0, n = Math.round((window.FF || 5) / DT); i < n; i++) {
           drive(DT); update(DT);
@@ -465,10 +468,60 @@
         botMove = null;
         if (state === 'card') st = window.CARDT || 1.2;
         else { if (window.PLACE) place(window.PLACE[0], window.PLACE[1], window.PLACE[2] || 'down'); for (let i = 0; i < (window.EXTRA || 0) * 30; i++) update(DT); }
-        GUIDE = guideTarget(); FREEZE_AT(); if (window.TLHOLD) update = dt => { T += dt; };   // TLHOLD: the world stops, animations (T) go on
+        if (window.CLOCK !== undefined) S.clock = window.CLOCK;   // CLOCK: jump the time of day (no day roll-over)
+        GUIDE = guideTarget(); if (window.AFTER) eval(window.AFTER); if (state !== 'menu') FREEZE_AT(); if (window.TLHOLD) update = dt => { T += dt; };   // TLHOLD: the world stops, animations (T) go on; AFTER: code run last (open a menu page ...)
         document.title = 'TL READY ' + state + ' d' + S.day + ' c' + S.clock.toFixed(2);
       });
     },
+    // ---- v2.1 core B (SPEC_v2 16.6-16.10): window.V21 = extra unlock ids; window.LV = shrine level
+    b_shop() {   // star 5 boutique: six booths (hat, pet, outfit, uniform, two gold decor); standing between three of them tries them all on
+      b5(DECOR_IDS); S.combos = { c_fuku: 1, c_cat: 1, c_zen: 1, c_ga: 1 }; S.money = 30000; resetWorld(); go('play'); spawnT = 1e9; ff(1, false); place(4, 33, 'down'); ff(.4, false); FREEZE_AT();
+    },
+    b_outfit() {   // wearing the samurai outfit + crown, the fox following, the staff in sailor uniforms (lobby)
+      b5(['o_samurai', 'h_crown', 'p_fox', 'u_sailor', 'p_tanuki', 'o_maneki']); S.equip = { hat: window.HAT || 'h_crown', pet: window.PET || 'p_fox', outfit: window.OUT || 'o_samurai', uniform: 'u_sailor' }; resetWorld(); go('play'); ff(2, false); place(16, 25, 'down'); ff(window.STILL || .5, false); FREEZE_AT();
+    },
+    b_dress() { b5(['h_straw', 'h_flower', 'o_yukata', 'o_chef', 'o_ninja', 'u_sakura', 'p_duck', 'p_fox']); S.equip = { hat: 'h_flower', pet: 'p_fox', outfit: 'o_ninja', uniform: 'u_sakura' }; resetWorld(); go('play'); ff(.5, false); openMenu(); MENU.page = 'dress'; DRESS.tab = window.TAB === undefined ? 1 : window.TAB; },
+    b_book() {
+      b5(['gd_zen', 'gd_chime', 'gd_tower', 'h_straw', 'o_yukata', 'u_gold', 'p_duck']); S.rare = { r_zen: 3, r_boy: 1, r_kits: 2 }; S.gifts = ['kawa', 'ozeki', 'sakura'];
+      S.awards = [{ y: 1, k: 'silver', h: 4600 }, { y: 2, k: 'gold', h: 5400 }]; S.covers = [{ d: 1, n: 5, tv: false }, { d: 19, n: 4, tv: true }]; S.medals = [{ s: 0, y: 1 }, { s: 1, y: 1 }, { s: 2, y: 1 }]; resetWorld(); go('play'); ff(.5, false); openMenu(); MENU.page = 'book'; MENU.tab = window.TAB === undefined ? 4 : window.TAB;
+    },
+    b_map() {
+      b5(['shrine']); resetWorld(); go('play'); ff(.5, false); S.rooms.room2 = 'messy'; S.rooms.w1 = 'messy'; sleepIn('room3'); sleepIn('c1'); place(29, 21, 'down'); openMenu(); MENU.page = 'inn'; MENU.sel = window.SEL === undefined ? 'map' : window.SEL;
+    },
+    b_rare() {   // a rare guest led by the arrow bot until its wish window.WISH shows (stay / show / milk ...), then frozen
+      const r = RARE[window.RID || 'r_zen']; b5([r.piece]); if (typeof r.when === 'number') S.day = 1 + 3 * r.when; if (r.when === 'night') S.clock = .85;
+      resetWorld(); go('play'); spawnT = 1e9; vipT = S.stats.time; RARE_DUE[r.id] = S.stats.time; ff(.2, false);
+      const want = window.WISH || 'stay', stop = () => VIPG && ((VIPG.st === 'seated' && vipWish() === want && !(VIPG.hold > 0)) || VIPG.st === want);
+      for (let i = 0; i < 30 * 400 && !stop(); i++) { drive(DT); update(DT); }
+      botMove = null; if (window.NEAR && VIPG) { const [vx, vy] = tileOf(VIPG); place(vx + window.NEAR[0], vy + window.NEAR[1], 'up'); }
+      ff(window.MORE || .4, !!window.BOTMORE); GUIDE = guideTarget(); FREEZE_AT();
+    },
+    b_rare_t() {   // a rare guest's visit, the arrow bot playing it: frozen window.SEC s after it came (a screenshot timeline)
+      const r = RARE[window.RID || 'r_kits']; b5([r.piece]); if (typeof r.when === 'number') S.day = 1 + 3 * r.when; if (r.when === 'night') S.clock = .85;
+      resetWorld(); go('play'); spawnT = 1e9; place(17, 27, 'up'); vipT = S.stats.time; RARE_DUE[r.id] = S.stats.time; ff(.1, false);
+      ff(window.SEC || 10, true); GUIDE = guideTarget(); FREEZE_AT();
+    },
+    b_shrine() {   // the shrine at level window.LV (default 10), by day / night (window.CLOCK)
+      const lv = window.LV === undefined ? 10 : window.LV; b5(['shrine'].concat(Array.from({ length: lv }, (_, i) => 'of' + (i + 1)))); S.clock = window.CLOCK || .3; S.money = window.MONEY || 0;
+      resetWorld(); go('play'); spawnT = 1e9; ff(.5, false); place(window.PX || 7, window.PY || 4, 'up'); ff(.3, false); GUIDE = guideTarget(); FREEZE_AT();
+    },
+    b_plaza() {   // the plaza at dusk: stalls open for a fireworks show, guests at the stalls, bursts in the sky
+      b5(['plaza'].concat(STALLS_B.map(s => s[0]), GARDEN_B.map(g => g[0]))); S.clock = window.CLOCK || .64; S.fw = { n: 1, cool: 0 }; resetWorld(); go('play'); spawnT = 0;
+      ff(30, false); FWS.t = FW_T; FWS.acc = 0; ff(window.MORE || 12, false); place(31, 32, 'up'); ff(1.2, false); FREEZE_AT();
+    },
+    b_garden() {   // every garden piece on its ground; by the chain pad its info card shows the guest it may bring
+      b5(GARDEN_B.slice(0, window.NGZ === undefined ? 4 : window.NGZ).map(g => g[0])); S.money = 40000; resetWorld(); go('play'); spawnT = 1e9; ff(1, false); place(window.PX || 34, window.PY || 27, 'up'); ff(.4, false); FREEZE_AT();
+    },
+    b_snap() {   // a save the shopper bot wrote (tests/bot_balance.js snap=dir): window.SNAP = url, window.VIEW = where to look, window.CLOCK
+      const views = { garden: [33, 25], shrine: [6, 3], plaza: [31, 32], shop: [5, 32], lobby: [17, 25], rooms: [17, 14], onsen: [17, 4] };
+      fetch(window.SNAP).then(r => r.json()).then(j => {
+        S = loadState(j); if (window.CLOCK !== undefined) S.clock = window.CLOCK; resetWorld(); go('play'); spawnT = 0; ff(25, false);
+        const v = views[window.VIEW] || [j._P[0] / 16 | 0, j._P[1] / 16 | 0]; place(v[0], v[1], 'down'); ff(.5, false);
+        if (window.MENU_PAGE) { openMenu(); MENU.page = window.MENU_PAGE; MENU.tab = window.TAB || 0; DRESS.tab = window.TAB || 0; if (window.SEL) MENU.sel = window.SEL; } else FREEZE_AT();
+      });
+    },
+    b_title() { b5(['o_hakama', 'h_straw', 'p_crane']); S.equip = { hat: 'h_straw', pet: 'p_crane', outfit: 'o_hakama' }; resetWorld(); go('title'); },
+    mapV21() { newGame(); S.tut.moved = true; unl(ALL.concat(['maid4'], UNLOCKS.filter(u => u.v21b && !u.repeat && !u.ok && (!u.shrine || u.shrine <= (window.LV === undefined ? 10 : window.LV))).map(u => u.id))); S.done = true; resetWorld(); go('play'); ff(30, false); place(17, 27, 'up'); mapView(); },
   };
   (sc[window.SHOT] || sc.title)();
   if (window.HOLD) { update = dt => { T += dt; }; }

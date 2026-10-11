@@ -12,51 +12,59 @@
 
 | 文件 | 行 | 负责内容 |
 | --- | ---: | --- |
-| `src/core/constants.js` | 18 | 画面尺寸、字体、地图尺寸、小工具（`rand / clamp / fmt / mk / load / save`） |
+| `src/core/constants.js` | 19 | 画面尺寸、字体、地图尺寸、小工具（`rand / clamp / fmt / mk / load / save`） |
 | `src/ui/pixel-painter.js` | 96 | 像素画板 `paint / Grid / rows / makeSpr / lit / eyeG …` |
 | `src/art/stubs.js` | 8 | ART 总说明 + `/*ART:stubs*/`（占位，12.4；现在是空的） |
-| `src/art/stubs-v21a.js` | 48 | v2.1 核心 A 用到的美术占位（只有函数声明，真美术同名后声明会覆盖；合并后删掉被覆盖的）：`seasonIcon lanternIcon trophyArt coverArt medalArt chochinString seasonWarm snowCapArt` |
-| `src/art/chars.js` | 702 | `/*ART:chars:BEGIN*/`：猫的头、帽子、服装、站 / 走 / 坐 / 泡澡 / 睡 / 鞠躬（`catSprite / catSit / catBathing / catSleepHead / catBow`） |
-| `src/art/chars-small.js` | 242 | 小猫、宠物、团成球的猫（`kittenSprite / kittenSit / petSprite / catCurl`）`/*ART:chars:END*/` |
-| `src/art/env.js` | 716 | `/*ART:env:BEGIN*/`：场景调色板、墙、地板（含 v2）、自然（私有 `_en*`） |
-| `src/art/env-api.js` | 483 | 场景对外函数（`tileArt / waterArt / doorArt / glowArt …`）+ v2 新增 `/*ART:env:END*/` |
-| `src/art/objects.js` | 611 | `/*ART:objects:BEGIN*/`：v1 家具、图标（`deskArt / futonArt / padIcon / arrowArt …`） |
-| `src/art/objects-v2.js` | 703 | v2 物件：食堂、摆设、杂货铺 + 百货、庭园、贵宾纪念品 |
-| `src/art/objects-ui.js` | 409 | v2 图标、纹章、菜单 / HUD、价格圈图标 `/*ART:objects:END*/` |
+| `src/art/stubs-v21a.js` | 2 | v2.1 核心 A 的美术占位，合并后已清空（`seasonIcon lanternIcon trophyArt coverArt medalArt chochinString seasonWarm snowCapArt` 都由 `src/art/*` 的真美术提供） |
+| `src/art/stubs-v21b.js` | 3 | v2.1 核心 B 的美术占位，合并后已清空（神社件、屋台、烟花、庭院摆设、衣服 / 制服图标、奖杯 / 封面 / 奖章、季节图标都由真美术提供；核心画的只剩美术合同没列的：价格圈 / 菜单的几个图标、陪站 / 带去看的愿望气泡、纪念品） |
+| `src/art/chars.js` | 1171 | `/*ART:chars:BEGIN*/`：猫的头、帽子、服装、站 / 走 / 坐 / 泡澡 / 睡 / 鞠躬（`catSprite / catSit / catBathing / catSleepHead / catBow`） |
+| `src/art/chars-small.js` | 432 | 小猫、宠物、团成球的猫（`kittenSprite / kittenSit / petSprite / catCurl`）`/*ART:chars:END*/` |
+| `src/art/env.js` | 1650 | `/*ART:env:BEGIN*/`：场景调色板、墙、地板（含 v2）、自然（私有 `_en*`） |
+| `src/art/env-api.js` | 876 | 场景对外函数（`tileArt / waterArt / doorArt / glowArt …`）+ v2 新增 `/*ART:env:END*/` |
+| `src/art/objects.js` | 692 | `/*ART:objects:BEGIN*/`：v1 家具、图标（`deskArt / futonArt / padIcon / arrowArt …`） |
+| `src/art/objects-v2.js` | 1152 | v2 物件：食堂、摆设、杂货铺 + 百货、庭园、贵宾纪念品 |
+| `src/art/objects-ui.js` | 731 | v2 图标、纹章、菜单 / HUD、价格圈图标 `/*ART:objects:END*/` |
 | `src/ui/input.js` | 69 | 画布适配、触控摇杆、键盘、`botMove` 测试钩子 |
-| `src/audio/engine.js` | 843 | `/*AUDIO:BEGIN*/…END*/` 整段：合成音效、曲子、编配、环境音、`MUSIC_DBG` |
+| `src/audio/engine.js` | 1052 | `/*AUDIO:BEGIN*/…END*/` 整段：合成音效、曲子、编配、环境音、`MUSIC_DBG` |
 | `src/audio/hooks.js` | 6 | 核心这边的 `sfx() / vib()`，切后台存档、pagehide 关 AudioContext |
-| `src/ui/drawing.js` | 78 | 文字队列 `txt`、`textW`、面板、按钮、飘字、`drawA / drawObj / ring` |
-| `src/data/map.js` | 143 | 地块图 `MAP`、区域、15 间客房、门、站位、取物圈、座位 |
+| `src/ui/drawing.js` | 82 | 文字队列 `txt`、`textW`、面板、按钮、飘字、`drawA / drawObj / ring` |
+| `src/data/map.js` | 203 | 地块图 `MAP`、区域、15 间客房、门、站位、取物圈、座位 |
 | `src/data/tables-v21a.js` | 85 | v2.1 核心 A 的数据（在 `tables.js` 之前）：四季、季节摆设 `UNLOCKS_V21A` + 组合 `COMBOS_V21A`、祭典 / 记者 / 年度大赏 / 猫妈妈的常数、台词 E01–E12 |
-| `src/data/tables.js` | 179 | 解锁表 `UNLOCKS`、`STARS`、客人类型、组合、贵宾、对手旅馆、昼夜、全部常数 |
-| `src/core/state-save.js` | 184 | `defaults / migrateV1 / loadState / saveNow`、收费 `fee`、价格圈 `padsUpdate` |
-| `src/core/pathfinding.js` | 143 | `BLOCK`、物件 `PROPS`、BFS `findPath`、走路、碰撞 |
-| `src/core/entities.js` | 83 | 掌柜 `P`、`GUESTS / STAFF / RUN` 等运行表、人气 ♥ / 金★、员工等级、`earn` |
-| `src/systems/guests.js` | 275 | 客人类型、跟随者、选房、呼叫、食堂座位、`updGuest`、`checkIn` |
-| `src/systems/staff.js` | 173 | `STAFF_DEF`、员工、配膳、仲居、账房 |
-| `src/systems/decor.js` | 136 | 摆设 + 组合；也放着横幅队列 `banner()` 和画外标记 `edgeNew()` |
-| `src/systems/vip.js` | 122 | 贵宾 |
+| `src/data/tables-v21b.js` | 128 | v2.1 核心 B 的数据：`UNLOCKS_V21B`（衣服、制服、宠物、金摆设、庭院摆设、神社、广场、烟花）、稀客表 `RARES`、物件 `PROPS_V21B`（由 `tables.js` / `pathfinding.js` 拼进去） |
+| `src/data/tables.js` | 200 | 解锁表 `UNLOCKS`、`STARS`、客人类型、组合、贵宾、对手旅馆、昼夜、全部常数 |
+| `src/core/state-save.js` | 204 | `defaults / migrateV1 / loadState / saveNow`、收费 `fee`、价格圈 `padsUpdate` |
+| `src/core/pathfinding.js` | 141 | `BLOCK`、物件 `PROPS`、BFS `findPath`、走路、碰撞 |
+| `src/core/entities.js` | 86 | 掌柜 `P`、`GUESTS / STAFF / RUN` 等运行表、人气 ♥ / 金★、员工等级、`earn` |
+| `src/systems/guests.js` | 291 | 客人类型、跟随者、选房、呼叫、食堂座位、`updGuest`、`checkIn` |
+| `src/systems/staff.js` | 223 | `STAFF_DEF`、员工、配膳、仲居、账房 |
+| `src/systems/decor.js` | 140 | 摆设 + 组合；也放着横幅队列 `banner()` 和画外标记 `edgeNew()` |
+| `src/systems/vip.js` | 135 | 贵宾 |
 | `src/systems/daynight.js` | 40 | 昼夜、灯 |
-| `src/systems/boutique.js` | 81 | ★5 狸老板百货、试戴、宠物、金像 |
-| `src/systems/zones.js` | 144 | 站上去就干活的区域：接待、打扫、毛巾、鱼干、倒钱、托盘 |
-| `src/systems/unlock.js` | 63 | 买下（`unlock`）、买下后的台词与弹出 |
-| `src/systems/guide.js` | 281 | 箭头 `guideTarget()`（也是机器人的大脑）、气泡 |
-| `src/core/update.js` | 86 | 状态机 `go`、`update / gameUpdate`、镜头、`audioTick` |
-| `src/ui/render-world.js` | 250 | 静态层 `rebuildWorld`、猫、价格圈、被褥、`drawScene` |
-| `src/ui/render.js` | 303 | 夜间光照、覆盖层、箭头、HUD、`render()` |
-| `src/systems/lines.js` | 117 | 猫猫台词（SPEC_v2 第 8 节） |
+| `src/systems/boutique.js` | 87 | ★5 狸老板百货、试戴、宠物、金像 |
+| `src/systems/zones.js` | 154 | 站上去就干活的区域：接待、打扫、毛巾、鱼干、倒钱、托盘 |
+| `src/systems/unlock.js` | 66 | 买下（`unlock`）、买下后的台词与弹出 |
+| `src/systems/guide.js` | 303 | 箭头 `guideTarget()`（也是机器人的大脑）、气泡 |
+| `src/systems/wardrobe.js` | 97 | v2.1 百货完整版（16.6）：衣服 / 制服 / 宠物 / 金摆设、买下后的 `unlockB`、小狸的灯笼、招财猫招手 |
+| `src/systems/rare.js` | 184 | v2.1 稀客（16.7）：到期、占贵宾的位置、陪站 / 带去看、小猫三兄弟、愿望气泡、纪念品 |
+| `src/systems/shrine.js` | 47 | v2.1 猫神社（16.8）：等级、收费 +1%、鸟居变淡、神社 / 商店里的镜头边距 |
+| `src/systems/plaza.js` | 142 | v2.1 祭典广场（16.9）：烟花、屋台（夜市）、客人买屋台；核心 B 的 `tickB / resetB / loadStateB` |
+| `src/core/update.js` | 88 | 状态机 `go`、`update / gameUpdate`、镜头、`audioTick` |
+| `src/ui/render-world.js` | 260 | 静态层 `rebuildWorld`、猫、价格圈、被褥、`drawScene` |
+| `src/ui/render.js` | 328 | 夜间光照、覆盖层、箭头、HUD、`render()` |
+| `src/systems/lines.js` | 118 | 猫猫台词（SPEC_v2 第 8 节） |
 | `src/systems/seasons.js` | 245 | v2.1 四季（16.1）：日历、换季横幅 + 重建、季节收费、粒子 / 萤火虫 / 满月、冬天蒸汽和雪帽、季节组合的重新布置；核心 A 的总入口 `v21aReset / v21aTick`、存档字段 `loadV21a`、HUD 第二行、横幅、大堂北墙 |
 | `src/systems/festival.js` | 96 | v2.1 季节祭典（16.2）：灯笼进度、提灯串、夏天烟花、奖励 |
-| `src/systems/press.js` | 84 | v2.1 记者 / 电视台（16.4）：插队、四项打分、结果卡、「人气爆棚」、箭头 2b |
+| `src/systems/press.js` | 90 | v2.1 记者 / 电视台（16.4）：插队、四项打分、结果卡、「人气爆棚」、箭头 2b |
 | `src/systems/yearly.js` | 90 | v2.1 年度大赏（16.3）+ 暂停卡片（`state 'card'`、`MODAL_Q`）：年报卡、奖杯、殿堂旅馆 |
 | `src/systems/mom.js` | 75 | v2.1 猫妈妈（16.5）：走贵宾流程、全家福（按数据重画）、大堂北墙的小相框 |
-| `src/ui/cards.js` | 212 | 说明卡 + 预览、横幅、「新」标记、首次图示卡、`uiUpdate` |
-| `src/ui/menu.js` | 220 | 菜单、声音页、图鉴、已购、旅馆页 |
-| `src/ui/title.js` | 64 | 点按 `onPress`、`resetWorld / newGame / continueGame`、标题、庆祝 |
+| `src/ui/cards.js` | 243 | 说明卡 + 预览、横幅、「新」标记、首次图示卡、`uiUpdate` |
+| `src/ui/menu.js` | 235 | 菜单、声音页、图鉴、已购、旅馆页 |
+| `src/ui/minimap.js` | 44 | v2.1 小地图（16.10，旅馆页的「地图」） |
+| `src/ui/menu-v21b.js` | 205 | v2.1 菜单「装扮」页、图鉴的稀客 / 纪念 / 装扮分页、核心画的图标、横幅、台词登记 |
+| `src/ui/title.js` | 67 | 点按 `onPress`、`resetWorld / newGame / continueGame`、标题、庆祝 |
 | `src/ui/share.js` | 66 | 分享卡、二维码 |
 | `src/ui/cover.js` | 59 | `#cover` 封面 `renderCover` |
-| `src/ui/present.js` | 35 | 像素层 + 清晰文字输出、文字精灵缓存、字体预载 |
+| `src/ui/present.js` | 40 | 像素层 + 清晰文字输出、文字精灵缓存、字体预载 |
 | `src/boot.js` | 15 | 读档、`/*TEST_HOOK*/`、逐帧循环 |
 | `src/modules.json` | | 全部源码的嵌入顺序清单 |
 

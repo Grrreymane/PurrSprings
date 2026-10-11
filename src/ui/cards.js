@@ -5,7 +5,7 @@
 // draws the world, then layerBreak(), then the UI: world text (prices, names, pops) never shows through the UI.
 const NEW_TAG_T = 15, EDGE_T = 4, FIRST_T = 20, EDGE_Y0 = 56, EDGE_Y1 = 280, CARD_Y = 290;
 const BANNER_IN = .2, BANNER_OUT = .2, bannerHold = b => b.kind === 'day' ? 2.5 : b.kind === 'level' ? 2 : 2.6;
-const unlockIcon = u => u.decor ? decorIcon(u.id) : u.hat ? hatIcon(u.id) : u.pet ? petIcon(u.id) : padIcon(u.icon);
+const unlockIcon = u => u.decor ? decorIcon(u.id) : u.hat ? hatIcon(u.id) : u.pet ? petIcon(u.id) : u.v21b ? unlockIconB(u) : padIcon(u.icon);   // v2.1 core B: menu-v21b.js
 // album faces: (1,4)-(15,17) of the front sprite, 14 x 13 (12.1); silhouettes for "not seen yet"
 const FACES = new Map(), SILS = new Map();
 function faceOf(look) {
@@ -60,11 +60,12 @@ function drawInfoCard(u) {
   const x = 12, y = CARD_Y, w = 156, h = 24, cy = y + 12, need = Math.max(0, padNeed(u)), ok = S.money >= need;
   cardBase(x, y, w, h, true);
   let lx = x + 20;
-  if (u.decor) { const ic = decorIcon(u.id); g.fillStyle = OUT; g.fillRect(x + 1, y - 5, 24, 24); g.fillStyle = '#fff3d0'; g.fillRect(x + 2, y - 4, 22, 22); g.drawImage(ic, x + 3, y - 3, 20, 20); lx = x + 29; }   // 7.2: a bigger decor icon
+  if (u.decor || u.goldOf) { const ic = unlockIcon(u); g.fillStyle = OUT; g.fillRect(x + 1, y - 5, 24, 24); g.fillStyle = '#fff3d0'; g.fillRect(x + 2, y - 4, 22, 22); g.drawImage(ic, x + 3, y - 3, 20, 20); lx = x + 29; }   // 7.2: a bigger decor icon
   else drawC(unlockIcon(u), x + 11, cy);
   txt(u.name, lx, cy + .5, 8, '#ffd23f', 'left'); lx += textW(u.name, 8) + 3;
   txt('·', lx, cy + .5, 7, '#c8a878', 'left', null); lx += textW('·', 7) + 3;
   txt(u.card, lx, cy + .5, 7, '#ffffff', 'left');
+  if (u.rare) infoRareB(u, lx + textW(u.card, 7) + 3, cy);   // v2.1: a garden piece shows the silhouette of the guest it may bring
   // the price on the right: fish + amount (+ a green tick when you can pay it all)
   let rx = x + w - 5;
   if (ok) { g.drawImage(TICK, rx - 7, cy - 3); rx -= 9; }
@@ -101,6 +102,7 @@ function drawPreview(u) {
   SLOTS.forEach(sl => { if (sl.need === u.id && VIS(sl.x * TILE + 8, 3 * TILE + 10, 24)) drawA(gh(catBathing('white', 0)), sl.x * TILE + 8, 3 * TILE + 10, 9, 9); });   // new bath places
   SEATS.forEach(se => { if (se.need === u.id && VIS(tcx(se.at), tcy(se.at), 16)) drawA(gh(cushionArt()), tcx(se.at), tcy(se.at), 6, 3); });            // new seats
   if (u.id === 'koi') for (let i = 0; i < 3; i++) { const x = 29 * TILE + (i - 1) * 14, y = 16 * TILE + 8 + (i & 1) * 6; if (VIS(x, y, 8)) drawA(gh(koiArt(['red', 'gold', 'black'][i], 0)), x, y, 4, 2); }
+  drawPreviewB(u, gh);   // v2.1 core B: the next shrine hall, an outfit / uniform on you
   if (/^net\d$/.test(u.id)) {   // the net: its new reach round your feet
     const r = NET_R[Math.min(3, netLvl() + 1)], n = Math.ceil(r * 1.6); g.fillStyle = '#fff6d8';
     for (let i = 0; i < n; i++) { const t = i / n * Math.PI * 2; g.fillRect(R(P.x + Math.cos(t) * r) - CX, R(P.y - 2 + Math.sin(t) * r) - CY, 1, 1); }
@@ -132,7 +134,7 @@ function bannerParts(b) {
     case 'milestone': return { rim: '#e0a030', parts: [{ img: menuIcon('cat'), gap: 3 }, { t: '第' + b.id + '位客人！', c: dk }] };
     case 'gift': return { rim: '#ffc21f', parts: [{ img: menuIcon('house'), gap: 3 }, { t: '旅馆扩建啦！', c: dk, z: 8 }] };
   }
-  return bannerV21a(b);   // v2.1 core A: season, festival, press, mom (seasons.js)
+  return bannerV21a(b) || bannerPartsB(b);   // v2.1 core A (seasons.js): season, festival, press, mom; core B (menu-v21b.js): rare guests, keepsakes, the shrine, fireworks
 }
 function drawBanner() {
   const b = BANNER_Q[0]; if (!b) return;

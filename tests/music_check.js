@@ -18,7 +18,7 @@ if (typeof MUSIC_DBG === 'undefined') {
   const mmss = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
   // ---- what we watch, every frame
   const FAST = new Set(['title', 'fest', null, undefined]);
-  const swT = [], lastSig = {}; let swFast = 0, prevSong = null, swSeen = 0, vMax = 0, minGap = 1e9, minGapSig = '', secKey = '', clockT = 0, lastWant = null, wantSince = 0, lagMax = 0, sections = 0;
+  const swT = [], lastSig = {}; let nightOn = false, swFast = 0, prevSong = null, swSeen = 0, vMax = 0, minGap = 1e9, minGapSig = '', secKey = '', clockT = 0, lastWant = null, wantSince = 0, lagMax = 0, sections = 0;
   function watch(tag) {
     clockT += DT;
     const D = MUSIC_DBG;
@@ -37,8 +37,11 @@ if (typeof MUSIC_DBG === 'undefined') {
       lastSig[sig] = now;
     }
     // the song follows what the game asks for (area / title / fest): once that has stayed the same for the longest switch
-    // delay (1.5 s debounce + 15 s between area switches + the next bar line, ~20 s) the song must be it
-    const a = areaAt(Math.floor(P.x / TILE), Math.floor(P.y / TILE)), want = state === 'title' ? 'title' : state === 'celebrate' ? 'fest' : a ? a.music : 'lobby';
+    // delay (1.5 s debounce + 15 s between area switches + the next bar line, ~20 s) the song must be it. v2.1: a festival
+    // (FEST.on), a fireworks show (fireworksOn()) or the plaza at night (the engine's night: on > .6, off < .4) want 'fest'
+    const a = areaAt(Math.floor(P.x / TILE), Math.floor(P.y / TILE)), base = state === 'title' ? 'title' : state === 'celebrate' ? 'fest' : a ? a.music : 'lobby';
+    { const nl = dayLight().night; if (!nightOn && nl > .6) nightOn = true; else if (nightOn && nl < .4) nightOn = false; }
+    const want = base === 'title' || base === 'fest' ? base : FEST.on || fireworksOn() || (a && a.id === 'plaza' && nightOn) ? 'fest' : base;
     if (want !== lastWant) { lastWant = want; wantSince = clockT; }
     if (D.song !== want) lagMax = Math.max(lagMax, clockT - wantSince);
   }

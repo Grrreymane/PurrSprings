@@ -43,7 +43,7 @@ function sayAt(e) {
   if (e === PET) return [e.x, e.y - (e.kind === 'shiba' ? 17 : 11)];
   if (e.vip) {
     if (e.st === 'soak' && e.suite) { const tb = ROOM[e.suite].tub; return [tcx(tb), tb[1] * TILE - 3]; }
-    const bub = e.st === 'arrive' || e.st === 'carpet' || (e.st === 'follow' && e.halt);
+    const bub = e.st === 'arrive' || e.st === 'carpet' || (e.st === 'follow' && e.halt) || e.st === 'show';   // v2.1: + a rare guest's wish on the way to its piece
     return [e.x, e.y - 21 - (e.st === 'seated' && vipWish() ? 26 : bub ? 12 : 0)];   // over the big wish bubble (G1)
   }
   if (e.role) return [e.x, e.y - 21 - (e.carry > 0 ? 4 + e.carry * 2 : 0) - (e === badgeStaff() ? 9 : 0) - (T - (e.newT || -99) < NEW_TAG_T ? 10 : 0)];

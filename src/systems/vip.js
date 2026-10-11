@@ -34,6 +34,7 @@ function vipLeave(happy) {
   if (v.suite) { const id = v.suite; RT[id].guest = null; S.rooms[id] = 'messy'; RT[id].vipMess = true; RT[id].cleanP = 0; }   // the suite needs a long clean
   S.vipOwe = 0; vipT = S.stats.time + vipGap(); S.vipAt = Math.ceil(vipT); if (!happy) RUN.vipLeft++;
   if (v.mom) momLeaveLine(v); else lineSay(v, happy ? 'V11' : 'V12');   // v2.1: mom's goodbye (mom.js)
+  if (v.rare) rareLeave(v, happy);   // v2.1 (rare.js): when it may come again
   setSt(v, 'leave'); v.goal = null; v.halt = false; goTo(v, EXIT_TILE[0], EXIT_TILE[1], EXIT.slice());
   markDirty();
 }
@@ -52,7 +53,7 @@ function vipWishDone() {
   if (v.wi < def.wishes.length - 1) {   // an earlier wish: 25% of the gift x how quick, hearts 2
     const pay = R(v.G * .25 * wishF(v.wt || 0)); v.paid += pay; earn(pay, v.x, v.y - 4); addHearts(2); lineSay(v, 'V09');
     v.wi++; setSt(v, 'seated'); v.actT = 0; S.vipOwe = Math.max(0, v.G - v.paid); markDirty();
-    v.hold = VIP_SIP_T[k] || 0; if (!v.hold) vipWishStart();   // tea / kaiseki: it enjoys it first (stage 4)
+    v.hold = VIP_SIP_T[k] || 0; if (k === 'show') rareShowDone(v); else if (!v.hold) vipWishStart();   // tea / kaiseki: it enjoys it first (stage 4); v2.1 show: back to its seat
     return;
   }
   // the last one (always the photo): the other half x the speed factor, hearts 10 (+10 the first photo of this VIP), its gift
@@ -60,8 +61,11 @@ function vipWishDone() {
   const pay = R(v.G * .5 * f), first = !S.album.photos.some(p => p.v === v.id);
   v.paid += pay; earn(pay, v.x, v.y - 4); addHearts(10 + (first ? 10 : 0));
   if (v.mom) momPhoto(v);   // v2.1: mom's photo is the family photo (mom.js), not a VIP photo / gift
-  else { S.album.photos.push({ v: v.id, d: S.day, h: S.equip.hat, p: S.equip.pet }); if (S.album.photos.length > 40) S.album.photos.shift();
-    if (!S.gifts.includes(v.id)) { S.gifts.push(v.id); if (S.gifts.length > 6) S.gifts.shift(); } }
+  else {
+    S.album.photos.push(Object.assign({ v: v.id, d: S.day, h: S.equip.hat, p: S.equip.pet }, S.equip.outfit ? { o: S.equip.outfit } : {})); if (S.album.photos.length > 40) S.album.photos.shift();   // v2.1: + the outfit
+    if (v.rare) rarePhoto(v);   // v2.1: a rare guest's visit counts; its keepsake goes to the album, not the gift shelf
+    else if (!S.gifts.includes(v.id)) { S.gifts.push(v.id); if (S.gifts.length > 6) S.gifts.shift(); }
+  }
   S.stats.vips++; RUN.vipDone++; RUN.vipF.push(f); RUN.vipUsed.push(used); RUN.vipPaid += v.paid;
   vipLeave(true);
 }
@@ -71,7 +75,7 @@ function vipPhoto() {   // "click" (no flash): a polaroid flies from its head to
 }
 function updVip(dt) {
   const v = VIPG;
-  if (!v) { if (S.unlocked.garden && S.stats.time >= vipT && SUITES.some(rm => roomOpen(rm))) vipArrive(); return; }
+  if (!v) { if (S.unlocked.garden && S.stats.time >= vipT && SUITES.some(rm => roomOpen(rm)) && !rareArrive()) vipArrive(); return; }   // v2.1: a rare guest due comes in its place
   v.t += dt;
   const walk = spd => stepPath(v, dt, spd);
   switch (v.st) {
@@ -80,7 +84,7 @@ function updVip(dt) {
       v.moving = false;
       const rm = cleanSuite();
       if (!rm) { v.t -= dt; v.greetT = 0; v.noSuite += dt; if (v.noSuite >= VIP_NOSUITE) vipLeave(false); break; }   // no clean suite: the clock stops
-      if (dist(P.x, P.y, v.x, v.y) <= VIP_NEAR) { v.greetT += dt; if (v.greetT >= VIP_GREET_T) { setSt(v, 'follow'); v.greetAt = S.stats.time; v.q = []; v.halt = false; v.greetT = 0; lineSay(VIPG, 'V0' + (VIPS.indexOf(VIP[v.id]) + 1)); } }
+      if (dist(P.x, P.y, v.x, v.y) <= VIP_NEAR) { v.greetT += dt; if (v.greetT >= VIP_GREET_T) { setSt(v, 'follow'); v.greetAt = S.stats.time; v.q = []; v.halt = false; v.greetT = 0; lineSay(VIPG, v.rare ? RARE[v.id].lineId : 'V0' + (VIPS.indexOf(VIP[v.id]) + 1)); } }
       else v.greetT = 0;
       if (v.st === 'carpet' && v.t >= VIP_NOGREET) vipToSuite(rm);   // nobody came: it finds its own way
       break;
@@ -114,8 +118,10 @@ function updVip(dt) {
         if (ptx === rm.tap[0] && pty === rm.tap[1]) { v.actT += dt; if (v.actT >= VIP_TAP_T) { v.actT = 0; setSt(v, 'soak'); v.tt = VIP_SOAK_T; sfx('splash'); } }
         else v.actT = 0;
       }
+      else if (k === 'stay' || k === 'show') rareSeated(v, k, dt);   // v2.1 rare guests (rare.js)
       break;
     }
+    case 'show': case 'back': rareUpd(v, dt); break;   // v2.1: leading a rare guest to its garden piece / its walk back
     case 'soak': v.tt -= dt; if (v.tt <= 0) vipWishDone(); break;   // you can go and do something else meanwhile
     case 'leave': if (walk(G_SPEED)) VIPG = null; break;
   }
@@ -124,6 +130,6 @@ function updVip(dt) {
 // the VIP's current tea / kaiseki wish is a tray want (4.1): handed over at its seat
 function vipWants(L) {
   const v = VIPG, k = vipWish();
-  if (!v || v.st !== 'seated' || (k !== 'tea' && k !== 'kaiseki')) return;
+  if (!v || v.st !== 'seated' || (k !== 'tea' && k !== 'kaiseki' && k !== 'milk' && k !== 'rice')) return;   // v2.1: rare guests also want milk / rice
   L.push({ e: v, k, x: v.x, y: v.y, left: 1e9, tile: ROOM[v.suite].stand, give: vipWishDone, vip: true });   // never late (G1)
 }

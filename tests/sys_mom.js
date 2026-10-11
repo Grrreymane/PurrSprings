@@ -32,7 +32,11 @@ const mom = () => VIPG && VIPG.mom ? VIPG : null;
   setup(14, .5); run(1); ok(!mom(), 'not on spring day 2'); setup(18, .5); run(1); ok(!mom(), 'not in summer');
   setup(15, .5, { momY: 2 }); run(1); ok(!mom(), 'once a year');
   setup(3, .5, { momY: 0 }); S.peak = 4; S.unlocked.roten = false; run(1); ok(!mom(), 'not before star 5');
-  setup(15, .5); vipArrive(); run(1); ok(VIPG && !VIPG.mom, 'a VIP is in: she waits'); VIPG = null; run(DT * 2); ok(!!mom(), 'and comes once it has gone'); }
+  setup(15, .5); vipArrive(); run(1); ok(VIPG && !VIPG.mom, 'a VIP is in: she waits'); VIPG = null; run(DT * 2); ok(!!mom(), 'and comes once it has gone');
+  // v2.1 merge: mom, the VIPs and core B's rare guests share the one guest-of-honour slot (VIPG) - never two at once
+  setup(15, .5); S.unlocked.gd_zen = true; rareSync(); RARE_DUE.r_zen = S.stats.time; vipT = S.stats.time; run(DT * 2);
+  ok(VIPG && VIPG.rare && !mom(), 'a rare guest due takes the slot first, mom waits'); VIPG = null; vipT = 1e9; run(DT * 2); ok(!!mom(), 'then mom comes');
+  RARE_DUE.r_zen = S.stats.time; vipT = S.stats.time; run(2); ok(mom() && VIPG === mom(), 'while mom is in, a rare guest / VIP due waits'); }
 // ---- the visit: greet ("又长大了呢" from year 3), lead, tea, bath, the family photo, "妈妈为你骄傲"
 { setup(27, .299); run(1); const v = mom(); ok(v && v.momYear === 3, 'year 3');
   run(20, () => v.st === 'carpet'); eq(v.st, 'carpet', 'on the red carpet'); let t = guideTarget(); ok(t && t.kind === 'vip', 'the arrow: greet her');

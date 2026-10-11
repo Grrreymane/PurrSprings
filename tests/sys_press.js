@@ -32,7 +32,8 @@ const rep = () => PRESS.gu;
   setup(STAR4, 4); run(1); ok(rep() && !rep().press.tv, 'star 4, summer: a reporter');
   setup(STAR3, 10); run(1); ok(rep() && !rep().press.tv, 'star 3, winter: a reporter'); }
 // ---- polite: not while the very first VIP is shown round, not within 60 s of a new area (fun check, 18.2)
-{ setup(STAR4, 4, .349); S.stats.vips = 0; vipArrive(); run(1); ok(!rep(), 'waits while the first VIP is in'); VIPG = null; run(.2); ok(!!rep(), 'then comes');
+{ setup(STAR4, 4, .349); S.stats.vips = 0; vipArrive(); run(1); ok(!rep(), 'waits while the first VIP is in'); VIPG = null; vipT = 1e9; run(.2); ok(!rep(), 'still waits while its picture card is up');
+  FIRST_Q.length = 0; run(.2); ok(!rep(), 'and for 30 s after a picture card came (v2.1 merge fun check)'); run(PRESS_CARD_CALM); ok(!!rep(), 'then comes');
   setup(STAR3, 4, .349); news('area'); run(1); ok(!rep(), 'waits after a new area opens'); run(PRESS_CALM); ok(!!rep(), 'comes ' + PRESS_CALM + ' s later'); }
 // ---- cutting in: second if the front guest is being checked in
 { setup(STAR3, 4, .3); addGuest('regular'); addGuest('regular'); run(8, () => Q[0].ready); Q[0].ck = .3; S.clock = .3499; run(.5, () => !!rep());

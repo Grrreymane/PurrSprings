@@ -12,7 +12,7 @@
 // load during the 72 s carries on with its lanterns; S.fests[season] = how many of that season's were held.
 const FEST = { on: false, boomK: -1 };   // runtime: a festival is on (S.fest has its numbers); the last firework slot heard
 const festHeld = s => !!S && (S.fests[s] | 0) > 0;
-function festTargetExtra() { return 0; }   // core B (16.9): the four stalls add 6 lanterns (a later declaration wins)
+function festTargetExtra() { return S.unlocked.plaza && stallsOwned().length ? FEST_STALLS : 0; }   // core B (16.9): stalls add 6 lanterns (a sale lights one: plaza.js)
 const festGoal = () => Math.ceil(FEST_LANTERN * guestRoomsOpen()) + festTargetExtra();
 const festSpawnK = () => FEST.on ? FEST_SPAWN : 1;
 const festWindow = () => seasonDay(S.day) === 1 && S.clock >= FEST_AT && S.clock < FEST_AT + FEST_T / DAY_LEN;
@@ -75,7 +75,7 @@ function drawFireworks() {
   const k1 = Math.floor(T * FIREWORK_MAX);
   for (let k = k1 - 2; k <= k1; k++) {
     if (_v21h(k, 7) >= .8) continue;
-    const front = _v21h(k, 8) < .5, cx = 17 * TILE + 8 + (_v21h(k, 9) - .5) * 110, cy = (front ? 29 * TILE + 2 : 1 * TILE + 2) + (_v21h(k, 10) - .5) * 24;   // over the facade / the rocks
+    const front = _v21h(k, 8) < .5, cx = 17 * TILE + 8 + (_v21h(k, 9) - .5) * 110, cy = (front ? 29 * TILE + 2 : 3 * TILE + 2) + (_v21h(k, 10) - .5) * 24;   // over the facade / the onsen water (merge fun check: over the rocks (row 1) they opened under the HUD)
     const age = T - k / FIREWORK_MAX - .4, col = FIREWORK_COLS[Math.floor(_v21h(k, 11) * FIREWORK_COLS.length)];
     if (age < -.4 || age > 1.4 || !VIS(cx, cy, FIREWORK_R + 34)) continue;
     if (age < 0) { const ry = cy + 30 * (-age / .4); g.globalAlpha = FIREWORK_A; g.fillStyle = col; g.fillRect(R(cx) - CX, R(ry) - CY, 1, 2); g.globalAlpha = FIREWORK_A * .5; g.fillRect(R(cx) - CX, R(ry) + 3 - CY, 1, 2); g.globalAlpha = 1; continue; }   // the rocket

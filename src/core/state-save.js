@@ -13,6 +13,7 @@ function defaults() {
     // festival medals, mom's visits, the reporter's / festival's last season, festivals held per season, "popular" left
     year: { g: 0, e: 0, h: 0, combos: 0, n: 1 }, awards: [], covers: [], medals: [], mom: 0, momY: 1,
     pressS: 0, fest: { s: 0, n: 0, goal: 1, end: true }, fests: [0, 0, 0, 0], popT: 0, popTV: false,
+    rare: {}, fw: { n: 0, cool: 0 },   // v2.1 core B (16.13): rare guest id -> visits completed; fireworks shown, next one from (stats.time)
   };
 }
 const starOf = s => 1 + (s.unlocked.onsen ? 1 : 0) + (s.unlocked.dining ? 1 : 0) + (s.unlocked.garden ? 1 : 0) + (s.unlocked.roten ? 1 : 0);
@@ -89,6 +90,7 @@ function loadState(rawIn) {
   }
   s.gifts = Array.isArray(raw.gifts) ? raw.gifts.filter(v => typeof v === 'string' && VIP[v]).slice(-6) : [];
   { const h = s.equip.hat, p = s.equip.pet; s.equip = { hat: UNLOCK[h] && UNLOCK[h].hat && s.unlocked[h] ? h : null, pet: UNLOCK[p] && UNLOCK[p].pet && s.unlocked[p] ? p : null }; }
+  loadStateB(s, raw);   // v2.1 core B (16.13): equip.outfit / uniform, rare, fw
   { const c = {}; for (const k in s.staff) if (STAFF_DEF[k]) c[k] = int0(s.staff[k]); s.staff = c; }
   s.vipNext = clamp(int0(s.vipNext), 0, VIPS.length);
   s.vipAt = Math.min(int0(s.vipAt), Math.ceil(s.stats.time) + 300);   // a corrupt value never blocks the VIPs for long
@@ -116,7 +118,7 @@ const decorOf = rm => [S.decor[rm.id + ':A'] || null, S.decor[rm.id + ':B'] || n
 const comboOf = (a, b) => a && b ? COMBOS.find(c => (c.a === a && c.b === b) || (c.a === b && c.b === a)) || null : null;
 const roomCombo = rm => { const [a, b] = decorOf(rm); return comboOf(a, b); };
 // room-fee multiplier of a room (3.2): cottage x1.5; combo x1.6 or any decor x1.2
-function roomMult(rm) { const [a, b] = decorOf(rm); return rm.mult * (comboOf(a, b) ? 1.6 : (a || b) ? 1.2 : 1); }
+function roomMult(rm) { const [a, b] = decorOf(rm); return rm.mult * (comboOf(a, b) ? 1.6 + goldPlus(a, b) : (a || b) ? 1.2 : 1); }   // v2.1: a gold piece in the combo +0.4
 // quality Q: average room-fee multiplier over the open guest rooms (suites excluded)
 function qualityQ() { let n = 0, s = 0; for (const rm of GUEST_ROOMS) if (roomOpen(rm)) { n++; s += roomMult(rm); } return n ? s / n : 1; }
 // a fee (3.1 x 3.2): o = { rm, gu, slot, pref } - whatever applies; everything multiplies, then rounds
@@ -131,6 +133,7 @@ function fee(k, o) {
   else if (k === 'meal') m *= ty.meal || 1;
   m *= feeV21a(k, o);   // v2.1: the seasons, a seasonal combo in its season, "popular" after the press (seasons.js)
   m *= 1 + .05 * goldStars();
+  m *= feeMulB();   // v2.1 core B: the shrine (+1 % a level), a fireworks show (x1.3)
   let v = R((STARS[star()][k] || 0) * m);
   if (k === 'tip' && S.unlocked.statue) v += 1;
   return v;
@@ -150,7 +153,7 @@ const CALL_FAST = .3;   // served within the first 30 % of its time = fast (x1.5
 // a call's reward (4.2): 3 x room fee x Q, x1.5 when served in the first half of its time; gold stars +5% each
 const callReward = fast => R(3 * STARS[star()].room * qualityQ() * (fast ? 1.5 : 1) * (1 + .05 * goldStars()));
 // seconds between guests (3.3): more rooms -> more guests; gold stars -3% each
-function spawnGap() { return Math.max(1.8, STARS[star()].gap * Math.min(1, 9 / Math.max(1, guestRoomsOpen()))) * (1 - .03 * goldStars()) / festSpawnK(); }   // v2.1: a festival x1.3
+function spawnGap() { return Math.max(1.8, STARS[star()].gap * Math.min(1, 9 / Math.max(1, guestRoomsOpen()))) * (1 - .03 * goldStars()) / festSpawnK() / spawnMulB(); }   // v2.1: a festival x1.3, fireworks x1.5
 
 // ---- price pads on the ground (3.5). PADPOS = the pads shown right now (id -> tile). At most PAD_MAX progress pads:
 // every gate whose prerequisites are met, then part-paid ones, then the cheapest. Decor (2 shop pads, stable slots),
@@ -162,18 +165,21 @@ function padEligible(u) {
   if (u.need5 && star() < 5) return false;
   if (u.vip && !(S.album.vip[u.vip] > 0)) return false;
   if (u.when && !u.when()) return false;   // v2.1: on sale only once (seasonal decor: after that season's first festival)
+  if (u.ok && !u.ok()) return false;   // v2.1 core B: seasonal outfits, gold decor, the fireworks' cool-down
   return areaOpen(AREA[u.area]);
 }
 function padsUpdate() {
   PADPOS.clear();
   const prog = [], decor = [];
-  let hat = null, pet = null;
+  let hat = null, pet = null, outfit = null, uniform = null;
   for (const u of UNLOCKS) {
     if (!padEligible(u)) continue;
-    if (u.decor) decor.push(u);
+    if (u.decor || u.goldOf) decor.push(u);   // v2.1: gold decor queues after the plain pieces
     else if (u.hat) { if (!hat || u.price < hat.price) hat = u; }
     else if (u.pet) { if (!pet || u.price < pet.price) pet = u; }
-    else if (u.id === 'statue') PADPOS.set(u.id, u.pad);
+    else if (u.outfit) { if (!outfit || u.price < outfit.price) outfit = u; }       // v2.1 booths
+    else if (u.uniform) { if (!uniform || u.price < uniform.price) uniform = u; }
+    else if (u.id === 'statue' || u.extra) PADPOS.set(u.id, u.pad);                  // v2.1: shrine / garden / plaza pads are extra
     else prog.push(u);
   }
   prog.sort((a, b) => (b.gate ? 1 : 0) - (a.gate ? 1 : 0) || ((S.paid[b.id] ? 1 : 0) - (S.paid[a.id] ? 1 : 0)) || a.price - b.price);
@@ -185,12 +191,14 @@ function padsUpdate() {
   for (const u of show) PADPOS.set(u.id, DECOR_PADS[DECOR_SLOT.get(u.id)]);
   if (hat) PADPOS.set(hat.id, HAT_PAD);
   if (pet) PADPOS.set(pet.id, PET_PAD);
+  if (outfit) PADPOS.set(outfit.id, OUTFIT_PAD);
+  if (uniform) PADPOS.set(uniform.id, UNIFORM_PAD);
 }
 const padVisible = u => PADPOS.has(u.id);
 const padXY = u => PADPOS.get(u.id) || (u.dyn ? null : u.pad);
 const visiblePads = () => UNLOCKS.filter(u => PADPOS.has(u.id));
 // v2.0.1 G2: the whole inn is built = every guest room and suite and every area a pad opens (the v2.1 shrine / plaza
 // have no pad yet). That - not star 5 - brings the big celebration panel with the share button ("全馆落成！").
-const innComplete = s => { s = s || S; return ROOMS.every(rm => roomOpen(rm, s)) && AREAS.every(a => !a.open || !UNLOCK[a.open] || areaOpen(a, s)); };
+const innComplete = s => { s = s || S; return ROOMS.every(rm => roomOpen(rm, s)) && AREAS.every(a => !a.open || a.v21 || !UNLOCK[a.open] || areaOpen(a, s)); };   // v2.1's shrine / plaza are extras
 // buying this gate really adds a star (draw the little star badge only then)
 const raisesStar = u => !!u.star && starOf(S) + 1 > star();

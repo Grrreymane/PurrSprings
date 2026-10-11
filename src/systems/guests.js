@@ -66,7 +66,7 @@ function freeRoom(gu) {
 }
 // 4.12: after the room (woken up, checked out) -> tea at the urn (v2.0.1 G3) -> breakfast -> bath (+ milk) -> souvenirs
 // -> home. A step that is closed or full is skipped; only the queue makes guests angry.
-const NEXT = ['room', 'tea', 'seat', 'bath', 'browse'];
+const NEXT = ['room', 'tea', 'seat', 'bath', 'browse', 'stall'];   // v2.1: a festival stall on the way home (plaza.js)
 function guestNext(gu, from) {
   for (let i = NEXT.indexOf(from) + 1; i < NEXT.length; i++) {
     const k = NEXT[i];
@@ -74,6 +74,7 @@ function guestNext(gu, from) {
     if (k === 'seat' && S.unlocked.dining && takeSeat(gu)) { RUN.seated++; setSt(gu, 'toSeat'); gu.goal = null; return; }
     if (k === 'bath' && S.unlocked.onsen) { setSt(gu, 'toBath'); gu.goal = null; return; }
     if (k === 'browse' && S.unlocked.shop && !BROWSE.occ && Math.random() < BROWSE_P) { BROWSE.occ = gu; setSt(gu, 'toBrowse'); gu.goal = null; return; }
+    if (k === 'stall' && stallDetour(gu)) return;
   }
   guestLeave(gu, false);
 }
@@ -269,8 +270,9 @@ function updGuest(gu, dt) {
     case 'toBrowse': goTo(gu, SPOT.browse[0], SPOT.browse[1]); if (walk()) { setSt(gu, 'browse'); gu.tt = BROWSE_T; gu.dir = 'up'; lineSay(gu, 'G35'); } break;
     case 'browse':
       gu.tt -= dt;
-      if (gu.tt <= 0) { S.piles.shop = (S.piles.shop || 0) + fee('souv', { gu }); if (BROWSE.occ === gu) BROWSE.occ = null; gu.heart = 1; markDirty(); guestLeave(gu, false); }
+      if (gu.tt <= 0) { S.piles.shop = (S.piles.shop || 0) + fee('souv', { gu }); if (BROWSE.occ === gu) BROWSE.occ = null; gu.heart = 1; markDirty(); guestNext(gu, 'browse'); }
       break;
+    case 'toStall': case 'stall': stallGuest(gu, dt, walk); break;   // v2.1 (16.9)
     case 'leave': case 'angry': if (walk()) gu.gone = true; break;
   }
   updMate(gu, dt);

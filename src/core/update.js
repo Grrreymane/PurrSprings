@@ -28,7 +28,7 @@ function spawnGuests(dt) {
 }
 // camera (2.7): follow the player, clamp to the map; never shakes, never pans by itself
 function updCam(dt, snap) {
-  const tx = clamp(P.x - W / 2, 0, MAPW - W), ty = clamp(P.y - H / 2 - 8, 0, MAPH - H);
+  const tx = clamp(P.x - W / 2, 0, MAPW - W), ty = clamp(P.y - H / 2 - 8, camTopB(), MAPH - H + camBotB());   // v2.1 (shrine.js): the view may go past the map's top at the shrine (its hall would sit under the HUD) and past its bottom in the shop (its last row under the bottom card)
   if (snap) { cam.x = tx; cam.y = ty; return; }
   const k = Math.min(1, dt * 6); cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
 }
@@ -45,6 +45,7 @@ function gameUpdate(dt) {
   staffChat();
   updVip(dt);
   v21aTick(dt);   // v2.1 core A: seasons, festivals, the press, mom, the year report (systems/seasons.js)
+  tickB(dt);   // v2.1 core B (plaza.js): rare guests' kittens, fireworks, the tanuki's lantern, gold glints
   zones(dt);
   padsUpdate();
   { const bo = boutiqueOpen(); if (bo && !boutiqueWas) boutiqueOpened(); boutiqueWas = bo; }
@@ -82,6 +83,6 @@ function update(dt) {
 function audioTick(dt) {
   const a = state === 'title' ? null : areaAt(Math.floor(P.x / TILE), Math.floor(P.y / TILE));
   musicWant({ song: state === 'title' ? 'title' : state === 'celebrate' ? 'fest' : a ? a.music : 'lobby', night: state === 'title' ? 0 : dayLight().night,
-    star: star(), menu: state === 'menu' || state === 'card', area: a ? a.id : null, shishi: !!S.unlocked.g_shishi, shishiT: T, season: seasonNow(), fest: FEST.on });   // v2.1 (16.11): the season's layer; fest while a festival is on; paused cards muffle like the menu
+    star: star(), menu: state === 'menu' || state === 'card', area: a ? a.id : null, shishi: !!S.unlocked.g_shishi, shishiT: T, season: seasonNow(), fest: FEST.on || fireworksOn() });   // v2.1 (16.11): the season's layer; fest while a festival or a fireworks show (plaza.js) is on; paused cards muffle like the menu
   musicTick(dt);
 }

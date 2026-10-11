@@ -74,12 +74,13 @@ const UNLOCKS = [
   UN('h_gold', '金铃', 150000, [], 50, 'hat', 'hat', '走路带金光', { need5: true, hat: 'goldband' }),
   UN('statue', '金像', 1000000, ['shop'], 100, [13, 33], 'statue', '每位小费+1', { need5: true, at: [11, 33] }),   // + shop: SPEC_v2 10.2 (18.2)
   ...UNLOCKS_V21A,   // v2.1 core A (data/tables-v21a.js): the seasonal decor
+  ...UNLOCKS_V21B,   // v2.1 core B (data/tables-v21b.js): outfits, uniforms, pets, gold decor, garden pieces, shrine, plaza
 ];
 const UNLOCK = NUL(); UNLOCKS.forEach(u => { UNLOCK[u.id] = u; });
 UNLOCKS.forEach(u => {
   u.dyn = !Array.isArray(u.pad);                                          // decor / hat / pet: placed by padsUpdate()
   u.area = u.dyn ? 'shop' : (areaAt(u.pad[0], u.pad[1]) || {}).id || null; // a pad shows only once its area is open
-  u.booth = !!(u.hat || u.pet) || u.id === 'statue';                      // shop booths + the statue: never the "cheapest pad"
+  u.booth = !!(u.hat || u.pet || u.outfit || u.uniform) || u.id === 'statue';   // shop booths (+ v2.1 outfits / uniforms) + the statue: never the "cheapest pad"
 });
 // v2.0.1 G4: the later tray / basket levels (托盘 2, 竹篮 2) are gone - the staff carry those jobs by then. A save that
 // bought them keeps what they did (trayCap / towelCap still read them); money poured into them is refunded on load.
@@ -126,10 +127,12 @@ const RIVALS = [
   { id: null, name: '传说之汤', h: 10000 },
 ];
 const SEEN_KEYS = ['call', 'decor', 'dine', 'vip', 'bath', 'kaiseki', 'photo', 'tryon'];
-// day / night (4.10): [clock, tint, alpha, night]; linear in between
+// day / night (4.10): [clock, tint, alpha, night]; linear in between. v2.1 merge fun check (SPEC_v2 18.2): the night tint
+// .42 -> .55 (and .28 -> .36 before dawn): at .42 a night looked like a cloudy afternoon - on winter snow not night at all -
+// and the lamps, the festival lanterns and the fireworks hardly stood out; HUD, pads, bubbles and the arrow are drawn after it
 const DAY_LEN = 360;
-const DAY_KEYS = [[0, '#2a3468', .42, 1], [.06, '#6a5a8a', .28, .6], [.10, '#ffd2a0', .14, 0], [.16, '#ffd2a0', 0, 0], [.55, '#ffb070', 0, 0],
-  [.62, '#ffb070', .18, 0], [.68, '#c06a70', .26, .3], [.74, '#2a3468', .42, 1], [1, '#2a3468', .42, 1]];
+const DAY_KEYS = [[0, '#2a3468', .55, 1], [.06, '#6a5a8a', .36, .6], [.10, '#ffd2a0', .14, 0], [.16, '#ffd2a0', 0, 0], [.55, '#ffb070', 0, 0],
+  [.62, '#ffb070', .18, 0], [.68, '#c06a70', .28, .3], [.74, '#2a3468', .55, 1], [1, '#2a3468', .55, 1]];
 // the tint colour is mixed too (no step half-way between two keys); memoised on the clock (called by fees, props, the light pass)
 let DL_C = -1, DL_V = null;
 function dayLight(c) {

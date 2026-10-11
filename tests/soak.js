@@ -24,6 +24,8 @@ const _earn = earn; earn = function (v, x, y) { generated += Math.max(0, v | 0);
 const _serveCall = serveCall; serveCall = function (gu, by) { const p0 = S.piles.recep || 0; const r = _serveCall(gu, by); if (by) generated += (S.piles.recep || 0) - p0; return r; };
 // v2.1: a festival's red packet and the yearly prize are put into the cash box (not fees)
 for (const fn of ['festEnd', 'yearReport']) { const f0 = eval(fn); eval(fn + ' = function (...a) { const p0 = S.piles.recep || 0; const r = f0(...a); generated += (S.piles.recep || 0) - p0; return r; }'); }
+// v2.1 core B: a festival stall's 8 x star goes straight into the plaza's pile (not a fee)
+{ const f0 = stallGuest; stallGuest = function (gu, dt, walk) { const p0 = S.piles.plaza || 0; f0(gu, dt, walk); generated += (S.piles.plaza || 0) - p0; }; }
 newGame();
 // ---------------------------------------------------------------- driver (as bot.js)
 let path = [], key = '', think = 0, mode = 'follow', episode = 0, stuckT = 0, lastPos = [P.x, P.y], stuckN = 0;

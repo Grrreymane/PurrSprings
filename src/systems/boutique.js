@@ -7,7 +7,7 @@
 // golden statue by the door is the big money sink: the cloth slides down as you pour (the arrow points at it only once
 // every hat and pet is bought, 18.2).
 const boutiqueOpen = () => star() >= 5 && !!S.unlocked.shop;
-const TRY = { hat: null, pet: null, ids: '' };   // what you try on at the booths right now (runtime)
+const TRY = { hat: null, pet: null, outfit: null, uniform: null, ids: '' };   // what you try on at the booths right now (runtime; v2.1: + outfit / uniform)
 const TRIED = new Set();                       // booth pieces the tanuki already offered (K03, once each)
 const BOOTH = new Map();                       // booth piece -> { t: s pointed at, near: came to look, done } (6 rule 6: once)
 const MIRROR = { t: 0 }, CUSHION = { t: 0 };
@@ -20,16 +20,16 @@ function boutiqueOpened() {   // star 5 with the shop open (or the shop bought a
   POPA.boutique = T; k02Pend = !lineSay(shopOwner(), 'K02'); firstTime('tryon'); edgeNew(HAT_PAD[0], HAT_PAD[1], 'hat'); news('boutique');
 }
 function boutiqueZone(dt, ptx, pty) {
-  TRY.hat = TRY.pet = null;
+  TRY.hat = TRY.pet = TRY.outfit = TRY.uniform = null;
   if (!boutiqueOpen()) { MIRROR.t = CUSHION.t = 0; TRY.ids = ''; return; }
   let ids = '';
   for (const [id, xy] of PADPOS) {
-    const u = UNLOCK[id]; if (!u.hat && !u.pet) continue;
+    const u = UNLOCK[id]; if (!u.hat && !u.pet && !u.outfit && !u.uniform) continue;
     const b = boothOf(id);
     if (dist(P.x, P.y, tcx(xy), tcy(xy)) <= TRYON_R) {
       if (b.t > 0) b.near = true;   // the arrow brought you here (a piece you only walk past is still pointed at later)
       ids += id + ',';
-      if (u.hat) TRY.hat = u.hat; else TRY.pet = u.pet;
+      if (u.hat) TRY.hat = u.hat; else if (u.pet) TRY.pet = u.pet; else if (u.outfit) TRY.outfit = u.outfit; else TRY.uniform = u.uniform;   // v2.1: outfits, uniforms
       if (!TRIED.has(id)) { TRIED.add(id); lineSay(shopOwner(), 'K03'); }
       firstDone('tryon');
     } else if (b.near) b.done = true;   // came to look and walked off without buying: the arrow won't point at it again
@@ -51,14 +51,14 @@ function cycleEquip(k) {
 const STATUE_HINT = 50000;
 function statueHint() {
   if (!PADPOS.has('statue') || S.money < STATUE_HINT) return null;
-  for (const u of UNLOCKS) if ((u.hat || u.pet) && !S.unlocked[u.id]) return null;
+  for (const u of UNLOCKS) if ((u.hat || u.pet || u.outfit || u.uniform) && !S.unlocked[u.id] && (!u.ok || u.ok())) return null;   // v2.1: every booth piece on sale
   return UNLOCK.statue;
 }
 // rule 6 of the arrow: a booth piece is pointed at once, the first time you can afford it (cheapest first)
 function boothHint() {
   let best = null;
   for (const [id] of PADPOS) {
-    const u = UNLOCK[id]; if (!u.hat && !u.pet) continue;
+    const u = UNLOCK[id]; if (!u.hat && !u.pet && !u.outfit && !u.uniform) continue;
     if (boothOf(id).done || S.money < padNeed(u) || padLocked(u)) continue;
     if (!best || padNeed(u) < padNeed(best)) best = u;
   }
@@ -75,7 +75,13 @@ function updPet(dt) {
   PET.idle = PET.moving ? 0 : PET.idle + dt;
 }
 // the innkeeper's look: the hat you try on, else the one you wear; none under towels (one cached object per hat)
+// v2.1 (16.6): + the outfit (look.outfit o_yukata ...; shirt = its colour until the character art draws the outfit)
 const PLOOK = new Map();
-function lookWith(hat) { if (!hat) return PLAYER_LOOK; let l = PLOOK.get(hat); if (!l) { l = Object.assign({}, PLAYER_LOOK, { hat }); PLOOK.set(hat, l); } return l; }
-const playerLook = () => lookWith(P.towels > 0 ? null : TRY.hat || hatOf(S.equip.hat));
-const equipLook = () => lookWith(hatOf(S.equip.hat));
+function lookWith(hat, outfit) {
+  if (!hat && !outfit) return PLAYER_LOOK;
+  const k = (hat || '') + '|' + (outfit || ''); let l = PLOOK.get(k);
+  if (!l) { l = Object.assign({}, PLAYER_LOOK, { hat: hat || null }, outfit ? { outfit, shirt: OUTFIT_SHIRT[outfit] } : {}); PLOOK.set(k, l); }
+  return l;
+}
+const playerLook = () => lookWith(P.towels > 0 ? null : TRY.hat || hatOf(S.equip.hat), TRY.outfit || outfitOf(S.equip.outfit));
+const equipLook = () => lookWith(hatOf(S.equip.hat), outfitOf(S.equip.outfit));

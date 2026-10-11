@@ -34,6 +34,7 @@ function resetWorld() {
   MIRROR.t = CUSHION.t = 0; PET = null; quackT = -99; goldT = 0; EDGE_Q.length = 0;
   LINE = LINE_NEXT = null; lineCD = -99; for (const k in LSAID) delete LSAID[k]; INFO = null;   // stage 3 UI: no line / card carried over
   spawnT = 1.5; guideClock = 0; GUIDE = null; celebrateAt = 0; starPopAt = -9; DISP = S.money; lastEarnT = S.stats.time;
+  resetB();   // v2.1 core B runtime (plaza.js): rare guests' due times, a fireworks show, try-on
   rebuildWorld(); ensureStaff(); updCam(0, true); updPet(0);
   v21aReset();   // v2.1 core A runtime: festival / reporter / cards (seasons.js)
 }
@@ -44,7 +45,7 @@ function continueGame() {
 }
 function drawTitle() {
   g.fillStyle = 'rgba(12,8,28,.5)'; g.fillRect(0, 0, W, H);
-  g.drawImage(catBow('orange', Math.floor(T / .9) & 1, hatOf(S.equip.hat)), 17 * TILE + 8 - 8 - CX, 30 * TILE + 10 - 23 - CY);   // the innkeeper bows at the door (in its hat, 4.11)
+  g.drawImage(catBow('orange', Math.floor(T / .9) & 1, hatOf(S.equip.hat), outfitOf(S.equip.outfit)), 17 * TILE + 8 - 8 - CX, 30 * TILE + 10 - 23 - CY);   // the innkeeper bows at the door (in its hat, 4.11; v2.1: + its outfit)
   { const k = petOf(S.equip.pet); if (k) drawPet({ kind: k, x: 17 * TILE + 21, y: 30 * TILE + 10, dir: 'down', moving: false, walkT: 0, idle: 2 }); }
   txt('猫猫温泉旅馆', 90, 74, 21, '#ffe14a');
   txt('Purr Springs', 90, 96, 9, '#dff6ff');

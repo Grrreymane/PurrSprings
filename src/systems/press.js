@@ -23,11 +23,17 @@ function pressTick(dt) {
   if (seasonDay(S.day) === 0 && S.clock >= PRESS_AT && S.clock < PRESS_END && S.pressS < as && star() >= PRESS_STAR && Q.length < QSPOTS.length && !pressBusy()) pressArrive(as);   // (a full line: a moment later)
 }
 // fun check (SPEC_v2 18.2): the reporter is polite - it waits while a new area has just opened (< PRESS_CALM s) or the
-// very first VIP is being shown round (its 3-step card); if the day's window passes, it comes next season (nothing lost)
-const PRESS_CALM = 60;
+// very first VIP is being shown round (its 3-step card); if the day's window passes, it comes next season (nothing lost).
+// v2.1 merge fun check: also while a picture card is up and for PRESS_CARD_CALM s after one came (the first VIP's photo
+// card, then the reporter's own card 4 s later, was one lesson too many in a row)
+const PRESS_CALM = 60, PRESS_CARD_CALM = 30;
 function pressBusy() {
   if (VIPG && !VIPG.mom && !S.stats.vips) return true;
-  for (let i = RUN.news.length - 1; i >= 0 && RUN.news[i][0] > S.stats.time - PRESS_CALM; i--) if (RUN.news[i][1] === 'area') return true;
+  if (FIRST_Q.length) return true;
+  for (let i = RUN.news.length - 1; i >= 0 && RUN.news[i][0] > S.stats.time - PRESS_CALM; i--) {
+    const [t, k] = RUN.news[i];
+    if (k === 'area' || (k === 'first' && t > S.stats.time - PRESS_CARD_CALM)) return true;
+  }
   return false;
 }
 function pressArrive(as) {

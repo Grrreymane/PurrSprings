@@ -17,7 +17,7 @@ function paintDoor(dr) {
 }
 const tubBusy = rm => !!VIPG && VIPG.suite === rm.id && (VIPG.st === 'soak' || (VIPG.st === 'seated' && VIPG.actT > 0 && vipWish() === 'bath'));
 // a VIP's face, 8x8 from its front sprite (photo frames, the polaroid; the album crops its own)
-function vipFace(id) { return art('vipface:' + id, () => { const v = VIP[id], c = mk(8, 8); c.getContext('2d').drawImage(catSprite('down', 0, v.look || { fur: v.fur, outfit: 'robe', robe: v.robe, hat: v.hat || null }), 4, 6, 8, 8, 0, 0, 8, 8); return c; }); }   // v2.1: mom has her own look
+function vipFace(id) { return art('vipface:' + id, () => { const v = VIP[id], c = mk(8, 8); c.getContext('2d').drawImage(catSprite('down', 0, RARE_LOOK[id] || v.look || { fur: v.fur, outfit: 'robe', robe: v.robe, hat: v.hat || null }), 4, 6, 8, 8, 0, 0, 8, 8); return c; }); }   // v2.1: a rare guest's / mom's own look
 function rebuildWorld() {
   buildObjects(); buildBlock(); padsUpdate(); buildLights();
   for (const o of OBJS) if (o.light && areaOpen(areaAt(o.tx, o.ty))) {   // scenery lamps (map.js SCENERY); a locked area stays dark (the lower garden until v2.1)
@@ -54,7 +54,7 @@ const VIS = (wx, wy, m) => wx - CX > -m && wx - CX < W + m && wy - CY > -m && wy
 const catFrame = e => e.moving ? 1 + (Math.floor(e.walkT * 6) & 1) : 0, headBob = e => catFrame(e) === 2 ? 1 : 0;
 function drawCat(e, look, ox) {
   const view = e.dir === 'left' || e.dir === 'right' ? 'side' : e.dir;
-  const fr = catFrame(e);
+  const fr = e === P ? playerFrame() : catFrame(e);   // v2.1: the maneki outfit beckons (frames 3 / 4, wardrobe.js)
   let c = catSprite(view, fr, look); if (e.dir === 'left') c = flipOf(c);
   g.drawImage(c, R(e.x) + (ox || 0) - CX - 8, R(e.y) - CY - 23);
 }
@@ -90,7 +90,8 @@ function padLayout(u) {
   const side = vis(0, 1) ? 'right' : vis(1, 0) ? 'over' : head ? 'right' : 'under';
   const on = Math.floor(P.x / TILE) === ux && Math.floor(P.y / TILE) === uy;   // standing on it: the name would cover your head
   // the info card (7.2) already names the pad you are nearest to: no second name floating over it (it would cover your head)
-  return { side, over: side === 'over', named: !on && u !== INFO && dist(P.x, P.y, ux * TILE + 8, uy * TILE + 8) <= 2 * TILE };
+  // v2.1: the boutique's six pads (booths, decor, gold decor) never float a name - the info card names the nearest one
+  return { side, over: side === 'over', named: !on && u !== INFO && !u.booth && !u.decor && !u.goldOf && dist(P.x, P.y, ux * TILE + 8, uy * TILE + 8) <= 2 * TILE };
 }
 function padLabels(u) {
   if (popScale(POPA['pad:' + u.id]) < 1) return;
@@ -137,10 +138,11 @@ function drawMate(m) {
 // a pet (4.11): duck 10x10 anchored (5,9), shiba 16x16 anchored (8,15); a shiba sitting still wags (frames 3 / 4)
 function drawPet(e, ghost) {
   const view = e.dir === 'left' || e.dir === 'right' ? 'side' : e.dir;
-  const fr = e.moving ? 1 + (Math.floor(e.walkT * 7) & 1) : e.kind === 'shiba' && e.idle > 1 ? 3 + (Math.floor(T * 2) & 1) : 0;
-  let c = petSprite(e.kind, view, fr); if (e.dir === 'left') c = flipOf(c);
+  const fr = e.moving ? 1 + (Math.floor(e.walkT * 7) & 1) : petIdleFrame(e);   // v2.1 (wardrobe.js): fox / crane idle, the tanuki's lantern trick
+  const lan = fr === 5 && e.kind === 'tanuki' && !petArt21();   // before the character art: a core-drawn lantern
+  let c = lan ? petLanternArt() : petSprite(e.kind, view, fr); if (e.dir === 'left' && !lan) c = flipOf(c);
   if (ghost) g.globalAlpha = .5;
-  if (e.kind === 'shiba') drawA(c, R(e.x), R(e.y), 8, 15); else drawA(c, R(e.x), R(e.y), 5, 9);
+  const [ax, ay] = petAnchorB(e.kind, c); drawA(c, R(e.x), R(e.y), ax, ay);   // duck (5,9), shiba / fox / tanuki (8,15), crane (8,19)
   g.globalAlpha = 1;
 }
 // a cat sitting on a seat cushion, side-on to its table (catSit faces right; eating = frames 1 / 3, bowl up / down, so the
@@ -233,13 +235,13 @@ function drawScene(vw, vh, live, noPlayer, card) {
   // decor in the rooms (ground items sorted by the tile centre: you can stand on them) and samples on the shop shelf
   for (const sl of DSLOTS) {
     const id = S.decor[sl.key]; if (!id || !roomOpen(sl.rm) || !VIS(tcx(sl.at), tcy(sl.at), 32)) continue;
-    L.push({ y: tcy(sl.at), f: () => drawObj(decorArt(id, Math.floor(T) & 1), sl.at[0], (sl.at[1] + 1) * TILE, 1, popScale(POPA['decor:' + sl.key])) });
+    L.push({ y: tcy(sl.at), f: () => drawObj(decorArt(id, Math.floor(T) & 1, goldOwned(id)), sl.at[0], (sl.at[1] + 1) * TILE, 1, popScale(POPA['decor:' + sl.key])) });   // v2.1: gold once its gold piece is bought
   }
   if (S.unlocked.shop && VIS(48, 31 * TILE - 12, 48)) L.push({ y: 31 * TILE + .02, f: () => decorOwned().forEach((id, i) => { if (i < 8) drawA(decorIcon(id), TILE + (i >> 1) * TILE + (i & 1 ? 9 : 2) + 5, 31 * TILE - 24 + 7, 5, 5); }) });
   if (live && VIPG && VIS(VIPG.x, VIPG.y, 24)) {
     const v = VIPG;
     if (v.st === 'soak') { const tb = ROOM[v.suite].tub; L.push({ y: (tb[1] + 1) * TILE + .02, f: () => drawA(catBathing(v.look.fur, Math.floor(T * 1.4) & 1, 'tub'), tcx(tb), tb[1] * TILE + 8, 9, 9) }); }
-    else L.push({ y: v.y, f: () => drawCat(v, v.look) });
+    else L.push({ y: v.y, f: () => v.kits ? drawKit(v, v.look.fur) : drawCat(v, v.look) });   // v2.1: the three kitten brothers (rare.js)
   }
   if (live) {
     for (const gu of GUESTS) guestDraws(L, gu);
@@ -251,6 +253,7 @@ function drawScene(vw, vh, live, noPlayer, card) {
   // the shop awning (once open) sorts just above row 30: the tanuki at (6,30) and the shelf's samples stand in front of it
   // (drawn over everyone it hid them - stage 2B note)
   if (S.unlocked.shop && VIS(88, 30 * TILE, 100)) L.push({ y: 30 * TILE - .5, f: () => g.drawImage(awningArt(), 16 - CX, 30 * TILE - 12 - CY) });
+  if (live && !card) { rareDraws(L); if (!noPlayer) dressGhostDraws(L); }   // v2.1: the kitten brothers following, the uniform ghost
   L.sort((a, b) => a.y - b.y); for (const e of L) e.f();
   // ---- over everyone: the entrance noren
   g.drawImage(entranceNoren(), 16 * TILE - CX, 29 * TILE - 6 - CY);

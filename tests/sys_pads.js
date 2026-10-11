@@ -8,7 +8,9 @@ const ids = () => [...PADPOS.keys()].sort().join(',');
 const prog = () => [...PADPOS.keys()].filter(id => !UNLOCK[id].decor && !UNLOCK[id].booth);
 function st(list, o) { S = defaults(); for (const id of list) S.unlocked[id] = true; for (const rm of ROOMS) if (roomOpen(rm)) S.rooms[rm.id] = 'clean'; S.peak = Math.max(starOf(S), (o && o.peak) || 1); Object.assign(S, o && o.S || {}); resetWorld(); }
 // the table
-ok(UNLOCKS.length - UNLOCKS_V21A.length === 65, 'UNLOCKS has ' + UNLOCKS.length + ' rows (SPEC 3.4: 53 pads + 12 star-5 rows; v2.0.1: + 茶房, - 竹篮 2, - 托盘 2; v2.1: + 8 seasonal decor)');
+ok(UNLOCKS_V21A.length === 8 && UNLOCKS_V21A.every(u => UNLOCK[u.id] === u && !u.v21b), 'v2.1 core A rows ' + UNLOCKS_V21A.length + ' (want 8 seasonal decor)');
+{ const v20 = UNLOCKS.filter(u => !u.v21b).length - UNLOCKS_V21A.length, v21 = UNLOCKS.filter(u => u.v21b).length;   // v2.1 core B: + 44 rows (tables-v21b.js)
+  ok(v20 === 65, 'UNLOCKS has ' + v20 + ' v2.0 rows (SPEC 3.4: 53 pads + 12 star-5 rows; v2.0.1: + 茶房, - 竹篮 2, - 托盘 2)'); ok(v21 === 44, 'v2.1 core B rows ' + v21 + ' (want 44: 2 gates, 10 offerings, 8 garden pieces, 4 stalls, fireworks, 8 outfits, 4 uniforms, 3 pets, 4 gold decor)'); }
 ok(RETIRED.every(id => !UNLOCK[id]), 'retired pads are gone: ' + RETIRED.join());
 const tot = (a, b) => UNLOCKS.slice(UNLOCKS.findIndex(u => u.id === a), UNLOCKS.findIndex(u => u.id === b) + 1).reduce((s, u) => s + u.price, 0);
 ok(tot('room2', 'onsen') === 145 && tot('recep', 'dining') === 2325 && tot('tray1', 'garden') === 6800 && tot('g_shishi', 'roten') === 9430,   // v2.0.1 prices (SPEC_v2 3.4 / 18.2)

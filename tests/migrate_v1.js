@@ -40,7 +40,7 @@ function invariants(tag, st) {
   if (!Number.isFinite(S.hearts) || S.hearts < st.hearts) bad(tag, t + ' hearts ' + st.hearts + ' -> ' + S.hearts); st.hearts = S.hearts;
   for (const k in S.piles) if (!Number.isFinite(S.piles[k]) || S.piles[k] < 0 || !PILE_AT[k]) bad(tag, t + ' pile ' + k + ' ' + S.piles[k]);
   if (star() < S.peak || S.peak < st.v1Star) bad(tag, t + ' star ' + star() + ' peak ' + S.peak + ' v1 ' + st.v1Star);
-  const prog = [...PADPOS.keys()].filter(id => !UNLOCK[id].decor && !UNLOCK[id].booth).length;
+  const prog = [...PADPOS.keys()].filter(id => !UNLOCK[id].decor && !UNLOCK[id].booth && !UNLOCK[id].goldOf && !UNLOCK[id].extra).length;   // v2.1: the shrine / garden / plaza pads are extras, one in each place
   if (prog > PAD_MAX) bad(tag, t + ' progress pads ' + prog);
   if (GUIDE && !GUIDE.here) { const [sx, sy] = tileOf(P); if (!findPath(sx, sy, GUIDE.tx, GUIDE.ty)) bad(tag, t + ' guide target unreachable ' + GUIDE.kind + ' ' + GUIDE.tx + ',' + GUIDE.ty); }
   for (const e of GUESTS.concat(STAFF)) {
