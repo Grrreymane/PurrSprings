@@ -34,6 +34,9 @@ const PAWS = (() => { const c = mk(9, 9), x = c.getContext('2d'); x.fillStyle = 
 // a green tick (7 x 6): you can afford it
 const TICK = (() => { const c = mk(7, 6), x = c.getContext('2d'); x.fillStyle = OUT; x.fillRect(0, 2, 3, 3); x.fillRect(2, 3, 2, 3); x.fillRect(3, 0, 4, 4); x.fillStyle = '#5ad05a'; x.fillRect(1, 3, 1, 1); x.fillRect(2, 4, 1, 1); x.fillRect(3, 3, 1, 1); x.fillRect(4, 2, 1, 1); x.fillRect(5, 1, 1, 1); return c; })();
 
+// a round green badge with a white tick (9 x 9 + the painter's outline = 11 x 11): a VIP wish done (G1) - big over its
+// head (FX 'vipok'), small on the wish board
+const okBadge = () => art('core:okbadge', () => rows(['..GGGGG..', '.GGGGGGG.', 'GGGGGGGWG', 'GGGGGGWWG', 'GWGGGWWGG', 'GWWGWWGGG', 'GGWWWGGGG', '.GGWGGGG.', '..GGGGG..'], { G: '#4ab84a', W: '#ffffff' }));
 // ---- 7.2 the info card: the nearest visible pad within 2 tiles (or the one you stand on); data for render, set in uiUpdate
 let INFO = null;
 function infoPad() {
@@ -178,16 +181,39 @@ function drawEdgeNew() {
 
 // ---- 7.4 first-time picture cards: icons + <= 4 characters, gone once you have done it (at most 20 s on screen)
 const FIRST_CARD = {
-  call: () => [{ img: padIcon('tea') }, { img: ARROW_R }, { img: bubbleArt('tea', 0, true) }, '端茶过去'],
+  call: () => [{ img: padIcon('tea') }, { img: ARROW_R }, { img: bubbleArt('tea', 0, true) }, '端茶有赏'],   // G3: an optional tip
   decor: () => [{ img: decorIcon(decorOwned()[0] || 'd_scroll') }, { img: ARROW_R }, { img: padIcon('room') }, '站着摆放'],
   dine: () => [{ img: padIcon('chef') }, { img: ARROW_R }, { img: itemIcon('rice'), s: 2 }, { img: ARROW_R }, { img: padIcon('table') }, '做饭上菜'],
-  vip: () => [{ img: bubbleArt('card', 0, true) }, { img: ARROW_R }, { img: PAWS }, { img: ARROW_R }, { img: padIcon('suite') }, '带去套房'],
+  vip: () => { const L = []; vipCardSteps().forEach((st, i) => { if (i) L.push({ img: ARROW_R, gap: 2 }); st.forEach(p => L.push(typeof p === 'string' ? { t: p, z: 8, gap: 2 } : Object.assign({ gap: 1 }, p))); }); L.push(L.pop().t); return L; },   // drawn by drawVipCard
   bath: () => [{ img: tubArt(0) }, '站着放水'],
   kaiseki: () => [{ img: padIcon('chef') }, { img: itemIcon('kaiseki'), s: 2 }, '亲手做'],
   photo: () => [{ img: menuIcon('camera') }, { img: faceOf(VIP_LOOK.kawa) }, '站在旁边'],
   tryon: () => [{ img: padIcon('hat') }, { img: ARROW_R }, { img: faceOf(lookWith('straw')) }, '站着换装'],
 };
+// the first VIP's 3-step picture card (G1): greet it -> lead it to a suite -> do what its gold bubble shows. One row of
+// icons + 2-character labels; the step you are on sits in a gold frame, the ones done are ticked. It stays up until the
+// first wish is done (at most VIP_CARD_T s on screen).
+function vipCardSteps() {
+  const id = VIPG ? VIPG.id : 'kawa', w = (VIPG && vipWish()) || VIP[id].wishes[0];
+  return [[{ img: bubbleArt('card', 0, true) }, { img: faceOf(VIP_LOOK[id]) }, '迎宾'], [{ img: PAWS }, { img: padIcon('suite') }, '带路'], [{ img: bubbleArt(w, 0, true) }, '照办']];
+}
+function drawVipCard(fc) {
+  const v = VIPG, cur = !v || v.st === 'arrive' || v.st === 'carpet' ? 0 : v.st === 'follow' || v.st === 'toSuite' ? 1 : 2;
+  const steps = vipCardSteps().map(st => st.map((p, i) => typeof p === 'string' ? { t: p, z: 8, c: '#5a3a1a' } : Object.assign({ gap: i < st.length - 2 ? 1 : 3 }, p)));
+  const sw = steps.map(partsW), aw = ARROW_R.width + 8, tot = sw.reduce((a, b) => a + b, 0) + aw * 2;
+  const x = 12, y = CARD_Y, w = 156, h = 24, a = clamp((fc.vis || 0) / .25, 0, 1);
+  g.globalAlpha = a; cardBase(x, y, w, h, false); g.globalAlpha = 1;
+  let px = x + R((w - tot) / 2);
+  steps.forEach((parts, i) => {
+    if (i) { g.globalAlpha = a; g.drawImage(ARROW_R, px + 4, y + 10); g.globalAlpha = 1; px += aw; }
+    if (i === cur) { g.globalAlpha = a; g.fillStyle = '#ffc21f'; g.fillRect(px - 2, y + 3, sw[i] + 4, h - 6); g.fillStyle = '#fff8dc'; g.fillRect(px - 1, y + 4, sw[i] + 2, h - 8); g.globalAlpha = 1; }
+    drawParts(parts, px, y + h / 2, a * (i < cur ? .45 : 1));
+    if (i < cur) { g.globalAlpha = a; g.drawImage(TICK, px + sw[i] - 7, y + 3); g.globalAlpha = 1; }
+    px += sw[i];
+  });
+}
 function drawFirstCard(fc) {
+  if (fc.key === 'vip') { drawVipCard(fc); return; }
   const def = FIRST_CARD[fc.key]; if (!def) return;
   const L = def(), label = L.pop(), parts = L.map(p => Object.assign({ gap: 3 }, p)).concat([{ gap: 4 }, { t: label, c: '#5a3a1a', z: 8 }]);
   const x = 12, y = CARD_Y, w = 156, h = 24, a = clamp((fc.vis || 0) / .25, 0, 1);
@@ -208,5 +234,5 @@ function uiUpdate(dt) {
   for (let i = EDGE_Q.length - 1; i >= 0; i--) { const e = EDGE_Q[i]; e.age = (e.age || 0) + dt; if (e.age >= EDGE_T) EDGE_Q.splice(i, 1); }
   if (state !== 'play') return;
   const b = BANNER_Q[0]; if (b) { if (!b.age && b.line) lineSay(P, b.line); b.age = (b.age || 0) + dt; if (b.age >= BANNER_IN + bannerHold(b) + BANNER_OUT) BANNER_Q.shift(); }   // b.line: said as it comes up
-  const fc = FIRST_Q[0]; if (fc && !INFO) { fc.vis = (fc.vis || 0) + dt; if (fc.vis >= FIRST_T) FIRST_Q.shift(); }
+  const fc = FIRST_Q[0]; if (fc && !INFO) { fc.vis = (fc.vis || 0) + dt; if (fc.vis >= (fc.key === 'vip' ? VIP_CARD_T : FIRST_T)) FIRST_Q.shift(); }   // the VIP's 3 steps stay longer (G1)
 }

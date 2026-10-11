@@ -58,6 +58,10 @@ for (const raw of ['null', '[]', '"x"', '{"clock":"noon","day":-3,"peak":99,"hea
 }
 { const s = ld({ unlocked: { room2: true }, paid: { sign: 300 }, money: 5 }); ok(s.money === 305 && s.peak === 1 && s.gift === false, 'v1 star 1, half-paid 招牌 refunded: ' + s.money); }
 { const s = ld({ v: 2, paid: { foo: 30 }, money: 5 }); ok(s.money === 5 && s.paid.foo === 30, 'v2 saves are not migrated again'); }
+// v2.0.1 G4: 托盘 2 / 竹篮 2 are retired - a part payment comes back once; bought ones stay owned and keep their effect
+{ const s = ld({ v: 2, paid: { tray2: 120, basket2: 260, net1: 20 }, unlocked: { onsen: true, basket1: true, basket2: true, dining: true, tray1: true }, money: 5 });
+  ok(s.money === 125 && !('tray2' in s.paid) && s.paid.basket2 === 260 && s.paid.net1 === 20, 'retired pad part payment refunded: ' + s.money + ' ' + JSON.stringify(s.paid));
+  S = s; ok(towelCap() === 10 && trayCap() === 3, 'a bought 竹篮 2 still carries its towels (' + towelCap() + ', tray ' + trayCap() + ')'); ok(!UNLOCK.tray2 && !UNLOCK.basket2, 'no pad for them any more'); }
 // the game's own save path
 S = defaults(); S.money = 77; S.hearts = 9; S.decor = {}; saveNow(); ok(loadState().money === 77 && loadState().hearts === 9, 'saveNow -> loadState');
 console.log(errs.length ? 'SYS SAVE FAIL\n  ' + errs.join('\n  ') : 'SYS SAVE OK');

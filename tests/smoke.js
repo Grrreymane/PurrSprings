@@ -117,15 +117,15 @@ run(300, 'after-load');
     if (extra) extra(owe);
     run(60, tag + '-after');
   };
-  // (a) a call open + its thing on the tray (star 2: tea)
-  if (until(() => P.tray.length > 0 && GUESTS.some(gu => gu.call && P.tray.includes(gu.call.k)), 20 * 60, 'trip-call')) { trip('trip-call'); roundTrips.push('call + its tea on the tray at ' + R(S.stats.time / 60) + ' min'); }
-  else bad('trip-call', 'no moment with a call open and its thing on the tray in 20 min');
+  // (a) a call open + its thing on a tray (v2.0.1 G3: the tea runner's - the arrow never sends you for a call)
+  if (until(() => GUESTS.some(gu => gu.call && STAFF.some(s => s.role === 'tea' && s.tray.includes(gu.call.k))), 20 * 60, 'trip-call')) { trip('trip-call'); roundTrips.push('call + its tea on the tea runner tray at ' + R(S.stats.time / 60) + ' min'); }
+  else bad('trip-call', 'no moment with a call open and its thing on the tea runner tray in 20 min');
   // (b) a VIP following you to its suite, (c) a VIP seated after its first wish (part of the gift unpaid -> the refund)
   for (const [tag, cond, max] of [['trip-vip-follow', () => VIPG && VIPG.st === 'follow', 45 * 60],
     ['trip-vip-seated', () => VIPG && (VIPG.st === 'seated' || VIPG.st === 'soak') && VIPG.wi > 0 && S.vipOwe > 0, 30 * 60]]) {
     if (!until(cond, max, tag)) { bad(tag, 'no such VIP moment within ' + max / 60 + ' min'); continue; }
     const st = VIPG.st, wi = VIPG.wi, owe = S.vipOwe;
-    trip(tag, o => { if (o > 0 && vipT - S.stats.time < (VIP_GAP - VIP_JIT) * .7 - 1) bad(tag, 'the next VIP comes ' + R(vipT - S.stats.time) + ' s after a refund (full gap expected)'); });
+    trip(tag, o => { if (o > 0 && vipT - S.stats.time < ((star() >= 5 ? VIP_GAP5 : VIP_GAP) - VIP_JIT) * .7 - 1) bad(tag, 'the next VIP comes ' + R(vipT - S.stats.time) + ' s after a refund (full gap expected)'); });
     roundTrips.push('VIP ' + st + (st !== 'follow' ? ' (wish ' + (wi + 1) + ', owed ' + owe + ')' : '') + ' at ' + R(S.stats.time / 60) + ' min');
   } }
 // old / odd save shapes load without throwing

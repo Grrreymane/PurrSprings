@@ -1,11 +1,11 @@
 // SPEC_v2 18.2 (stage 4, balance): the logic that came with the tuning.
 //   * an idle maid tops up a low towel basket while there is no porter (MAID_TOWELS a run, one maid at a time)
-//   * a guest at the milk machine with a call still open waits there for it (nobody walks out with a call)
+//   * (v2.0.1 G3: reversed) a guest at the milk machine never waits there for the innkeeper - its milk ends the call
 //   * a bather calls for milk only once milk is sold
 //   * the VIP sips / eats VIP_SIP_T s after tea / kaiseki before its next wish shows (its idle clock waits too)
 //   * the arrow: an affordable pad = the nearest one (a star gate first; the shop is not one); nothing bought for
 //     STALL_T s -> the pads (or the pile that pays) before the chores; a seated VIP's wish beats the pads only once it
-//     has waited VIP_URGENT s; the first combo of a pointed-at pair beats the pads for COMBO_RUSH s; rice for the diners
+//     has waited VIP_URGENT s (v2.0.1 G1: the first VIP ever goes first all the way); the first combo of a pointed-at pair beats the pads for COMBO_RUSH s; rice for the diners
 //     before the calls while there is no chef; on the tray, the nearest in-time want first unless the most urgent gets tight
 //   node D:/Minigame/_workflow/tools/headless.js D:/Minigame/Hotelgame tests/sys_stage4.js --seed 3
 const errs = [], ok = (c, m) => { if (!c) errs.push(m); };
@@ -29,11 +29,10 @@ setup(ST2.concat(['maid1']), { basket: 1 });
   S.rooms.room2 = 'messy'; S.basket = 0; run(.5); eq(m.job, 'room2', 'a dirty room comes first (she was idle)'); }
 setup(ST2.concat(['maid1', 'milk', 'dining', 'porter']), { basket: 0 });
 { const m = STAFF.find(s => s.role === 'maid'); run(3); eq(m.carry, 0, 'with a porter the maid leaves the towels to him'); ok(!m.loading, 'not loading'); }
-// ---- the milk machine: an open call keeps its guest there
+// ---- the milk machine (v2.0.1 G3): an open call never keeps its guest there
 setup(ST2.concat(['milk']));
 { const gu = guest('milk', { tt: MILK_T, x: tcx(MILK_SPOT), y: tcy(MILK_SPOT) }); lastCallAt = -99; gu.call = { k: 'tea', t: 20, max: callT() };
-  for (let i = 0; i < 30 * 5; i++) updGuest(gu, DT); eq(gu.st, 'milk', 'waits at the machine while its call is open');
-  gu.call = null; for (let i = 0; i < 30 * 1.2; i++) updGuest(gu, DT); ok(gu.st !== 'milk', 'goes on once the call is over (' + gu.st + ')'); }
+  for (let i = 0; i < 30 * 1.2; i++) updGuest(gu, DT); ok(gu.st !== 'milk', 'buys its milk and goes on, call or not (' + gu.st + ')'); ok(gu.call && gu.call.k === 'tea', 'a tea call rides on (only milk ends at the machine)'); }
 // ---- bathers ask for milk only once milk is sold
 setup(ST2);
 { let n = 0; for (let i = 0; i < 300; i++) { GUESTS.length = 0; SLOT_OCC.fill(null); lastCallAt = -99; const gu = guest('toSlot', { slot: 0, x: SLOTS[0].x * 16 + 8, y: 4 * 16 + 8 }); SLOT_OCC[0] = gu; gu.path = []; gu.goal = null; updGuest(gu, DT); if (gu.call) n++; }
@@ -54,9 +53,10 @@ setup(ST2.concat(['maid1']), { money: 0 });
   lastBuyAt = S.stats.time - STALL_T - 1; t = pick(); eq(t && t.kind, 'pad', 'stalled: the affordable pad first'); P.tray = []; gu.call = null; }
 // ---- a seated VIP's wish beats the pads only once it has waited VIP_URGENT s
 setup(ST2.concat(['maid1', 'room4', 'room5', 'room6', 'dining', 'w1', 'room7', 'garden']), { money: 0 });
-{ vipArrive(); VIPG.x = tcx(ROOM.c3.stand); VIPG.y = tcy(ROOM.c3.stand); VIPG.suite = 'c3'; RT.c3.guest = VIPG; VIPG.st = 'seated'; VIPG.wi = 0; VIPG.t = 0; VIPG.G = 100; VIPG.paid = 0; VIPG.greetAt = 0;
-  S.money = 5000; lastBuyAt = S.stats.time; at(17, 27); let t = pick(); eq(t && t.kind, 'pad', 'a fresh wish waits for the pads');
-  VIPG.t = VIP_IDLE - VIP_URGENT + 1; t = pick(); ok(t && t.rule === 8, 'an old wish goes first (rule ' + (t && t.rule) + ' ' + (t && t.kind) + ')');
+{ vipArrive(); VIPG.x = tcx(ROOM.c3.stand); VIPG.y = tcy(ROOM.c3.stand); VIPG.suite = 'c3'; RT.c3.guest = VIPG; VIPG.st = 'seated'; VIPG.wi = 0; VIPG.t = 0; VIPG.wt = 0; VIPG.G = 100; VIPG.paid = 0; VIPG.greetAt = 0;
+  S.money = 5000; lastBuyAt = S.stats.time; at(17, 27); let t = pick(); ok(t && t.rule === 8 && t.vip, 'the first VIP ever: its wish before the pads (rule ' + (t && t.rule) + ' ' + (t && t.kind) + ')');
+  S.stats.vips = 1; t = pick(); eq(t && t.kind, 'pad', 'a later VIP: a fresh wish waits for the pads');
+  VIPG.wt = VIP_URGENT + 1; t = pick(); ok(t && t.rule === 8, 'a wish that waited VIP_URGENT s goes first (rule ' + (t && t.rule) + ' ' + (t && t.kind) + ')');
   // the sip: tea handed over -> no wish for VIP_SIP_T.tea s, then the next one; its idle clock does not run meanwhile
   VIPG.t = 0; vipWishDone(); eq(vipWish(), null, 'sipping'); run(VIP_SIP_T.tea - .2); eq(vipWish(), null, 'still sipping'); ok(VIPG.t < .01, 'idle clock held'); run(.4); eq(vipWish(), 'bath', 'then the next wish'); }
 // ---- the first combo of a pointed-at pair: before the pads, for COMBO_RUSH s at most

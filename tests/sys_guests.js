@@ -58,7 +58,8 @@ st(ST4, 4);
   eq(S.album.types.couple, true, 'album: couple seen'); ok(S.album.furs[c.look.fur], 'album: fur seen'); }
 // ---- the flow: room -> seat -> bath -> browse (30%) -> leave, skipping what is closed / full
 st(ST4, 4);
-{ const flow = () => { const gu = guest('sleep', { room: null }); guestNext(gu, 'room'); const s = gu.st; if (gu.seat >= 0) leaveSeat(gu); if (BROWSE.occ === gu) BROWSE.occ = null; GUESTS.length = 0; return s; };
+{ const flow = () => { const gu = guest('sleep', { room: null }); guestNext(gu, 'room'); if (gu.st === 'toTea') { TEA_AT.occ = null; guestNext(gu, 'tea'); }   // G3: half stop at the urn first
+    const s = gu.st; if (gu.seat >= 0) leaveSeat(gu); if (BROWSE.occ === gu) BROWSE.occ = null; GUESTS.length = 0; return s; };
   eq(flow(), 'toSeat', 'dining open: breakfast first');
   for (let i = 0; i < 4; i++) SEAT_OCC[i] = { seat: i };   // all seats taken
   const s2 = flow(); eq(s2, 'toBath', 'no seat -> bath'); SEAT_OCC.fill(null);

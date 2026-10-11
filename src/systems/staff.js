@@ -1,7 +1,7 @@
 // staff (4.7): need = the unlock that hires them; home = where they idle. Roles: recep (stays at the desk), maid
 // (cleans the nearest unclaimed messy room), porter (keeps the towel basket stocked), chef (keeps the dining counter
-// stocked, 4.3), waiter (counter -> the longest-waiting diners, 2 at a time). The clerk and the shop owner stand at
-// their post until their systems land (stage 2B). Staff never take calls (4.2).
+// stocked, 4.3), waiter (counter -> the longest-waiting diners, 2 at a time), clerk (4.8), tea runner (v2.0.1 G3: the
+// room calls). The shop owner stands at the shop. A new hire reuses an existing outfit (the runner: a waiter's).
 const STAFF_DEF = {
   recep:   { name: '小樱', role: 'recep',  need: 'recep',   home: REST[1],        look: { fur: 'calico', outfit: 'kimono' } },
   maid1:   { name: '雪球', role: 'maid',   need: 'maid1',   home: REST[0],        look: { fur: 'white', outfit: 'apron' } },
@@ -13,6 +13,7 @@ const STAFF_DEF = {
   waiter1: { name: '阿福', role: 'waiter', need: 'waiter1', home: SPOT.waiterIdle[0], look: { fur: 'cow', outfit: 'waiter' } },
   waiter2: { name: '咪咪', role: 'waiter', need: 'waiter2', home: SPOT.waiterIdle[1], look: { fur: 'siamese', outfit: 'waiter' } },
   clerk:   { name: '老墨', role: 'clerk',  need: 'clerk',   home: SPOT.clerk,     look: { fur: 'tabby', outfit: 'clerk' } },
+  teaboy:  { name: '阿麦', role: 'tea',    need: 'teaboy',  home: [14, 23],       look: { fur: 'gray', outfit: 'waiter' } },
   owner:   { name: '狸老板', role: 'owner', need: 'shop',   home: SPOT.owner,     look: { fur: 'tabby', outfit: 'shop' } },
 };
 // a home behind a door that is still shut (an odd save) falls back to the lobby rest spots
@@ -110,6 +111,7 @@ function updStaff(s, dt) {
   }
   if (s.role === 'waiter') { updWaiter(s, dt, walk); return; }
   if (s.role === 'clerk') { updClerk(s, dt, walk); return; }
+  if (s.role === 'tea') { updTeaboy(s, dt, walk); return; }
   // the shop owner (and a porter without an onsen): stand at the post
   const h = homeOf(s); goTo(s, h[0], h[1]); if (walk()) s.dir = 'down';
 }
@@ -170,4 +172,52 @@ function updClerk(s, dt, walk) {
     return;
   }
   const h = homeOf(s); goTo(s, h[0], h[1]); if (walk()) s.dir = 'down';
+}
+
+// ---- the tea runner 阿麦 (茶房, v2.0.1 G3): the room calls the innkeeper used to run. Claims the open call with the least
+// time left (and up to TEABOY_CARRY - 1 more of the same thing), fetches it - tea from the nearer urn, milk from the
+// machine, a snack from the dining counter or cooked at the stove (1 s) - and walks it to the guest wherever the guest is
+// now; within DELIVER_R it hands it over and the tip goes into the cash box at the desk (serveCall). A call that ends on
+// the way (timed out, the guest got it by itself) is let go; what is left on its tray just goes back.
+function teaSource(k, s) {
+  if (k === 'milk') return 'milk';
+  if (k === 'rice') return PASS.n > 0 ? 'pass' : 'stove';
+  const a = !!S.unlocked.tea, b = !!S.unlocked.garden;
+  if (!a || !b) return a ? 'urn1' : 'urn2';
+  return dist(s.x, s.y, ZONE.urn1.c[0], ZONE.urn1.c[1]) <= dist(s.x, s.y, ZONE.urn2.c[0], ZONE.urn2.c[1]) ? 'urn1' : 'urn2';
+}
+const TEA_SRC_TILE = { urn1: SPOT.urn1, urn2: SPOT.urn2, milk: MILK_SPOT, pass: [3, 22], stove: [2, 20] };
+function updTeaboy(s, dt, walk) {
+  s.jobs = s.jobs.filter(gu => gu.call && gu.callBy === s && GUESTS.includes(gu) && !gu.gone);
+  s.cooking = false; s.working = false;
+  if (s.tray.length > s.jobs.length) s.tray.length = s.jobs.length;   // a call that ended on the way: that cup goes back
+  if (!s.jobs.length) {   // the call with the least time left that nobody runs yet
+    let best = null; for (const gu of GUESTS) if (gu.call && !gu.callBy && (!best || gu.call.t < best.call.t)) best = gu;
+    if (best) { best.callBy = s; s.jobs.push(best); s.src = null; s.tt = 0; s.tray.length = 0; }
+  }
+  if (!s.jobs.length) { s.src = null; const h = homeOf(s); goTo(s, h[0], h[1]); if (walk()) s.dir = 'down'; return; }
+  const k = s.jobs[0].call.k;
+  if (s.tray.length < s.jobs.length) {   // fetch: one more call of the same thing first (a second cup for another room)
+    if (s.jobs.length < TEABOY_CARRY && !s.tray.length) for (const gu of GUESTS) if (gu.call && !gu.callBy && gu.call.k === k) { gu.callBy = s; s.jobs.push(gu); break; }
+    if (!s.src || (s.src === 'pass' && PASS.n <= 0 && !s.tray.length)) s.src = teaSource(k, s);
+    const at = TEA_SRC_TILE[s.src]; goTo(s, at[0], at[1]);
+    if (walk()) {
+      s.dir = s.src === 'pass' || s.src === 'stove' || s.src === 'milk' ? 'up' : 'left'; s.working = true;
+      if (s.src === 'pass' && PASS.n <= 0) { s.src = 'stove'; s.tt = 0; return; }   // the counter ran out meanwhile: cook it
+      s.cooking = s.src === 'stove'; s.tt += dt;
+      if (s.tt >= (s.src === 'stove' ? STOVE_T : TEABOY_PICK_T)) { s.tt = 0; if (s.src === 'pass') PASS.n--; s.tray.push(k); sfx(s.src === 'stove' ? 'cook' : 'take'); }
+    } else s.tt = 0;
+    return;
+  }
+  // deliver: the nearest of its guests first
+  s.src = null;
+  let gu = s.jobs[0], bd = 1e9;
+  for (const j of s.jobs) { const [x, y] = guestSpot(j), d = dist(s.x, s.y, x, y); if (d < bd) { bd = d; gu = j; } }
+  const [x, y] = guestSpot(gu);
+  if (bd <= DELIVER_R) {
+    s.tray.pop(); s.jobs.splice(s.jobs.indexOf(gu), 1);
+    FX.push({ k: 'give', it: k, x0: s.x, y0: s.y - 12, x1: x, y1: y - 10, t: 0, life: .3 });
+    serveCall(gu, s); lineSay(s, 'S21'); return;
+  }
+  const t = guestTile(gu); goTo(s, t[0], t[1]); walk();
 }

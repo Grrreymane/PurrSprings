@@ -35,6 +35,8 @@ function loadState(rawIn) {
   s.money = int0(s.money); s.earned = int0(s.earned); s.basket = clamp(int0(s.basket), 0, BASKET_MAX); s.done = !!s.done; s.gift = !!s.gift;
   { const u = {}; for (const k in s.unlocked) if (s.unlocked[k]) u[k] = true; u.room1 = true; s.unlocked = u; }
   { const p = {}; for (const k in s.paid) { const v = int0(s.paid[k]); if (v) p[k] = v; } s.paid = p; }
+  // money poured into a retired pad (v2.0.1 G4: 托盘 2 / 竹篮 2; v1's 招牌 went in migrateV1) never bought: refunded once
+  for (const k of RETIRED) if (s.paid[k] && !s.unlocked[k]) { s.money = Math.min(1e9, s.money + s.paid[k]); delete s.paid[k]; }
   s.peak = clamp(Math.max(int0(s.peak), starOf(s)), 1, 5);   // the star never drops (star() = max(starOf, peak))
   s.hearts = int0(s.hearts);
   s.clock = Number.isFinite(+s.clock) && +s.clock >= 0 && +s.clock < 1 ? +s.clock : .12;
@@ -120,7 +122,7 @@ function fee(k, o) {
   if (k === 'room') { if (o.rm) m *= roomMult(o.rm); m *= ty.room || 1; }
   else if (k === 'tip') { if (o.rm && roomCombo(o.rm)) m *= 2; if (o.pref) m *= 1.5; }
   else if (k === 'bath') { if (o.slot && o.slot.roten) m *= dayLight().night >= .5 ? 1.8 : 1.2; else if (S.unlocked.bigbath) m *= 1.5; m *= ty.bath || 1; }
-  else if (k === 'milk') m *= ty.milk || 1;
+  else if (k === 'milk' || k === 'tea') m *= ty.milk || 1;   // an elder pays x1.5 for milk and tea alike
   else if (k === 'meal') m *= ty.meal || 1;
   m *= 1 + .05 * goldStars();
   let v = R((STARS[star()][k] || 0) * m);
@@ -129,13 +131,13 @@ function fee(k, o) {
 }
 const shoesLvl = () => (S.unlocked.shoes1 ? 1 : 0) + (S.unlocked.shoes2 ? 1 : 0) + (S.unlocked.shoes3 ? 1 : 0) + (S.unlocked.shoes4 ? 1 : 0);
 const netLvl = () => (S.unlocked.net1 ? 1 : 0) + (S.unlocked.net2 ? 1 : 0) + (S.unlocked.net3 ? 1 : 0);
-const towelCap = () => 4 + 3 * ((S.unlocked.basket1 ? 1 : 0) + (S.unlocked.basket2 ? 1 : 0));
+const towelCap = () => 4 + 3 * ((S.unlocked.basket1 ? 1 : 0) + (S.unlocked.basket2 ? 1 : 0));   // basket2: retired (G4), kept for saves that bought it
 const playerSpeed = () => P_SPEED * (1 + .15 * shoesLvl());
 const slotOpen = i => !!S.unlocked[SLOTS[i].need];
 const padNeed = u => u.price - (S.paid[u.id] || 0);
 const maidCount = () => STAFF.filter(s => s.role === 'maid').length;
 const guestRoomsOpen = () => GUEST_ROOMS.reduce((n, r) => n + (roomOpen(r) ? 1 : 0), 0);
-const trayCap = () => 2 + (S.unlocked.tray1 ? 1 : 0) + (S.unlocked.tray2 ? 1 : 0);   // 4.1: 2 + 托盘 x2
+const trayCap = () => 2 + (S.unlocked.tray1 ? 1 : 0) + (S.unlocked.tray2 ? 1 : 0);   // 4.1: 2 + 托盘 (tray2 retired in G4, kept for saves that bought it)
 const callT = () => star() >= 4 ? 60 : 50;                                             // 4.2: CALL_T (the map is bigger from star 4; stage 4: 40 / 50 -> 50 / 60)
 const callMax = () => star() >= 3 ? 3 : 2;
 const CALL_FAST = .3;   // served within the first 30 % of its time = fast (x1.5, hearts 2; stage 4: was half)
@@ -180,5 +182,8 @@ function padsUpdate() {
 const padVisible = u => PADPOS.has(u.id);
 const padXY = u => PADPOS.get(u.id) || (u.dyn ? null : u.pad);
 const visiblePads = () => UNLOCKS.filter(u => PADPOS.has(u.id));
+// v2.0.1 G2: the whole inn is built = every guest room and suite and every area a pad opens (the v2.1 shrine / plaza
+// have no pad yet). That - not star 5 - brings the big celebration panel with the share button ("全馆落成！").
+const innComplete = s => { s = s || S; return ROOMS.every(rm => roomOpen(rm, s)) && AREAS.every(a => !a.open || !UNLOCK[a.open] || areaOpen(a, s)); };
 // buying this gate really adds a star (draw the little star badge only then)
 const raisesStar = u => !!u.star && starOf(S) + 1 > star();

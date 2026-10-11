@@ -20,6 +20,7 @@ const LINES = NUL();
   ['S06', 's', '西馆交给我', 1, 1], ['S07', 's', '庭园交给我', 1, 1], ['S08', 's', '打扫完毕！', .15], ['S09', 's', '毛巾我来搬', 1, 1], ['S10', 's', '嘿咻嘿咻', .08],
   ['S11', 's', '厨房交给我', 1, 1], ['S12', 's', '出锅啦！', .08], ['S13', 's', '上菜啦～', 1, 1], ['S14', 's', '我来端盘子', 1, 1], ['S15', 's', '小心烫哦', .08],
   ['S16', 's', '账我来管', 1, 1], ['S17', 's', '今天赚不少', .15], ['S18', 's', '变强了喵！', 1, 1], ['S19', 's', '掌柜辛苦啦', .3],
+  ['S20', 's', '茶水交给我', 1, 1], ['S21', 's', '请慢用～', .1],   // v2.0.1 G3: the tea runner at its post / handing a cup over
   ['K01', 'o', '生意来啦！', 1, 1], ['K02', 'o', '上新啦！', 1, 1], ['K03', 'o', '要试试吗？', 1, 1], ['K04', 'o', '真合身！', 1, 1],
   ['V01', 'v', '来取材喵', 1, 1], ['V02', 'v', '汤要大！', 1, 1], ['V03', 'v', '花开正好', 1, 1], ['V04', 'v', '靠岸歇歇', 1, 1], ['V05', 'v', '嘘，别说哦', 1, 1],
   ['V06', 'v', '茶要浓的', 1, 1], ['V07', 'v', '劳烦带路', 1, 1], ['V08', 'v', '慢点走嘛', 1, 1], ['V09', 'v', '此等风雅！', 1, 1], ['V10', 'v', '来，拍张照', 1, 1],
@@ -32,7 +33,7 @@ const LINE_EV_T = 2.2, LINE_CHAT_T = 1.8, LINE_GAP = 7, LINE_GAP1 = 10, LINE_NEA
 // a new hire's first words when it reaches its post (7.3.4)
 // a hire's first words it couldn't say (off screen) wait up to HELLO_T s for it to be in view near you (lineOk; 18.2)
 const HELLO_T = 180;
-const ARRIVE_LINE = { recep: 'S01', maid1: 'S04', maid2: 'S05', maid3: 'S06', maid4: 'S07', porter: 'S09', chef: 'S11', waiter1: 'S13', waiter2: 'S14', clerk: 'S16', owner: 'K01' };
+const ARRIVE_LINE = { recep: 'S01', maid1: 'S04', maid2: 'S05', maid3: 'S06', maid4: 'S07', porter: 'S09', chef: 'S11', waiter1: 'S13', waiter2: 'S14', clerk: 'S16', teaboy: 'S20', owner: 'K01' };
 let LINE = null, LINE_NEXT = null, lineCD = -99, UIT = 0;   // the line on screen, an event line waiting (<= 1 s), when the last one came (UI time)
 const LSAID = NUL();                                       // line id -> game time it was last said
 // where a speaker's bubble points (world px): over the head; a cat with an icon bubble over its head speaks 12 px higher,
@@ -42,8 +43,8 @@ function sayAt(e) {
   if (e === PET) return [e.x, e.y - (e.kind === 'shiba' ? 17 : 11)];
   if (e.vip) {
     if (e.st === 'soak' && e.suite) { const tb = ROOM[e.suite].tub; return [tcx(tb), tb[1] * TILE - 3]; }
-    const bub = e.st === 'arrive' || e.st === 'carpet' || (e.st === 'follow' && e.halt) || (e.st === 'seated' && vipWish());
-    return [e.x, e.y - 21 - (bub ? 12 : 0)];
+    const bub = e.st === 'arrive' || e.st === 'carpet' || (e.st === 'follow' && e.halt);
+    return [e.x, e.y - 21 - (e.st === 'seated' && vipWish() ? 26 : bub ? 12 : 0)];   // over the big wish bubble (G1)
   }
   if (e.role) return [e.x, e.y - 21 - (e.carry > 0 ? 4 + e.carry * 2 : 0) - (e === badgeStaff() ? 9 : 0) - (T - (e.newT || -99) < NEW_TAG_T ? 10 : 0)];
   if (e.kind === 'kitten') return [e.x, e.y - (e.mode === 'park' ? 9 : 15)];

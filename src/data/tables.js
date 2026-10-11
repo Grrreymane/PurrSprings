@@ -10,7 +10,8 @@ const UNLOCKS = [
   UN('onsen', '温泉', 50, ['room3'], 20, [17, 7], 'onsen', '客人泡汤付钱', { gate: true, star: true, at: [17, 3] }),
   // star 2 onsen + shop
   UN('recep', '前台', 20, ['onsen'], 2, [19, 25], 'recep', '小樱来接待', { staff: true }),
-  UN('tea', '茶台', 50, ['recep'], 2, [11, 24], 'tea', '客人叫茶有赏', { at: [11, 24] }),   // pad where the urn goes (stage M: at (12,24) the desk hid it)
+  UN('tea', '茶台', 50, ['recep'], 2, [11, 24], 'tea', '客人来喝茶', { at: [11, 24] }),   // pad where the urn goes (stage M: at (12,24) the desk hid it)
+  UN('teaboy', '茶房', 80, ['tea'], 2, [12, 23], 'waiter', '阿麦来送茶', { staff: true }),   // v2.0.1 G3: the room calls go to staff
   UN('basket1', '竹篮', 70, ['onsen'], 1, [20, 28], 'basket', '多顶3条毛巾'),
   UN('maid1', '仲居', 65, ['recep'], 2, [19, 25], 'maid', '雪球来打扫', { staff: true }),
   UN('net1', '鱼网', 70, ['maid1'], 1, [21, 28], 'net', '捡鱼干更远'),
@@ -30,7 +31,6 @@ const UNLOCKS = [
   UN('waiter1', '配膳', 200, ['dining'], 2, [9, 22], 'waiter', '阿福来上菜', { staff: true }),
   UN('d_tank', '鱼缸', 260, ['dining'], 5, 'decor', 'decor', '摆进客房加价', { decor: true }),
   UN('porter', '搬运', 300, ['maid1', 'milk', 'dining'], 2, [20, 25], 'porter', '阿灰来送毛巾', { staff: true }),
-  UN('basket2', '竹篮', 260, ['basket1', 'porter'], 1, [20, 28], 'basket', '多顶3条毛巾'),
   UN('d_tower', '爬架', 300, ['dining'], 5, 'decor', 'decor', '摆进客房加价', { decor: true }),
   UN('table3', '餐桌', 300, ['waiter1'], 2, [3, 26], 'table', '多两个座位'),
   UN('w1', '西馆', 330, ['dining'], 4, [8, 19], 'west', '西馆「茶」房'),
@@ -40,7 +40,7 @@ const UNLOCKS = [
   UN('maid2', '仲居', 450, ['room7', 'maid1'], 2, [19, 25], 'maid', '白玉来打扫', { staff: true }),
   UN('room8', '客房', 460, ['room7'], 3, [18, 8], 'room', '近汤房老人爱'),
   UN('shoes3', '跑鞋', 420, ['shoes2', 'room8'], 1, [19, 28], 'shoes', '走路更快'),
-  UN('clerk', '账房', 320, ['porter'], 2, [20, 25], 'clerk', '老墨来收鱼干', { staff: true }),
+  UN('clerk', '账房', 260, ['porter'], 2, [20, 25], 'clerk', '老墨来收鱼干', { staff: true }),   // v2.0.1: 320 -> 260 (C1: the pile round before him had no calls to share the time with)
   UN('net2', '鱼网', 280, ['net1', 'clerk'], 1, [21, 28], 'net', '捡鱼干更远'),
   UN('w3', '客房', 520, ['w2'], 4, [7, 8], 'room', '静房爱点夜宵'),
   UN('bigbath', '浴池', 560, ['room8'], 3, [13, 5], 'bath', '多2个泡汤位', { at: [17, 3] }),
@@ -50,7 +50,6 @@ const UNLOCKS = [
   UN('d_maneki', '招财', 300, ['garden'], 5, 'decor', 'decor', '摆进客房加价', { decor: true }),
   UN('g_sakura', '樱树', 320, ['g_shishi'], 4, [27, 27], 'sakura', '庭园更风雅', { at: [27, 24] }),
   UN('d_daruma', '达摩', 340, ['garden'], 5, 'decor', 'decor', '摆进客房加价', { decor: true }),
-  UN('tray2', '托盘', 340, ['tray1', 'w2', 'garden'], 1, [6, 21], 'tray', '多端一份'),
   UN('g_maple', '枫树', 360, ['g_sakura'], 4, [27, 27], 'maple', '庭园更风雅', { at: [37, 18] }),
   UN('table4', '餐桌', 360, ['table3', 'chef', 'garden'], 2, [7, 26], 'table', '多两个座位'),
   UN('koi', '锦鲤', 600, ['garden'], 4, [31, 16], 'koi', '池里来三条鱼', { at: [28, 16] }),
@@ -81,13 +80,16 @@ UNLOCKS.forEach(u => {
   u.area = u.dyn ? 'shop' : (areaAt(u.pad[0], u.pad[1]) || {}).id || null; // a pad shows only once its area is open
   u.booth = !!(u.hat || u.pet) || u.id === 'statue';                      // shop booths + the statue: never the "cheapest pad"
 });
-// per star: room fee, tip, bath, milk, breakfast (meal), souvenir, seconds between guests (3.1)
+// v2.0.1 G4: the later tray / basket levels (托盘 2, 竹篮 2) are gone - the staff carry those jobs by then. A save that
+// bought them keeps what they did (trayCap / towelCap still read them); money poured into them is refunded on load.
+const RETIRED = ['tray2', 'basket2'];
+// per star: room fee, tip, bath, milk, breakfast (meal), souvenir, tea at the urn (v2.0.1 G3), seconds between guests (3.1)
 const STARS = [null,
-  { room: 12, tip: 5, bath: 6, milk: 4, meal: 0, souv: 0, gap: 7 },
-  { room: 14, tip: 5, bath: 9, milk: 5, meal: 0, souv: 4, gap: 6 },
-  { room: 16, tip: 6, bath: 10, milk: 6, meal: 10, souv: 6, gap: 5 },
-  { room: 20, tip: 8, bath: 12, milk: 8, meal: 12, souv: 10, gap: 4.2 },
-  { room: 25, tip: 10, bath: 15, milk: 10, meal: 15, souv: 12, gap: 3.6 },
+  { room: 12, tip: 5, bath: 6, milk: 4, meal: 0, souv: 0, tea: 0, gap: 7 },
+  { room: 14, tip: 5, bath: 9, milk: 5, meal: 0, souv: 4, tea: 5, gap: 6 },
+  { room: 16, tip: 6, bath: 10, milk: 6, meal: 10, souv: 6, tea: 6, gap: 5 },
+  { room: 20, tip: 8, bath: 12, milk: 8, meal: 12, souv: 10, tea: 8, gap: 4.2 },
+  { room: 25, tip: 10, bath: 15, milk: 10, meal: 15, souv: 12, tea: 10, gap: 3.6 },
 ];
 // guest types (4.6): fee multipliers; spawn weights per star (regular / elder / couple / family)
 const GUEST_TYPES = { regular: {}, elder: { bath: 1.5, milk: 1.5, speed: .8 }, couple: { room: 1.6, meal: 2 }, family: { room: 1.8, meal: 1.5 } };
@@ -150,15 +152,26 @@ const TRYON_R = 2 * 16, MIRROR_T = 1, PET_GAP = 14, BOOTH_HINT_T = 60;
 const PATIENCE = 45, PATIENCE_EARLY = 70, BATH_WAIT = 20, CHECKIN_T = .7, CLEAN_T = 1.5, MAID_CLEAN_T = 2.5, BATH_T = 6, SLEEP_T = 10, MILK_T = 1;
 const POUR_T = .6;   // a pad fills in this long once you stand on it (stage 4: was 1.2 s; fewer half-poured pads left behind)
 const P_SPEED = 56, G_SPEED = 34, STAFF_SPEED = 40, BASKET_MAX = 10, PAD_DELAY = .4, GUEST_MAX = 40;
-const NET_R = [10, 18, 28, 40];   // fish-pile pickup radius by net level (4.8)
+// fish-pile pickup radius by net level (4.8). v2.0.1 G5: about 1.5 tiles more a level (was 10 / 18 / 28 / 40) and every
+// pile inside it - small ones and the cash box too - flies to the innkeeper (the NEAR_MIN gate is gone)
+const NET_R = [10, 34, 58, 82];
 // tray + calls + dining (4.1-4.3, 11)
 const TRAY_KINDS = ['tea', 'milk', 'rice', 'kaiseki'];
 const DELIVER_SLACK = 10;   // rule 3 (stage 4): the nearest first while the most urgent one has this much slack
 const DELIVER_R = 14, DELIVER_T = .2, CALL_GAP = 6, SEAT_WAIT = 30, EAT_T = 4, CHEF_T = 2.5, PASS_MAX = 6, WAITER_CARRY = 2;
 const STOVE_T = 1, KAISEKI_T = 3, BROWSE_T = 2, BROWSE_P = .3, FOLLOW_GAP = 9;
-// a call when a guest lies down (1 s in): by the room's trait (2.6); bathers ask for milk as they get in
+// a call when a guest lies down (1 s in): by the room's trait (2.6). v2.0.1 G3: bathers no longer call for milk - they
+// buy it at the machine themselves; a call still open when the guest gets its thing by itself (the urn, the machine,
+// breakfast) just ends. Calls are a tip for whoever brings them: the innkeeper (optional, never pointed at) until the
+// tea runner (茶房) is hired, then only the runner.
 const CALL_ROLL = { std: ['tea', .3], near: ['milk', .35], quiet: ['rice', .35], cottage: ['tea', .4] };
-const BATH_CALL = ['milk', .2];   // only once milk is sold (stage 4: no tea calls from the water)
+// v2.0.1 G3: guests serve themselves tea at the lobby urn after checking out (like milk after the bath): TEA_P of them
+// stop at TEA_SPOT for TEA_T s and pay into the tea pile by the urn (PILE_AT.tea)
+const TEA_P = .5, TEA_T = 1, TEA_SPOT = [12, 24];
+PILE_AT.tea = [11, 25];
+// the tea runner: up to 2 calls of the same thing a trip, 0.3 s a portion; its tip = TEA_TIP_K x the innkeeper's (no
+// fast bonus), into the cash box - a call is passive income once it runs them all
+const TEABOY_CARRY = 2, TEABOY_PICK_T = .3, TEA_TIP_K = .5;
 // favourite rooms (4.6): regulars take the plainest free room instead (roomRank)
 const PREF = { elder: rm => rm.trait === 'near', couple: rm => !!roomCombo(rm), family: rm => !!rm.cottage };
 const TYPE_IDS = ['regular', 'elder', 'couple', 'family'];
@@ -172,8 +185,11 @@ const DSLOT_AT = NUL(); DSLOTS.forEach(s => { DSLOT_AT[s.at[1] * MW + s.at[0]] =
 // VIPs (4.4, 11): the first one 20 s after garden, then 210 +- 30 s after the last one left (star 5: 180; suite B x0.7)
 const VIP_FIRST = 20, VIP_GAP = 210, VIP_GAP5 = 180, VIP_JIT = 30, VIP_RELOAD = 60;
 const VIP_GREET_T = .5, VIP_PHOTO_T = 1.2, VIP_TAP_T = 1.5, VIP_SOAK_T = 5, VIP_NEAR = 14;
-const VIP_URGENT = 30;                       // stage 4: a seated VIP's wish beats the pads once it has this little of VIP_IDLE left
-const VIP_SIP_T = { tea: 4, kaiseki: 6 };   // stage 4: the VIP drinks / eats this long before its next wish shows (like the soak)
+// v2.0.1 G1: a wish never runs out (no more "改日再访" after 120 s); the faster, the bigger the tip. A wish done within
+// VIP_WISH_FAST s of showing pays in full, then less down to 60 % at VIP_WISH_FAST + VIP_WISH_SLOW s. The arrow leads the
+// first VIP ever all the way (greet, suite, every wish); later ones go ahead of the pads once a wish has waited VIP_URGENT s.
+const VIP_URGENT = 60, VIP_WISH_FAST = 30, VIP_WISH_SLOW = 90, VIP_CARD_T = 240;
+const VIP_SIP_T = { tea: 6, kaiseki: 8 };   // stage 4: the VIP drinks / eats this long before its next wish shows (like the soak); v2.0.1: 4 / 6 -> 6 / 8 (time for its tick)
 const VIP_FOLLOW = 16, VIP_HALT = 96, VIP_RESUME = 48, VIP_NOGREET = 60, VIP_IDLE = 120, VIP_LEAD_MAX = 120, VIP_NOSUITE = 240;
 // the clerk (4.8): claims piles >= 2 x the tip lying more than 48 px from the innkeeper and carries them to the cash box
 const CLERK_MIN = 2, CLERK_KEEP = 48, CLERK_BAG_T = .4, CLERK_DUMP_T = .3, CHEST_SPOT = [16, 24];

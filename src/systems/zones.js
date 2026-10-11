@@ -6,7 +6,10 @@ function checkinT() { const rc = STAFF.find(s => s.role === 'recep' && s.atDesk)
 function inShelfZone() { return S.unlocked.onsen && dist(P.x, P.y, SHELF_C[0], SHELF_C[1]) <= 22; }
 function inBasketZone() { return S.unlocked.onsen && dist(P.x, P.y, BASKET_C[0], BASKET_C[1]) <= 20; }
 function inCleanZone(rm) { return dist(P.x, P.y, rm.cleanC[0], rm.cleanC[1]) <= rm.cleanR; }
-function collect(id) {
+// pulled: the net reached it from further than a step (G5) - its fish fly over to the innkeeper (not straight to the HUD)
+// and the net's ring shows for a moment (netPullAt), so you can see what the net does
+let netPullAt = -9;
+function collect(id, pulled) {
   const v = S.piles[id]; S.piles[id] = 0;
   S.money += v; S.earned += v; lastEarnT = S.stats.time;
   const [tx, ty] = PILE_AT[id], wx = tx * TILE + 8, wy = ty * TILE + 8;
@@ -14,8 +17,14 @@ function collect(id) {
   const big = id === 'recep' && v > 200;   // the cash box (4.8): 10 fish instead of 6 and a rattle
   if (big) sfx('coinBig');
   const n = Math.min(big ? 10 : 6, Math.max(1, Math.ceil(v / 6)));
-  for (let i = 0; i < n; i++) FX.push({ k: 'fly', x0: wx - R(cam.x) + rand(-4, 4), y0: wy - R(cam.y) - 6 + rand(-3, 3), t: -i * .05, life: .55 + i * .02 });
-  pop('+' + v, wx, wy - 14, '#ffe9a8', 8, .9);
+  if (pulled) {
+    netPullAt = T;
+    for (let i = 0; i < Math.min(n, 5); i++) FX.push({ k: 'suck', x0: wx + rand(-4, 4), y0: wy - 4 + rand(-3, 3), t: -i * .06, life: .4 });
+    pop('+' + v, P.x, P.y - 30, '#ffe9a8', 8, .9);
+  } else {
+    for (let i = 0; i < n; i++) FX.push({ k: 'fly', x0: wx - R(cam.x) + rand(-4, 4), y0: wy - R(cam.y) - 6 + rand(-3, 3), t: -i * .05, life: .55 + i * .02 });
+    pop('+' + v, wx, wy - 14, '#ffe9a8', 8, .9);
+  }
   if (PET && PET.kind === 'duck' && T - quackT >= 20 && Math.random() < .1) { quackT = T; lineSay(PET, 'A01'); sfx('quack'); }   // the duck: 10 %, once per 20 s
   markDirty();
 }
@@ -38,6 +47,8 @@ function pour(u, dt) {
 }
 // ---- the tray (4.1). Everyone waiting for a tray item: calls, seated diners and (stage 2B) the VIP's current wish.
 // A want: { e, k, x, y, left (s), call | seat | give() }. x, y = where it is handed over (within DELIVER_R).
+// playerWants (v2.0.1 G3): what the innkeeper's tray serves - once the tea runner is hired the calls are its job, not yours
+const playerWants = () => { const L = trayWants(); return hasTeaboy() ? L.filter(w => !w.call) : L; };
 function trayWants() {
   const L = [];
   for (const gu of GUESTS) {
@@ -48,8 +59,8 @@ function trayWants() {
   return L;
 }
 const countK = (tr, k) => { let n = 0; for (const x of tr) if (x === k) n++; return n; };
-const wantCount = (k, L) => { let n = 0; for (const w of L || trayWants()) if (w.k === k) n++; return n; };
-function staffHeld(k) { let n = 0; for (const s of STAFF) if (s.tray.length) n += countK(s.tray, k); return n; }
+const wantCount = (k, L) => { let n = 0; for (const w of L || playerWants()) if (w.k === k) n++; return n; };
+function staffHeld(k) { let n = 0; for (const s of STAFF) if (s.tray.length && s.role !== 'tea') n += countK(s.tray, k); return n; }   // waiters (the tea runner's cups are for its calls, not in playerWants)
 const heldCount = k => countK(P.tray, k) + staffHeld(k);
 // pick-up points: standing in the zone hands you one portion every t seconds, only while somebody still wants one
 const PICKUPS = [
@@ -74,7 +85,7 @@ function stoveJob(L) {
 }
 const stoveBusy = () => P.cookT > 0 || STAFF.some(s => s.cooking);
 function trayZones(dt) {
-  const L = trayWants();
+  const L = playerWants();
   let inAny = false;
   for (const pk of PICKUPS) {
     const z = ZONE[pk.id];
@@ -117,11 +128,10 @@ function zones(dt) {
   const f = Q[0];
   if (f && f.st === 'queue' && f.ready) { const rm = freeRoom(f); if (rm && deskManned()) { f.ck += dt / checkinT(); if (f.ck >= 1) checkIn(f, rm); } }
   trayZones(dt);
-  // fish piles: step near it, take it all (the net widens the reach: 4.8)
-  // stage 4 (fewer, bigger pick-ups): the net reaches piles worth bending down for (NEAR_MIN, like arrow rule 4); the
-  // cash box (the desk pile) and smaller piles you step on
-  const nr = NET_R[netLvl()], nm = NEAR_MIN[star()];
-  for (const id in S.piles) if (S.piles[id] > 0) { const [tx, ty] = PILE_AT[id]; if (dist(P.x, P.y, tx * TILE + 8, ty * TILE + 8) <= (id === 'recep' || S.piles[id] < nm ? NET_R[0] : nr)) collect(id); }
+  // fish piles: step near it, take it all; the net widens the reach (4.8). v2.0.1 G5: every pile inside NET_R - small ones
+  // and the cash box too (the stage-4 NEAR_MIN / cash-box gate made the net feel like it did nothing) - flies over
+  const nr = NET_R[netLvl()];
+  for (const id in S.piles) if (S.piles[id] > 0) { const [tx, ty] = PILE_AT[id], d = dist(P.x, P.y, tx * TILE + 8, ty * TILE + 8); if (d <= nr) collect(id, d > NET_R[0] + 6); }
   // cleaning: progress is kept if you walk away
   for (const rm of ROOMS) if (S.rooms[rm.id] === 'messy' && inCleanZone(rm)) { RT[rm.id].cleanP += dt / (CLEAN_T * cleanMulOf(rm)); if (RT[rm.id].cleanP >= 1) finishClean(rm.id); }
   // towels: shelf -> head stack -> basket

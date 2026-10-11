@@ -82,12 +82,12 @@ function drawOverlays() {
       if (gu.bub === 'emb') { drawA(bubbleArt('blank', 0), bx, by, 7, 12); if (gu.room) drawA(emblemArt(ROOM[gu.room].emb), bx, by - 7, 3, 3); }
       else drawA(bubbleArt(gu.bub, gu.urg), bx, by + wob, 7, 12);
     }
-    // a call (4.2): gold-rimmed bubble with the wanted thing, rim white -> orange -> red with the time left; over the
-    // normal bubble when there is one; a sleeper's shows over the futon and a little bell lights over the room's door
+    // a call (4.2): gold-rimmed bubble with the wanted thing over the normal bubble when there is one; a sleeper's shows
+    // over the futon and a little bell lights over the room's door. v2.0.1 G3: an optional tip - the rim stays gold (no
+    // orange / red hurry, no wobble)
     const cy = by - (gu.bub && gu.st !== 'sleep' ? 13 : 0);
     if (gu.call) {
-      const u = urgOf(gu.call.t / gu.call.max);
-      drawA(bubbleArt(gu.call.k, u, true), bx, cy + (u === 2 ? R(Math.sin(T * 6)) : 0), 7, 12);
+      drawA(bubbleArt(gu.call.k, 0, true), bx, cy, 7, 12);
       if (gu.st === 'sleep' && gu.room) { const d = ROOM[gu.room].door; if (VIS(tcx(d), tcy(d), 24)) g.drawImage(wallDecorArt('bell'), d[0] * TILE - CX, (d[1] - 1) * TILE - CY); }
     } else if (gu.callGone > 0 && gu.st !== 'sleep') {   // a call that timed out shrinks away
       const k = gu.callGone / .25, c = bubbleArt('blank', 0, true), w = Math.max(1, R(14 * k)), h = Math.max(1, R(13 * k));
@@ -134,14 +134,16 @@ function drawOverlays() {
   if (TRY.hat && !P.towels) { const fr = Math.floor(T * 3) & 3, b = headBob(P); drawA(sparkleArt(fr), R(P.x) - 7, R(P.y) - 25 - b, 4, 4); drawA(sparkleArt((fr + 2) & 3), R(P.x) + 7, R(P.y) - 21 - b, 4, 4); }
   // the decor slot you stand on: a small ring at your feet until the next piece swaps in
   if (P.slot.key && !P.slot.stop && P.slot.t > 0) ring(R(P.x) - CX, R(P.y) + 6 - CY, P.slot.t / (P.slot.n ? DECOR_T : DECOR_T0), '#ffe9a8');
-  // the VIP (4.4): name card / "..." / its wish (gold, rim by the time left), progress rings, the wish board over the door
+  // the VIP (4.4): name card / "..." / its wish, progress rings, the wish board over the door. v2.0.1 G1: the current wish
+  // is a big gold bubble (the 14 x 13 bubble at 2x, pixel exact, a slow 1 px bob) - no red rim, a wish never runs out;
+  // a wish done pops a big tick over its head (FX 'vipok') and gets a tick on the board
   if (VIPG) {
     const v = VIPG, hx = R(v.x), hy = R(v.y) - 20, k = vipWish();
     if (v.st === 'arrive' || v.st === 'carpet') drawA(cleanSuite() ? bubbleArt('card', 0, true) : bubbleArt('dots', 0), hx, hy, 7, 12);
     else if (v.st === 'follow' && v.halt) drawA(bubbleArt('dots', 0), hx, hy, 7, 12);
-    else if (v.st === 'seated' && k) { const u = urgOf(1 - v.t / VIP_IDLE); drawA(bubbleArt(k, u, true), hx, hy + (u === 2 ? R(Math.sin(T * 6)) : 0), 7, 12); }
+    else if (v.st === 'seated' && k) { const c = bubbleArt(k, 0, true), bob = T % 1 < .5 ? 0 : -1; g.drawImage(c, hx - 14 - CX, hy - 24 + bob - CY, 28, 26); }
     if (v.st === 'carpet' && v.greetT > 0) ring(hx - CX, hy - 18 - CY, v.greetT / VIP_GREET_T, '#ffd23f');
-    if (v.st === 'seated' && k === 'photo' && v.actT > 0) ring(hx - CX, hy - 18 - CY, v.actT / VIP_PHOTO_T, '#ffd23f');
+    if (v.st === 'seated' && k === 'photo' && v.actT > 0) ring(hx - CX, hy - 32 - CY, v.actT / VIP_PHOTO_T, '#ffd23f');
     if (v.st === 'seated' && k === 'bath' && v.actT > 0) { const tp = ROOM[v.suite].tap; ring(tcx(tp) - CX, tcy(tp) - 22 - CY, v.actT / VIP_TAP_T, '#ffd23f'); }
     if ((v.st === 'seated' || v.st === 'soak') && v.suite) {
       const d = ROOM[v.suite].door, bx = tcx(d), by = d[1] * TILE - 1, ws = VIP[v.id].wishes;
@@ -150,18 +152,28 @@ function drawOverlays() {
         ws.forEach((w, i) => {
           const cx = bx - 20 + 3 + i * 12 - CX, cy = by - 14 + 2 - CY + (i === v.wi && !(v.hold > 0) && T % 1 < .5 ? -1 : 0);
           if (i === v.wi) { g.fillStyle = '#ffc21f'; g.fillRect(cx - 1, cy - 1, 12, 12); g.fillStyle = '#fff3d0'; g.fillRect(cx, cy, 10, 10); }
-          g.globalAlpha = i < v.wi ? .3 : 1; g.drawImage(bubbleArt(w, 0), 2, 2, 10, 7, cx, cy + 1, 10, 7); g.globalAlpha = 1;
+          g.globalAlpha = i < v.wi ? .35 : 1; g.drawImage(bubbleArt(w, 0), 2, 2, 10, 7, cx, cy + 1, 10, 7); g.globalAlpha = 1;
+          if (i < v.wi) g.drawImage(okBadge(), cx, cy);   // done: a green tick badge on it
         });
       }
     }
   }
+  for (const fx of FX) if (fx.k === 'vipok' && fx.t >= 0) {   // a wish done: a big tick rises over the VIP and fades (no flash)
+    const p = fx.t / fx.life, a = p < .15 ? p / .15 : clamp((1 - p) / .35, 0, 1), s = p < .15 ? 1 + p / .15 : 2, c = okBadge(), w = c.width * s;
+    g.globalAlpha = a; g.drawImage(c, R(fx.x - w / 2) - CX, R(fx.y - 18 - p * 6 - w / 2) - CY, R(w), R(w)); g.globalAlpha = 1;   // where the wish bubble was
+  }
+  // the fish net's reach (G5): a faint dotted ring round the innkeeper while the net pulls a pile in (and fading 0.8 s
+  // after), so you see what it does; fish pulled in fly over to the innkeeper
+  if (netLvl() && T - netPullAt < .8) netRing(NET_R[netLvl()], .4 * (1 - (T - netPullAt) / .8));
+  for (const fx of FX) if (fx.k === 'suck' && fx.t >= 0) {
+    const p = clamp(fx.t / fx.life, 0, 1), e = p * p;
+    drawA(fishIcon(), lerp(fx.x0, P.x, e), lerp(fx.y0, P.y - 12, e) - Math.sin(p * Math.PI) * 8, 4, 3);
+  }
   // the clerk's bag (its fish are already in the cash box) and the net's new reach ringing out once (4.8)
   for (const s of STAFF) if (s.bag > 0 && VIS(s.x, s.y, 24)) drawA(pileArt(clamp(R(Math.sqrt(s.bag) / 2), 1, 5)), R(s.x), R(s.y) - 17, 8, 17);
-  for (const fx of FX) if (fx.k === 'netring' && fx.t >= 0) {
-    const p = fx.t / fx.life, r = lerp(fx.r0, fx.r1, 1 - (1 - p) * (1 - p)), n = Math.ceil(r * 2.4);
-    g.globalAlpha = .55 * (1 - p); g.fillStyle = '#fff6d8';
-    for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; g.fillRect(R(P.x + Math.cos(a) * r) - CX, R(P.y - 2 + Math.sin(a) * r) - CY, 1, 1); }
-    g.globalAlpha = 1;
+  for (const fx of FX) if (fx.k === 'netring' && fx.t >= 0) {   // a net just bought: the ring opens out (0.6 s), then stays a while and fades (G5)
+    const p = clamp(fx.t / .6, 0, 1), r = lerp(fx.r0, fx.r1, 1 - (1 - p) * (1 - p));
+    netRing(r, .6 * clamp((fx.life - fx.t) / (fx.life - .6), 0, 1));
   } else if (fx.k === 'vtrail' && fx.t >= 0) {   // the VIP's gold glints: each fades in and out once (slow, no blinking)
     const p = fx.t / fx.life; g.globalAlpha = .9 * Math.sin(p * Math.PI); g.fillStyle = '#ffe14a';
     g.fillRect(R(fx.x) - CX, R(fx.y - p * 4) - CY, 1, 1); if (p > .3 && p < .7) { g.globalAlpha *= .5; g.fillRect(R(fx.x) - 1 - CX, R(fx.y - p * 4) - CY, 3, 1); g.fillRect(R(fx.x) - CX, R(fx.y - p * 4) - 1 - CY, 1, 3); }
@@ -225,11 +237,19 @@ function drawGuide() {
   }
 }
 const GUIDE_BUBBLED = new Set(['deliver', 'vip', 'photo']);
+// a dotted ring of radius r round the innkeeper's feet (the net's reach)
+function netRing(r, a) {
+  if (a <= 0) return;
+  const n = Math.ceil(r * 2.4); g.globalAlpha = a; g.fillStyle = '#fff6d8';
+  for (let i = 0; i < n; i++) { if (i % 3 === 2) continue; const t = i / n * Math.PI * 2; g.fillRect(R(P.x + Math.cos(t) * r) - CX, R(P.y - 2 + Math.sin(t) * r) - CY, 1, 1); }
+  g.globalAlpha = 1;
+}
 // the top centre (world px) of the bubble a guest / the VIP shows (the same places drawOverlays draws them), or null
 function bubbleTop(e) {
   if (!e) return null;
   if (e === VIPG) {
-    const shows = e.st === 'arrive' || e.st === 'carpet' || (e.st === 'follow' && e.halt) || (e.st === 'seated' && vipWish());
+    if (e.st === 'seated' && vipWish()) return [R(e.x), R(e.y) - 20 - 25];   // the big wish bubble (G1)
+    const shows = e.st === 'arrive' || e.st === 'carpet' || (e.st === 'follow' && e.halt);
     return shows ? [R(e.x), R(e.y) - 20 - 12] : null;
   }
   if (e.gone || !GUESTS.includes(e)) return null;
