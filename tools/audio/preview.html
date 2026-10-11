@@ -36,6 +36,10 @@
 <div class="row">star <input type="range" id="star" min="1" max="5" value="5"> <span id="starV">5</span>
   &nbsp; night <input type="range" id="night" min="0" max="100" value="0"> <span id="nightV">0</span>
   <span class="note">(arrangement flips at the next 8-bar section; &gt;0.6 night, &lt;0.4 day)</span></div>
+<div class="row">season <select id="season"><option value="0">spring (warbler)</option><option value="1">summer (wind chime, +4 bpm)</option>
+  <option value="2">autumn (low koto + shakuhachi)</option><option value="3">winter (music box + bells)</option></select>
+  <label><input type="checkbox" id="fest"> festival on (fest: true)</label>
+  <span class="note">(v2.1; season lands on the next section; the plaza at night and the shrine are automatic, see the area buttons)</span></div>
 <div class="row"><label><input type="checkbox" id="menu"> pause menu (50 % + paper-door lowpass)</label>
   <button id="duckBtn">musicDuck(1.5)</button>
   <label><input type="checkbox" id="musicOn" checked> music</label><label><input type="checkbox" id="sfxOn" checked> sfx</label></div>
@@ -55,10 +59,11 @@ function save(k, v) { try { localStorage.setItem('purrAudioPreview_' + k, JSON.s
 <script src="engine_from_index.js"></script>
 <script>
 const $ = id => document.getElementById(id);
-const AREA_MUSIC = { front: 'lobby', lobby: 'lobby', main: 'lobby', shop: 'lobby', west: 'lobby', onsen: 'onsen', roten: 'onsen', dining: 'dining', garden: 'garden' };
+const AREA_MUSIC = { front: 'lobby', lobby: 'lobby', main: 'lobby', shop: 'lobby', west: 'lobby', onsen: 'onsen', roten: 'onsen', dining: 'dining', garden: 'garden',
+  shrine: 'garden', plaza: 'lobby' };   // v2.1: shrine = garden's night arrangement + a bell every 15 s; plaza at night = fest
 const SONG_IDS = ['lobby', 'onsen', 'dining', 'garden', 'fest', 'title'];
 const SFX_NAMES = Object.keys(SFX);
-const W = { song: null, star: 5, night: 0, menu: false, area: null };
+const W = { song: null, star: 5, night: 0, menu: false, area: null, season: 0, fest: false };
 let tour = null;
 
 // ---- song grid
@@ -86,7 +91,7 @@ function restart(song, pass, sec) {   // preview helper: drop every player, star
   const now = AC ? AC.currentTime : 0;
   for (const p of _auPl) _auStop(p, now, .08);
   _auPass[song] = pass; _auPend = null; _auSwT = -1e9;
-  musicWant({ song, night: W.night, star: W.star, menu: W.menu, area: W.area });
+  musicWant({ song, night: W.night, star: W.star, menu: W.menu, area: W.area, season: W.season, fest: W.fest });
   _auSwitch(now);   // starts the player now, before any note of it is scheduled
   const p = _auCur();
   if (p && p.song === song) p.secIdx = Math.min(sec, p.sd.form.length - 1);
@@ -115,11 +120,13 @@ $('tourBtn').onclick = () => {
 $('star').oninput = () => { W.star = +$('star').value; $('starV').textContent = W.star; };
 $('night').oninput = () => { W.night = $('night').value / 100; $('nightV').textContent = W.night.toFixed(2); };
 $('menu').onchange = () => { W.menu = $('menu').checked; if (sfxOn) SFX.menu(W.menu); };
+$('season').onchange = () => { W.season = +$('season').value; };
+$('fest').onchange = () => { W.fest = $('fest').checked; };
 $('duckBtn').onclick = () => { ensure(); musicDuck(1.5); };
 $('musicOn').checked = musicOn; $('sfxOn').checked = sfxOn;
 $('musicOn').onchange = () => setMusicOn($('musicOn').checked);
 $('sfxOn').onchange = () => setSfxOn($('sfxOn').checked);
-const LAYERS = ['lead', 'bass', 'pad', 'counter', 'perc', 'sparkle', 'star', 'amb'];
+const LAYERS = ['lead', 'bass', 'pad', 'counter', 'perc', 'sparkle', 'star', 'season', 'amb'];
 for (const l of LAYERS) {
   const lab = document.createElement('label'); lab.innerHTML = '<input type="checkbox" checked data-l="' + l + '"> ' + l; $('solo').appendChild(lab);
 }
@@ -137,12 +144,12 @@ for (const k of SFX_NAMES) {
 
 // ---- frame loop (the game calls these two every frame)
 function frame() {
-  musicWant({ song: W.song, night: W.night, star: W.star, menu: W.menu, area: W.area, shishi: $('shishi').checked, shishiT: performance.now() / 1000 });
+  musicWant({ song: W.song, night: W.night, star: W.star, menu: W.menu, area: W.area, shishi: $('shishi').checked, shishiT: performance.now() / 1000, season: W.season, fest: W.fest });
   musicTick();
   const D = MUSIC_DBG, now = AC ? AC.currentTime : 0;
   const wait = _auPend ? Math.max(0, 1.5 - (now - _auPendT), AU_MINGAP - (now - _auSwT)) : 0;
   $('dbg').textContent = AC ? [
-    'song ' + D.song + '   section ' + D.section + '   bar ' + (D.bar + 1) + '/8   pass ' + D.pass + '   ' + (D.night ? 'NIGHT' : 'day') + ' arrangement',
+    'song ' + D.song + ' (wanted ' + D.want + ')   section ' + D.section + '   bar ' + (D.bar + 1) + '/8   pass ' + D.pass + '   ' + (D.night ? 'NIGHT' : 'day') + ' arrangement   season ' + D.season,
     'layers ' + (D.layers || []).join(' + '),
     'voices/s ' + D.voicesPerSec + ' (max ' + D.voicesMax + ')   players ' + D.players + '   switches ' + D.switches,
     'ambience ' + (D.amb.join(', ') || '-') + '   area ' + W.area,
