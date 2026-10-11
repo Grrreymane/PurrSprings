@@ -1,30 +1,41 @@
 // ------------------------------------------------------------ public API
 // look (v2.0.1, optional): a preset from map.js TILE_LOOK on top of the char (room floors / walls, the west hall, the
 // star-view bath, the lower garden); see the looks section at the end of env.js
+// season (v2.1): 0 spring | 1 summer | 2 autumn | 3 winter (SPEC_v2 16.1). Only outdoor chars change with it
+// (g f b r p z x q s o, the outer walls' tops and eaves); rooms, corridors, the lobby, kitchen and dining never do.
+// Omitted = 0 (spring = the v2.0 look plus fallen petals).
 function tileArt(ch, tx, ty, nb, season, look) {
   nb = nb || {};
-  season = (season | 0) & 3;   // v2.1 seasons; v2.0 always passes 0 and every season draws the same for now
+  season = (season | 0) & 3;
   if (ch === '~') {   // static water; the animated frames are drawn on top by the core
     if (look === 'milky') { _EN_ROTENNB.set(tx + ',' + ty, { u: nb.u, d: nb.d, l: nb.l, r: nb.r }); return rotenWaterArt(0, tx, ty); }
     return waterArt(0, tx, ty);
   }
   if (ch === 'o') {   // static pond tile; remember its neighbours so pondArt() can draw the same rim every frame
     _EN_PONDNB.set(tx + ',' + ty, { u: nb.u, d: nb.d, l: nb.l, r: nb.r });
-    return pondArt(0, tx, ty);
+    return pondArt(0, tx, ty, season);
   }
   const lf = look ? _enLookFn(ch, look, nb) : null, f = lf || _EN_TILE[ch];
   if (!f) return null;   // 'D' (doors are drawn by doorArt) and anything unknown
+  // indoor tiles look the same all year: one canvas for every season. A wall face only changes in winter, and only
+  // its top edge (snow on the cap) when the outside is right above it, or its eave on an outer (facade) wall.
+  let cap = false;
+  if (ch === '#') {
+    const face = nb.d !== '#' && nb.d != null, facade = face && _EN_FACADE.has(nb.d);
+    cap = face && !facade && season === 3 && (nb.u == null || _EN_OUTCH.has(nb.u));
+    if (face ? !(facade || cap) : !_enExposed(nb)) season = 0;
+  } else if (!_EN_OUTCH.has(ch) || ch === 'E') season = 0;
   const k = 'en:t:' + ch + ':' + tx + ',' + ty + ':' + nb.u + ',' + nb.d + ',' + nb.l + ',' + nb.r + ':' + season + (lf ? ':' + look : '');
-  return art(k, () => _enMake(16, 16, G => f(G, tx, ty, nb, season)));
+  return art(k, () => _enMake(16, 16, G => { f(G, tx, ty, nb, season); if (cap) _enCapSnow(G, tx); }));
 }
 // the painter for a look, or null (unknown look: the plain char)
 function _enLookFn(ch, look, nb) {
   const L = _enLook(look);
   if (ch === 't' && _EN_FLOOR[L.id]) return (G, tx, ty, nb2) => _enRoomFloor(G, tx, ty, nb2, _EN_FLOOR[L.id], L.a, L.b, L.c);
-  if (ch === 'r' && L.id === 'rockdry') return (G, tx, ty, nb2) => _enRock(G, tx, ty, Object.assign({}, nb2, { d: nb2.d === '~' ? 'x' : nb2.d }));   // behind a rimmed bath: no wet edge
+  if (ch === 'r' && L.id === 'rockdry') return (G, tx, ty, nb2, s) => _enRock(G, tx, ty, Object.assign({}, nb2, { d: nb2.d === '~' ? 'x' : nb2.d }), s);   // behind a rimmed bath: no wet edge
   if (ch === '#' && _EN_WALL[L.id]) return nb.d !== '#' && nb.d != null ? (G, tx, ty, nb2) => _enRoomWall(G, tx, ty, nb2, _EN_WALL[L.id], L.a, L.b) : null;
   if (ch === '.' && L.id === 'hall') return _enHall;
-  if (ch === 's' && L.id === 'sunoko') return (G, tx, ty, nb2) => _enSunoko(G, tx, ty, nb2, false);
+  if (ch === 's' && L.id === 'sunoko') return (G, tx, ty, nb2, s) => _enSunoko(G, tx, ty, nb2, false, s);
   if (ch === 'r' && L.id === 'roten') return _enRotenSide;
   return _enGardenLook(ch, L);
 }
@@ -45,18 +56,20 @@ function waterArt(frame, tx, ty) {
 // v2: 'hdoor' (horizontal wall, west wing) | 'gate' (bamboo wicket gate in a north-south fence) | 'gateH' (in the hedge)
 // floor (v2.0.1, optional): [room floor look, outside look or char] for a room door, so the doorway shows that room's
 // floor (and the west hall's parquet); without it the floors come from the crest (_EN_DOORFLOOR) as before
-function doorArt(kind, open, col, emb, gold, tx, ty, floor) {
+// season (v2.1, optional; pass it for every door): the gates stand outdoors, so their ground and top rail follow the
+// season; the onsen door gets the winter snow line of the outer wall it sits in. Room doors ignore it.
+function doorArt(kind, open, col, emb, gold, tx, ty, floor, season) {
   open = !!open;
   const gate = kind === 'gate' || kind === 'gateH';
   let sty = !gate && kind !== 'onsen' && open && !!(col || emb || gold);   // a closed door is the same shoji in every style
   if (kind === 'hdoor') sty = open;
   if (gate) { tx = tx == null ? (kind === 'gate' ? 24 : 25) : tx | 0; ty = ty == null ? (kind === 'gate' ? 4 : 29) : ty | 0; }
-  const fl = sty && Array.isArray(floor) ? floor : null;
-  const k = 'en:d:' + kind + ':' + (open ? 1 : 0) + (sty ? ':' + (col || '') + ':' + (emb || '') + ':' + (gold ? 1 : 0) : '') + (gate ? ':' + tx + ',' + ty + ':' + (emb || '') : '') + (fl ? ':' + fl.join('/') : '');
+  const fl = sty && Array.isArray(floor) ? floor : null, sea = gate || kind === 'onsen' ? (season | 0) & 3 : 0;
+  const k = 'en:d:' + kind + ':' + (open ? 1 : 0) + (sty ? ':' + (col || '') + ':' + (emb || '') + ':' + (gold ? 1 : 0) : '') + (gate ? ':' + tx + ',' + ty + ':' + (emb || '') + ':' + sea : '') + (fl ? ':' + fl.join('/') : '') + (kind === 'onsen' && sea === 3 ? ':w' : '');
   return art(k, () => {
-    if (kind === 'onsen') return _enMake(16, 16, G => _enOnsenDoor(G, open));
+    if (kind === 'onsen') return _enMake(16, 16, G => { _enOnsenDoor(G, open); if (sea === 3) _enCapSnow(G, tx | 0); });   // winter: the snow line on the outer wall's top runs over it
     if (kind === 'hdoor') return _enMake(16, 16, G => _enHDoor(G, open, col, emb, gold));
-    if (gate) return _enMake(16, 16, G => _enGate(G, open, tx, ty, kind === 'gateH', emb === 'star' || (kind === 'gate' && tx === 24 && ty === 4)));
+    if (gate) return _enMake(16, 16, G => _enGate(G, open, tx, ty, kind === 'gateH', emb === 'star' || (kind === 'gate' && tx === 24 && ty === 4), sea));
     if (!sty) {
       if (kind === 'right') return flipC(doorArt('left', open));
       return _enMake(16, 16, G => _enRoomDoor(G, open));
@@ -98,6 +111,15 @@ const _EN_EMB = {
   fuku:       ['.X.X.', '..X..', 'XXXXX', 'XXXXX', '.XXX.'],
   fish:       ['.....', '.XX.X', 'XXXXX', '.XX.X', '.....'],
   tea2:       ['.XX..', 'X.X..', 'XXXXX', 'XXXXX', '.XXX.'],
+  // v2.1 seasonal combos (16.1): night sakura (a blossom over two lanterns), summer cool (a wind chime and its paper
+  // strip), moon viewing (a full moon over pampas tips), kotatsu (the quilted table), the cat's dream (a cat curled
+  // asleep), new year (kagami mochi with its bitter orange)
+  yozakura:   ['.X.X.', 'XXoXX', '.XXX.', '.X.X.', 'o...o'],
+  suzumi:     ['..X..', '.XXX.', 'XXXXX', '..o..', '..o..'],
+  tsukimi:    ['.XXX.', 'XXXXX', 'XXXXX', '.XXX.', 'o.o.o'],
+  kotatsu:    ['.....', 'XXXXX', 'XoXoX', 'XXXXX', 'X...X'],
+  yume:       ['X.X..', 'XXXX.', 'XoXXX', '.XXXX', '..XX.'],
+  shinnen:    ['..o..', '.XXX.', 'XXXXX', '.XXX.', 'XXXXX'],
 };
 function _enLum(hex) { const n = parseInt(hex.slice(1), 16); return ((n >> 16) * .299 + ((n >> 8) & 255) * .587 + (n & 255) * .114) / 255; }
 function _enEmblem(G, emb, x0, y0, cloth) {
@@ -191,8 +213,8 @@ function _enHDoor(G, open, col, emb, gold) {
 }
 // v2: bamboo wicket gate (shiorido), seen from the front: cedar posts, a capped top rail, a woven dried-bamboo leaf.
 // It paints its own paving (slate for 'gate', the gravel walk for 'gateH') lined up with tile (tx, ty).
-function _enGate(G, open, tx, ty, horiz, lamp) {
-  if (horiz) _enGardenPath(G, tx, ty, { u: 'p', d: 'p', l: 'f', r: 'f' }); else _enSlate(G, tx, ty, {});   // v2.0.1: the gravel walk between the two gardens
+function _enGate(G, open, tx, ty, horiz, lamp, season) {
+  if (horiz) _enGardenPath(G, tx, ty, { u: 'p', d: 'p', l: 'f', r: 'f' }, season); else _enSlate(G, tx, ty, {}, season);   // v2.0.1: the gravel walk between the two gardens
   const post = x0 => {
     for (let y = 0; y < 15; y++) { G.set(x0, y, _EN.cedarH); G.set(x0 + 1, y, _EN.cedar); G.set(x0 + 2, y, _EN.cedarD); }
     G.set(x0, 0, _EN.dryH); G.set(x0 + 1, 0, _EN.dry); G.set(x0 + 2, 0, _EN.dryD);
@@ -218,6 +240,7 @@ function _enGate(G, open, tx, ty, horiz, lamp) {
     G.set(x, 1, x === 0 || x === 15 ? _EN.cedarD : _EN.cedarH); G.set(x, 2, _EN.cedar); G.set(x, 3, _EN.cedarD);
   }
   for (let x = 1; x < 15; x++) G.set(x, 0, x === 1 || x === 14 ? _EN.cedarD : '#6a4428');
+  if (season === 3) { for (let x = 1; x < 15; x++) G.set(x, 0, x < 4 ? _EN_SN.w : _EN_SN.h); for (let x = 2; x < 14; x++) if (_enH(x, ty, 641) < .5) G.set(x, 1, _EN_SN.s); for (const x of [0, 1, 13, 14, 15]) G.set(x, 0, _EN_SN.b); }   // winter: snow along the top rail
   if (lamp) {   // a small star lantern hanging from the rail (the roten gate)
     G.set(9, 4, '#3a2418');
     const ST = ['..X..', 'XXXXX', '.XXX.', 'X...X'];
@@ -296,16 +319,19 @@ function lockedShade() {
 // ============================================================ v2 additions (SPEC_v2 12.2)
 // koi pond water, 16x16 at the tile's top-left, 4 slow frames (the core steps them every 0.4 s); seamless; the rim
 // comes from the neighbours tileArt('o') saw (or the SPEC_v2 pond rectangle before that)
-function pondArt(frame, tx, ty) {
-  frame = (((frame | 0) % 4) + 4) % 4;
-  const nb = _enPondNb(tx, ty), k = 'en:pond:' + frame + ':' + tx + ',' + ty + ':' + (nb.u === 'o' ? 1 : 0) + (nb.d === 'o' ? 1 : 0) + (nb.l === 'o' ? 1 : 0) + (nb.r === 'o' ? 1 : 0);
-  return art(k, () => _enMake(16, 16, G => _enPond(G, frame, tx, ty, nb)));
+// v2.1 season (optional, 0..3): spring petals afloat, summer water lilies in flower, autumn yellow pads + floating
+// leaves, winter a skin of ice along the rim and snow on its stones (the middle stays open for the koi)
+function pondArt(frame, tx, ty, season) {
+  frame = (((frame | 0) % 4) + 4) % 4; season = (season | 0) & 3;
+  const nb = _enPondNb(tx, ty), k = 'en:pond:' + frame + ':' + tx + ',' + ty + ':' + (nb.u === 'o' ? 1 : 0) + (nb.d === 'o' ? 1 : 0) + (nb.l === 'o' ? 1 : 0) + (nb.r === 'o' ? 1 : 0) + ':' + season;
+  return art(k, () => _enMake(16, 16, G => _enPond(G, frame, tx, ty, nb, season)));
 }
 // the roten waterfall: 32x40, its (0,0) goes on world (31*16, 0); a rock lip over the fence, a falling sheet whose
 // streaks slide down 4px a frame (period 16 = seamless over 4 frames), wet rocks either side, a foam pool below
-function waterfallArt(frame) {
-  frame = (((frame | 0) % 4) + 4) % 4;
-  return art('en:fall:' + frame, () => _enMake(32, 40, G => {
+// v2.1 season (optional): winter puts snow on the boulders' tops and a few icicles along the lip
+function waterfallArt(frame, season) {
+  frame = (((frame | 0) % 4) + 4) % 4; const snow = ((season | 0) & 3) === 3;
+  return art('en:fall:' + frame + (snow ? ':w' : ''), () => _enMake(32, 40, G => {
     const RAMP = ['#3a3a40', '#4e4e54', '#66666a', '#807e7a', '#9a9890'];
     const rocks = [[4, 9, 7.5, 9], [27, 9, 7.5, 9], [16, 4, 10, 5.5], [2, 24, 4.5, 8], [30, 24, 4.5, 8]];
     for (let y = 0; y < 40; y++) for (let x = 0; x < 32; x++) {   // boulders: lit top-left, wet (darker) low down
@@ -319,9 +345,11 @@ function waterfallArt(frame) {
       let c = RAMP[clamp(Math.round(1.8 + v * 2), 0, 4)];
       if (bd > .82) c = '#2c2c34';
       if (y > 14) c = _enM(c, '#1e4650', clamp((y - 14) / 16, 0, .5));   // wet with spray
-      if (bny < -.3 && best < 3 && _enVN(x / 3, y / 3, 241) > .55) c = bny < -.6 ? '#7a9a52' : '#5e7e44';   // moss on the tops
+      if (snow && best < 3 && bd <= .82 && bny + _enVN(x / 3, y / 2, 245) * .4 - .2 < -.35) c = v > .6 ? _EN_SN.w : v > .2 ? _EN_SN.h : v > -.2 ? _EN_SN.b : _EN_SN.s;
+      else if (!snow && bny < -.3 && best < 3 && _enVN(x / 3, y / 3, 241) > .55) c = bny < -.6 ? '#7a9a52' : '#5e7e44';   // moss on the tops
       G.set(x, y, c);
     }
+    if (snow) for (const [ix, iy, n] of [[7, 15, 3], [9, 16, 2], [24, 15, 3], [22, 16, 2], [12, 8, 2], [20, 8, 2]]) for (let k = 0; k < n; k++) if (G.get(ix, iy + k)) G.set(ix, iy + k, k === 0 ? _EN_SN.iceH : _EN_SN.ice);   // icicles
     // the falling sheet
     for (let y = 5; y < 36; y++) {
       const w0 = 10 - Math.floor((y - 5) * .07), w1 = 21 + Math.floor((y - 5) * .07);
@@ -394,13 +422,44 @@ function wallDecorArt(kind) {
       B.forEach((r, j) => [...r].forEach((ch, i) => { if (ch !== '.') G.set(4 + i, 5 + j, ch === 'H' ? '#fff2a8' : ch === 'D' ? '#c08a1c' : '#f0c040'); }));
       for (let x = 4; x <= 11; x++) G.set(x, 11, x === 4 ? '#8a5a12' : '#6a4a1a');
       G.set(7, 12, '#8a5a12'); G.set(8, 12, '#6a4a1a');
+    } else if (kind === 'trophy') {   // v2.1 (16.3) a lacquered wall shelf on two brackets, a gold name plate on its edge;
+      // the core stands the two newest trophies on it: bottoms on y 12, centres x 5 (older, drawn first) and x 11
+      for (let x = 0; x < 16; x++) { G.set(x, 12, x < 3 ? '#8a4a3a' : '#6a3428'); G.set(x, 13, '#3a1c18'); G.set(x, 14, SH); }
+      for (const bx of [2, 13]) { G.set(bx, 14, '#2a1410'); G.set(bx, 15, '#2a1410'); G.set(bx + 1, 15, SH); }
+      for (let x = 6; x <= 9; x++) G.set(x, 13, x === 6 ? '#fff0a0' : '#e0b448');
+      for (let x = 1; x <= 14; x++) if (G.get(x, 11) == null) G.set(x, 11, '#00000018');   // a faint shadow on the wall above the shelf
+    } else if (kind === 'cover') {   // v2.1 (16.4) a thin black frame hung from the beam; the core draws coverArt (10x12)
+      // into its window x 3..12, y 2..13 (left at blank paper)
+      G.set(7, 0, '#5a4a40'); G.set(8, 0, '#5a4a40');
+      for (let y = 1; y <= 14; y++) for (let x = 2; x <= 13; x++) {
+        const edge = x === 2 || x === 13 || y === 1 || y === 14;
+        G.set(x, y, edge ? (x === 2 || y === 1 ? '#4a4048' : '#1e1a20') : y < 6 ? '#f8f4ea' : '#efe9dc');
+      }
+      for (let y = 2; y <= 15; y++) G.set(14, y, SH);
+      for (let x = 3; x <= 14; x++) G.set(x, 15, SH);
+    } else if (kind === 'family') {   // v2.1 (16.5) the family photo: a gilt frame on a red cord; the window x 1..14,
+      // y 4..13 is pre-painted with the inn's door (sky, eave, dark wood, the indigo noren, stone) - the core draws the
+      // cats standing on y 13
+      G.set(7, 0, '#c8302a'); G.set(8, 0, '#c8302a'); G.set(6, 1, '#c8302a'); G.set(9, 1, '#a8281e'); G.set(5, 2, '#c8302a'); G.set(10, 2, '#a8281e');
+      for (let y = 3; y <= 14; y++) for (let x = 0; x <= 15; x++) {
+        const edge = x === 0 || x === 15 || y === 3 || y === 14;
+        if (edge) { G.set(x, y, (x === 0 || y === 3) ? (((x + y) & 1) ? _EN_GLD[4] : _EN_GLD[5]) : ((x + y) & 1) ? _EN_GLD[1] : _EN_GLD[2]); continue; }
+        let c = y < 6 ? (y === 4 ? '#bcdcf0' : '#d8ecf6') : y === 6 ? '#3c4252' : y === 7 ? '#5a6478' : y < 12 ? ((x & 1) ? '#5a3a28' : '#4a2e20') : y === 12 ? '#c4beb0' : '#aaa496';
+        if (y >= 7 && y <= 10 && x >= 5 && x <= 10) c = y === 7 ? '#46629a' : (x === 7 || x === 8) && y > 8 ? '#2a1c18' : '#2f4a7a';   // the noren
+        if (y === 8 && (x === 7 || x === 8)) c = '#f4f0e6';
+        if ((x === 2 || x === 13) && y >= 8 && y <= 10) c = y === 8 ? '#ffe0a0' : '#f0b860';   // two lanterns by the door
+        G.set(x, y, c);
+      }
+      G.set(0, 15, SH); for (let x = 1; x <= 15; x++) G.set(x, 15, SH);
     }
   }));
 }
 // dense bamboo screening the shrine plot in v2.0: 16x24, anchor (0,24) = tile bottom-left, so it rises 8px above its
 // tile. Everything is a function of world pixels, so the overlaps line up; only the topmost row shows the ragged tops.
-function bambooGroveArt(tx, ty) {
-  return art('en:grove:' + tx + ',' + ty, () => _enMake(16, 24, G => {
+// v2.1 season (optional): winter = snow caught on the canopy and the leaf sprays
+function bambooGroveArt(tx, ty, season) {
+  const snow = ((season | 0) & 3) === 3;
+  return art('en:grove:' + tx + ',' + ty + (snow ? ':w' : ''), () => _enMake(16, 24, G => {
     const CS = 5;   // one culm slot every 5 px
     for (let y = 0; y < 24; y++) for (let x = 0; x < 16; x++) {
       const wx = tx * 16 + x, wy = ty * 16 - 8 + y;
@@ -433,6 +492,12 @@ function bambooGroveArt(tx, ty) {
       const lx = Math.floor(_enH(tx, ty, 260 + i) * 13), ly = 4 + Math.floor(_enH(ty, tx, 263 + i) * 18), dir = _enH(tx + i, ty, 266) < .5 ? 1 : -1;
       if (!G.get(lx, ly)) continue;
       G.set(lx, ly, '#8cc860'); G.set(lx + dir, ly + 1, '#6aa84a'); G.set(lx + 2 * dir, ly + 1, '#4e8a3e');
+    }
+    if (snow) for (let y = 0; y < 24; y++) for (let x = 0; x < 16; x++) {   // snow on the canopy's top and on the lit sprays
+      const c = G.get(x, y); if (!c) continue;
+      const wx = tx * 16 + x, wy = ty * 16 - 8 + y, s = _enVN(wx / 3, wy / 2.5, 631), top = !G.get(x, y - 1) || y === 0;
+      if ((top && y < 12) || (s > .64 && (c === '#7cb84a' || c === '#5a9a46' || c === '#3e7a3a'))) G.set(x, y, top ? _EN_SN.w : s > .74 ? _EN_SN.h : _EN_SN.s);
+      else if (top && y < 13) G.set(x, y, _EN_SN.b);
     }
   }));
 }
@@ -510,6 +575,302 @@ function plazaDecor(tx, ty) {
       G.set(lx, ly, p[0]); G.set(lx + 1, ly, p[0]); G.set(lx + 1, ly + 1, p[1]); G.set(lx + 2, ly + 1, p[1]); G.set(lx + 1, ly + 2, '#1b1b2f30');
     }
     if (_enH(tx, ty, 281) < .3) { const px = 3 + Math.floor(_enH(tx, ty, 282) * 10), py = 3 + Math.floor(_enH(ty, tx, 283) * 10); G.set(px, py, '#8a8478'); G.set(px + 1, py, '#a8a294'); G.set(px, py + 1, '#1b1b2f30'); }
+  }));
+}
+
+// ============================================================ v2.1 additions (SPEC_v2 16.14, scenery)
+// treeArt(kind, season, size)   sakura 32x44 / maple 28x36 / pine 32x40 (size 1 / 2: sakura 26x36 / 20x28, maple
+//                               24x30 / 18x24); anchor (w/2, h) = bottom-centre of the footprint tile. season 0..3;
+//                               omitted = the v2.0 look (sakura in bloom, maple red) for the cover / title.
+//                               (Moved here from the objects block: delete the old treeArt in objects-v2.js on merge.)
+function treeArt(kind, season, size) { return _enTree(kind, season, size); }
+
+// seasonWarm(season, budget): paints up to `budget` (default 6) outdoor tiles of that season into the ART cache ahead
+// of time; returns true once the whole map is ready. A full outdoor repaint costs ~0.5-0.8 s (winter the most), so the
+// core calls this every frame during the last in-game hours before a season turns; rebuildWorld() is then instant.
+// Reads MAP / TILE_LOOK / ch from data/map.js at call time.
+let _EN_WARM = null;
+function seasonWarm(season, budget) {
+  season = (season | 0) & 3; budget = budget > 0 ? budget : 6;
+  if (!_EN_WARM || _EN_WARM.s !== season) _EN_WARM = { s: season, i: 0 };
+  while (budget > 0 && _EN_WARM.i < MW * MH) {
+    const i = _EN_WARM.i++, tx = i % MW, ty = (i / MW) | 0, c = MAP[ty][tx];
+    if (c === 'D' || (c !== '#' && !_EN_OUTCH.has(c))) continue;
+    tileArt(c, tx, ty, { u: ch(tx, ty - 1), d: ch(tx, ty + 1), l: ch(tx - 1, ty), r: ch(tx + 1, ty) }, season, TILE_LOOK[i]);
+    budget--;
+  }
+  return _EN_WARM.i >= MW * MH;
+}
+
+// snowCapArt(c): any prop canvas with snow lying on its upward-facing surfaces (winter roofs, lanterns, rocks, benches);
+// same size and anchor as c, cached per canvas. Pixels with alpha < 50% (ground shadows) are left alone.
+const _EN_SNOWCAP = new WeakMap();
+function snowCapArt(c) {
+  if (!c || !c.width) return c;
+  let o = _EN_SNOWCAP.get(c); if (o) return o;
+  const w = c.width, h = c.height, D = c.getContext('2d').getImageData(0, 0, w, h).data;
+  const on = (x, y) => x >= 0 && y >= 0 && x < w && y < h && D[(y * w + x) * 4 + 3] > 127;
+  const G = new Grid(w, h);
+  for (let y = 0; y < h - 2; y++) for (let x = 0; x < w; x++) {
+    if (!on(x, y) || on(x, y - 1)) continue;   // the top pixel of a surface
+    const flat = on(x - 1, y) && on(x + 1, y) && !on(x - 1, y - 1) && !on(x + 1, y - 1);
+    G.set(x, y, _EN_SN.s);
+    if (on(x, y + 1)) G.set(x, y + 1, x < w * .45 ? _EN_SN.w : _EN_SN.h);
+    if (flat && on(x, y + 2) && _enHt(x, y, 651) < .6) G.set(x, y + 2, _EN_SN.b);
+  }
+  o = mk(w, h); const x2 = o.getContext('2d'); x2.drawImage(c, 0, 0); x2.drawImage(G.canvas(), 0, 0);
+  _EN_SNOWCAP.set(c, o); return o;
+}
+
+// ------------------------------------------------------------ the cat shrine (SPEC_v2 16.8): NW plot, cols 1-9, rows 1-5
+// shared stone / lacquer / gold tones (dark -> light)
+const _EN_GRA = ['#5e5e5a', '#7a7a76', '#9a9a92', '#b8b6ae', '#d4d2c8'];
+const _EN_VER = ['#6e1c16', '#9a2a1c', '#c83e28', '#e25a38', '#f6865c'];
+const _EN_GLD = ['#6a4410', '#9a6618', '#cc8e22', '#eebc3a', '#f8dc74', '#fff4c0'];
+const _EN_ROOF = ['#241c20', '#342a2c', '#46393a', '#5c4c4a', '#76625c'];
+// hokoraArt(lv, season): 48x44, anchor (0,44) = the bottom-left of the hall's 3x1 footprint (4..6, 1):
+// drawObj(hokoraArt(lv, s), 4, 2 * TILE, 3). Its top 12 rows rise above the map's edge (never on screen), so every
+// level's change sits in rows 12..43. Levels add up: 1 a small wooden hokora on a stone pedestal; 2 a straw rope with
+// paper streamers; 3 a granite platform with a step; 4 an offering box; 5 the vermilion main hall replaces the hokora
+// (dark roof, white walls, big rope); 6 two trees behind it (sakura, by season); 7 rows of little red torii either side
+// (senbon torii); 8 a gold bell with its red-white rope; 9 a gold roof; 10 a giant golden cat asleep on the roof
+// (nemuri-neko) - the core adds a glow at night (glowArt r28 at world (92, 8)). Winter: snow on roofs and stone tops.
+function hokoraArt(lv, season) {
+  lv = clamp(lv | 0, 1, 10); season = (season | 0) & 3;
+  return art('en:hokora:' + lv + ':' + season, () => {
+    const G = new Grid(48, 44), snow = season === 3, put = (x, y, c) => G.set(x, y, c);
+    const rect = (x0, y0, x1, y1, c) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) put(x, y, typeof c === 'function' ? c(x, y) : c); };
+    if (lv >= 6) _enShrineTrees(G, season);
+    if (lv >= 10) _enNemuriNeko(G, 'back');
+    // ---- ground: small base slabs (1-2) or the granite platform (3+)
+    if (lv >= 3) {
+      rect(6, 40, 41, 43, (x, y) => { const j = (x - 6) % 10 === 0, t = _enHt(Math.floor((x - 6) / 10), 0, 661); return y === 40 ? (j ? _EN_GRA[2] : _EN_GRA[4]) : y === 41 ? (j ? _EN_GRA[1] : t < .5 ? _EN_GRA[3] : _EN_GRA[2]) : j ? _EN_GRA[0] : y === 43 ? _EN_GRA[0] : (t < .5 ? _EN_GRA[2] : _EN_GRA[1]); });
+      rect(18, 42, 29, 43, (x, y) => y === 42 ? _EN_GRA[4] : x === 18 ? _EN_GRA[3] : _EN_GRA[2]);   // the step
+      if (snow) { rect(6, 40, 41, 40, (x) => _enHt(x, 40, 662) < .8 ? _EN_SN.w : _EN_SN.h); rect(18, 42, 29, 42, _EN_SN.w); for (let x = 7; x < 41; x++) if (_enHt(x, 41, 663) < .4) put(x, 41, _EN_SN.b); }
+    } else {
+      rect(14, 40, 33, 43, (x, y) => x === 23 || x === 24 ? _EN_GRA[1] : y === 40 ? _EN_GRA[4] : y === 43 ? _EN_GRA[1] : _EN_GRA[3]);
+      if (snow) rect(14, 40, 33, 40, _EN_SN.w);
+    }
+    if (lv < 5) _enSmallHokora(G, lv, snow, rect);
+    else _enMainHall(G, lv, snow, rect);
+    if (lv >= 7) { _enSenbon(G, 0, snow); _enSenbon(G, 1, snow); }
+    if (lv >= 10) _enNemuriNeko(G, 'front', snow);
+    G.selOutline();
+    const c = G.canvas(), x = c.getContext('2d');   // a soft contact shadow under the platform's front edge
+    x.fillStyle = 'rgba(27,27,47,.22)'; x.fillRect(lv >= 3 ? 7 : 15, 43, lv >= 3 ? 35 : 19, 1);
+    return c;
+  });
+}
+function _enSmallHokora(G, lv, snow, rect) {   // lv 1-4: a small wooden shrine on a stone pedestal
+  const W = ['#4e3220', '#6e4a2e', '#946a40', '#b88a58', '#d4aa76'];
+  rect(16, 35, 31, 35, (x) => x < 20 ? _EN_GRA[4] : _EN_GRA[3]);                                   // pedestal top slab
+  rect(18, 36, 29, 39, (x, y) => x === 18 ? _EN_GRA[3] : x === 29 ? _EN_GRA[1] : y === 39 ? _EN_GRA[1] : _EN_GRA[2]);
+  rect(19, 27, 28, 34, (x, y) => x === 19 ? W[3] : x === 28 ? W[1] : y === 34 ? W[1] : W[2]);       // the body
+  rect(20, 28, 27, 34, (x, y) => (x === 23 || x === 24) ? W[0] : (y - 28) % 3 === 0 || x === 20 || x === 27 ? '#5a3a24' : '#3a2618');   // two lattice doors
+  _enPut2(G, [[22, 31, W[4]], [25, 31, W[4]]]);                                                        // door pulls
+  // the gabled roof (cypress bark), lit on the left; crossed chigi at the ridge ends, two katsuogi logs
+  const rows = [[21, 26, 20], [19, 28, 21], [18, 29, 22], [17, 30, 23], [16, 31, 24], [16, 31, 25], [15, 32, 26]];
+  for (const [x0, x1, y] of rows) for (let x = x0; x <= x1; x++) G.set(x, y, y === 26 ? (x < 24 ? _EN_ROOF[4] : _EN_ROOF[3]) : x < (x0 + x1) / 2 - 1 ? (y & 1 ? _EN_ROOF[3] : _EN_ROOF[4]) : (y & 1 ? _EN_ROOF[1] : _EN_ROOF[2]));
+  rect(16, 27, 31, 27, _EN_ROOF[0]);                                                                  // eave shadow
+  _enPut2(G, [[20, 18, W[3]], [21, 19, W[2]], [27, 18, W[2]], [26, 19, W[1]], [23, 19, W[3]], [24, 19, W[2]]]);
+  if (snow) for (const [x0, x1, y] of rows.slice(0, 5)) for (let x = x0; x <= x1; x++) if (y < 22 || x === x0 || x === x1 || _enHt(x, y, 664) < .7 - (y - 22) * .2) G.set(x, y, x < 23 ? _EN_SN.w : _EN_SN.b);
+  if (lv >= 2) {   // straw rope + two zigzag paper streamers (shide)
+    for (let x = 18; x <= 29; x++) G.set(x, 28, (x & 1) ? '#e2ca84' : '#b8964e');
+    for (const [sx, d] of [[19, 1], [28, -1]]) _enPut2(G, [[sx, 29, '#ffffff'], [sx + d, 30, '#ffffff'], [sx, 31, '#e8ecf2'], [sx + d, 32, '#d8dce6']]);
+  }
+  if (lv >= 4) {   // offering box (saisen-bako) in front: slatted top, dark front, a lighter frame
+    rect(20, 36, 27, 39, (x, y) => y === 36 ? ((x & 1) ? W[4] : W[1]) : y === 37 ? W[3] : x === 20 ? W[2] : x === 27 ? W[0] : y === 39 ? W[0] : W[1]);
+    if (snow) rect(20, 36, 27, 36, _EN_SN.w);
+  }
+}
+function _enPut2(G, list) { for (const [x, y, c] of list) G.set(x, y, c); }
+function _enMainHall(G, lv, snow, rect) {   // lv 5+: the vermilion main hall (honden)
+  const V = _EN_VER, R0 = lv >= 9 ? _EN_GLD : _EN_ROOF, gold = lv >= 9;
+  // veranda boards + the body: vermilion pillars, white walls, a red tie beam, dark lower panels, lattice doors
+  rect(8, 39, 39, 39, (x) => x < 12 ? '#b07a4a' : x & 1 ? '#9a6a3e' : '#8a5c34');
+  rect(9, 30, 38, 38, (x, y) => y >= 36 ? (y === 36 ? '#6a4630' : '#3e2a20') : y === 33 ? V[2] : y === 34 ? V[1] : x < 20 ? '#f6f1e6' : '#e6dfd0');
+  for (const px of [9, 17, 29, 37]) rect(px, 30, px + 1, 38, (x) => x === px ? V[3] : V[1]);
+  rect(19, 30, 28, 38, (x, y) => (x === 19 || x === 28) ? V[2] : (y - 30) % 3 === 2 ? '#2a1c18' : (x & 1) ? '#4a3226' : '#3a2820');   // lattice doors
+  rect(23, 30, 24, 38, '#2a1c18'); _enPut2(G, [[22, 34, _EN_GLD[4]], [25, 34, _EN_GLD[3]]]);
+  rect(9, 30, 38, 30, (x) => _enM(G.get(x, 30) || '#000000', '#140c10', .55));   // the eave's shadow on the wall
+  // the roof: ridge, a small gable with a gold crest, the long lower slopes, upturned corners
+  const RR = (k) => R0[clamp(k, 0, R0.length - 1)];
+  rect(14, 21, 33, 22, (x, y) => y === 21 ? (gold ? RR(5) : RR(2)) : RR(0));                         // ridge (munagi)
+  _enPut2(G, [[12, 21, RR(1)], [13, 20, RR(2)], [13, 21, RR(1)], [34, 20, RR(1)], [34, 21, RR(0)], [35, 21, RR(0)]]);   // ridge-end tiles curling up
+  const slope = [[12, 35, 23], [11, 36, 24], [9, 38, 25], [7, 40, 26], [5, 42, 27], [3, 44, 28]];
+  for (const [x0, x1, y] of slope) for (let x = x0; x <= x1; x++) {
+    const lit = x < 24 - (y - 22) * 2, course = (y & 1) === 0;
+    G.set(x, y, y === 28 ? (x < 24 ? RR(gold ? 5 : 4) : RR(3)) : lit ? (course ? RR(3) : RR(gold ? 4 : 2)) : (course ? RR(1) : RR(2)));
+  }
+  _enPut2(G, [[2, 27, RR(4)], [1, 26, RR(4)], [45, 27, RR(2)], [46, 26, RR(2)], [3, 27, RR(3)], [44, 27, RR(2)]]);   // upturned corners
+  rect(21, 22, 26, 24, (x, y) => y === 22 && (x === 21 || x === 26) ? RR(1) : '#f2ead8');               // little gable (white plaster)
+  _enPut2(G, [[23, 23, _EN_GLD[4]], [24, 23, _EN_GLD[3]], [23, 24, _EN_GLD[2]], [24, 24, _EN_GLD[2]], [22, 24, _EN_GLD[3]], [25, 24, _EN_GLD[2]]]);
+  rect(4, 29, 43, 29, '#1a1216');                                                                       // underside of the eave
+  if (snow) {   // winter: a cap along the ridge, snow lying in the roof's courses (the tiles show between), a lip on the eave
+    rect(14, 20, 33, 21, (x, y) => y === 20 ? _EN_SN.w : x < 22 ? _EN_SN.h : _EN_SN.b);
+    for (const [x0, x1, y] of slope) for (let x = x0; x <= x1; x++) {
+      if (y === 28) { if (_enHt(x, y, 666) < .5) G.set(x, y, _EN_SN.s); continue; }
+      if ((y & 1) && y > 23) continue;   // the shaded half of each course stays dark
+      if (y <= 24 || _enHt(x, y, 665) < .8) G.set(x, y, x < 24 - (y - 22) * 2 ? _EN_SN.w : _EN_SN.b);
+    }
+    rect(21, 22, 26, 22, _EN_SN.w);
+  }
+  // the big straw rope (shimenawa) under the eave with four streamers
+  for (let x = 11; x <= 36; x++) { const sag = Math.round(Math.sin((x - 11) / 25 * Math.PI) * 1.2); G.set(x, 30 + sag, (x & 1) ? '#e6d08c' : '#bc9a52'); G.set(x, 31 + sag, (x & 1) ? '#a88a46' : '#c8aa62'); }
+  for (const [sx, d] of [[13, 1], [34, -1]]) _enPut2(G, [[sx, 32, '#ffffff'], [sx + d, 33, '#ffffff'], [sx, 34, '#e8ecf2'], [sx + d, 35, '#d0d6e2']]);
+  // offering box on the veranda
+  rect(20, 36, 27, 39, (x, y) => y === 36 ? ((x & 1) ? '#d4aa76' : '#6e4a2e') : y === 37 ? '#b88a58' : x === 20 ? '#946a40' : x === 27 ? '#4e3220' : y === 39 ? '#3e2a1c' : '#6e4a2e');
+  if (snow) rect(20, 36, 27, 36, _EN_SN.w);
+  if (lv >= 8) {   // the gold bell (suzu) and its red-white rope
+    _enPut2(G, [[23, 31, _EN_GLD[2]], [24, 31, _EN_GLD[2]], [22, 32, _EN_GLD[4]], [23, 32, _EN_GLD[5]], [24, 32, _EN_GLD[3]], [25, 32, _EN_GLD[2]], [22, 33, _EN_GLD[3]], [23, 33, _EN_GLD[3]], [24, 33, _EN_GLD[2]], [25, 33, _EN_GLD[1]], [23, 34, _EN_GLD[1]], [24, 34, _EN_GLD[0]]]);
+    for (let y = 35; y <= 37; y++) { G.set(23, y, (y & 1) ? '#e8402e' : '#ffffff'); G.set(24, y, (y & 1) ? '#ffffff' : '#c8302a'); }
+    _enPut2(G, [[23, 38, '#c8302a'], [24, 38, '#e8402e']]);
+  }
+}
+// lv 6: two trees behind the hall (sakura by season: pink / green / orange / bare with snow)
+function _enShrineTrees(G, season) {
+  const P = season === 3 ? null : _EN_TREEP.sakura[season][0];
+  for (const [tx, cx] of [[5, 7], [42, 40]]) {
+    _enTrunk(G, [[tx, 39], [tx, 30], [tx + (cx < 24 ? 1 : -1), 25]], 3, 2, _EN_TRUNK);
+    if (P) _enCrown(G, cx, 19, 6.4, 6.4, P, 81 + cx, 1.9);
+    else {
+      _enTwigs(G, tx, 26, -Math.PI / 2 + (cx < 24 ? .25 : -.25), 6, 3, 90 + cx, [cx, 19, 6.4, 6.4], _EN_BARE);
+      _enTwigs(G, tx, 28, cx < 24 ? -2.3 : -.8, 5, 2, 95 + cx, [cx, 19, 6.4, 6.4], _EN_BARE);
+    }
+  }
+  if (!P) _enSnowOnTwigs(G, 38, 97);
+  else if (season === 0) for (let y = 12; y < 27; y++) for (let x = 0; x < 48; x++) if (G.get(x, y) === P[5] && _enHt(x, y, 98) < .1) G.set(x, y, '#ffffff');
+}
+// lv 7: a short tunnel of little red torii either side of the hall, receding (side 0 left, 1 right)
+function _enSenbon(G, side, snow) {   // three torii one behind the other: each further one a little smaller and higher
+  const fx = x => side ? 47 - x : x, V = _EN_VER;
+  for (const [x0, x1, top, bot, k] of [[2, 8, 30, 37, 0], [1, 9, 32, 40, 1], [0, 10, 34, 43, 2]]) {   // back to front
+    const lit = side ? x => x === x1 - 1 : x => x === x0 + 1;
+    for (let y = top + 2; y <= bot; y++) for (const px of [x0 + 1, x1 - 1]) {   // pillars, the front pair 2 px wide
+      G.set(fx(px), y, y >= bot - 1 && k === 2 ? '#2a2226' : lit(px) ? V[3] : V[1]);
+      if (k === 2) G.set(fx(px + (px === x0 + 1 ? 1 : -1)), y, y >= bot - 1 ? '#2a2226' : V[2]);
+    }
+    for (let x = x0; x <= x1; x++) {
+      G.set(fx(x), top, snow && (k === 2 || (x & 1)) ? _EN_SN.w : k === 2 ? '#3a3036' : '#2a2226');   // the black kasagi (winter: snow)
+      G.set(fx(x), top + 1, x === x0 || x === x1 ? V[1] : V[k === 2 ? 3 : 2]);
+      if (x > x0 && x < x1) G.set(fx(x), top + 3, k === 2 ? V[2] : V[1]);   // the nuki
+    }
+  }
+}
+// lv 10: a giant golden cat asleep along the roof ridge (nemuri-neko); 'back' = the tail hanging behind the roof,
+// 'front' = the body, the head turned to us, eyes shut
+function _enNemuriNeko(G, part, snow) {
+  const GD = _EN_GLD;
+  if (part === 'back') { for (let i = 0; i < 6; i++) { G.set(13 - i, 20 + i, i & 1 ? GD[2] : GD[3]); G.set(12 - i, 20 + i, GD[1]); } return; }
+  const lit = (x, y, cx, cy, rx, ry) => { const v = -((x + .5 - cx) / rx * .6 + (y + .5 - cy) / ry * .8) + (_enBay(x, y) - .5) * .3; return v > .55 ? GD[5] : v > .2 ? GD[4] : v > -.25 ? GD[3] : v > -.6 ? GD[2] : GD[1]; };
+  for (let y = 14; y <= 21; y++) for (let x = 12; x <= 34; x++) { const nx = (x + .5 - 23) / 11, ny = (y + .5 - 18.5) / 3.6; if (nx * nx + ny * ny <= 1) G.set(x, y, lit(x, y, 23, 18.5, 11, 3.6)); }   // the loaf
+  for (let y = 12; y <= 21; y++) for (let x = 29; x <= 39; x++) { const nx = (x + .5 - 34) / 5, ny = (y + .5 - 16.8) / 4.4; if (nx * nx + ny * ny <= 1) G.set(x, y, lit(x, y, 34, 16.8, 5, 4.4)); }   // the head
+  _enPut2(G, [[30, 12, GD[4]], [31, 12, GD[3]], [30, 13, GD[3]], [37, 12, GD[3]], [38, 12, GD[2]], [38, 13, GD[2]], [31, 13, '#e88a8a'], [37, 13, '#d07070']]);   // ears
+  _enPut2(G, [[31, 17, GD[0]], [32, 17, GD[0]], [36, 17, GD[0]], [37, 17, GD[0]], [33, 18, '#c86a5a'], [34, 18, '#c86a5a'], [33, 19, GD[1]], [35, 19, GD[1]]]);   // shut eyes, nose, mouth
+  _enPut2(G, [[29, 19, '#e8a0a0'], [38, 19, '#e8a0a0']]);   // pink cheeks
+  _enPut2(G, [[26, 21, GD[4]], [27, 21, GD[3]], [28, 21, GD[2]], [20, 21, GD[3]], [21, 21, GD[2]]]);   // tucked paws
+  if (snow) _enPut2(G, [[16, 15, _EN_SN.w], [17, 15, _EN_SN.w], [18, 14, _EN_SN.w], [19, 14, _EN_SN.h], [20, 15, _EN_SN.b], [33, 12, _EN_SN.w], [34, 12, _EN_SN.h]]);
+}
+// toriiArt(season): 48x36 vermilion torii, anchor (0,36) = bottom-left of its 3x1 footprint (4..6, 3): drawObj(c, 4,
+// 4 * TILE, 3). The two pillars stand on (4,3) and (6,3) (sprite x 6..9 / 38..41), the walk goes through (5,3).
+function toriiArt(season) {
+  const snow = ((season | 0) & 3) === 3;
+  return art('en:torii:' + (snow ? 'w' : 'd'), () => {
+    const G = new Grid(48, 36), V = _EN_VER, BK = ['#140e12', '#2a2226', '#4a3e44', '#625660'];
+    for (const x0 of [6, 38]) {   // pillars (lit on the left) on black bases
+      for (let y = 6; y < 31; y++) { G.set(x0, y, V[4]); G.set(x0 + 1, y, V[3]); G.set(x0 + 2, y, V[2]); G.set(x0 + 3, y, V[1]); }
+      for (let y = 30; y < 36; y++) for (let x = x0 - 1; x <= x0 + 4; x++) G.set(x, y, y === 30 ? BK[3] : x === x0 - 1 ? BK[2] : x === x0 + 4 ? BK[0] : BK[1]);
+    }
+    for (let x = 2; x <= 45; x++) { G.set(x, 10, V[4]); G.set(x, 11, x < 24 ? V[3] : V[2]); G.set(x, 12, V[1]); }   // nuki
+    for (let x = 3; x <= 44; x++) { G.set(x, 4, V[3]); G.set(x, 5, V[1]); }                                        // shimaki
+    for (let x = 0; x <= 47; x++) {   // kasagi: black cap beam, its ends sweeping up
+      const t = x < 5 ? 5 - x : x > 42 ? x - 42 : 0, y0 = 1 - (t > 2 ? 1 : 0);
+      G.set(x, y0, BK[3]); G.set(x, y0 + 1, BK[1]); if (t < 4) G.set(x, y0 + 2, BK[0]);
+    }
+    for (let y = 6; y < 10; y++) for (let x = 20; x <= 27; x++) G.set(x, y, x === 20 || x === 27 || y === 6 || y === 9 ? _EN_GLD[3] : '#2a2226');   // plaque (gaku)
+    _enPut2(G, [[23, 7, _EN_GLD[4]], [24, 7, _EN_GLD[4]], [22, 8, _EN_GLD[3]], [25, 8, _EN_GLD[3]], [23, 8, _EN_GLD[2]], [24, 8, _EN_GLD[2]]]);   // a gold paw print on it
+    if (snow) {
+      for (let x = 0; x <= 47; x++) { const t = x < 5 ? 5 - x : x > 42 ? x - 42 : 0; G.set(x, t > 2 ? 0 : 1, x < 24 ? _EN_SN.w : _EN_SN.h); if (t <= 2 && _enHt(x, 0, 671) < .7) G.set(x, 0, _EN_SN.w); }
+      for (let x = 2; x <= 45; x++) if ((x < 6 || x > 9) && (x < 38 || x > 41)) G.set(x, 10, _EN_SN.w);
+      for (const x0 of [6, 38]) for (let x = x0 - 1; x <= x0 + 4; x++) G.set(x, 30, _EN_SN.h);
+    }
+    G.selOutline();
+    const c = G.canvas(), x = c.getContext('2d'); x.fillStyle = 'rgba(27,27,47,.25)'; x.fillRect(4, 35, 1, 1); x.fillRect(42, 35, 2, 1);   // contact shadow
+    return c;
+  });
+}
+// komainuArt(side, season): 14x18 stone guardian - here a komaneko, a stone cat with a red bib, on a pedestal.
+// side 'l' stands at (3,2) and looks right (mouth open, "a"), 'r' at (7,2) looks left (mouth shut, "un").
+// 1x1, anchor (7,18) = bottom-centre of its tile (drawObj centres it). Light stays top-left on both.
+function komainuArt(side, season) {
+  const r = side === 'r', snow = ((season | 0) & 3) === 3;
+  return art('en:koma:' + (r ? 'r' : 'l') + (snow ? 'w' : ''), () => paint(14, 18, G => {
+    const f = x => r ? 13 - x : x, put = (x, y, c) => G.set(f(x), y, c);
+    // a sitting stone cat seen from the front, its face turned a little to the walk; drawn for 'l', mirrored for 'r'
+    const CAT = [
+      '..X......X..',   // 1 ear tips
+      '.XX......XX.',
+      '.XXXXXXXXXX.',   // head
+      'XXXXXXXXXXXX',
+      'XXXeXXXXeXXX',   // eyes
+      'XXXXXXnXXXXX',   // nose
+      '.XXXXXmXXXX.',   // mouth
+      '..RRRRRRRR..',   // red bib
+      '.XXrRRRRrXX.',
+      'TXXXXXXXXXXX',   // body, the tail curling round the side
+      'TXXXXXXXXXXX',
+      'TTXPPXXPPXXX',   // front paws
+    ];
+    const C = { X: '#a8a69e', e: '#3a3a40', n: '#8a6a6a', m: r ? '#8e8c84' : '#5a3a3a', R: '#c8382a', r: '#a8281e', P: '#c2c0b6', T: '#9a988f' };
+    CAT.forEach((row, j) => [...row].forEach((ch, i) => { if (C[ch]) put(i + 1, j + 1, C[ch]); }));
+    for (let x = 0; x <= 13; x++) { put(x, 13, x < 2 ? '#d0cec4' : '#c2c0b6'); put(x, 14, '#a8a69e'); }   // pedestal
+    for (let y = 15; y <= 16; y++) for (let x = 1; x <= 12; x++) put(x, y, y === 16 ? '#86847e' : '#9a988f');
+    if (snow) { for (const x of [2, 3, 4, 5, 6, 7, 8, 9, 10]) put(x, 3, '#ffffff'); put(3, 2, '#f2f6fb'); put(10, 2, '#f2f6fb'); for (let x = 0; x <= 13; x++) put(x, 13, x & 1 ? '#ffffff' : '#e3eaf3'); }
+  }));
+}
+// shrineLanternArt(lit, season): 12x22 stone lantern (kasuga-doro) for (2,2) / (8,2); 1x1, anchor (6,22) bottom-centre.
+// lit = the fire box glows (the core adds glowArt r18 at (tile centre x, tile top + 2) at night).
+function shrineLanternArt(lit, season) {
+  const on = !!lit, snow = ((season | 0) & 3) === 3;
+  return art('en:slant:' + (on ? 1 : 0) + (snow ? 'w' : ''), () => {
+    const c = paint(12, 22, G => {
+      const S = '#a8a8a0', SL = '#c4c2b8', SD = '#8a8a84';
+      G.rect(2, 19, 8, 2, S); G.rect(2, 19, 8, 1, SL);           // base
+      G.rect(3, 17, 6, 2, SD); G.rect(3, 17, 6, 1, S);          // plinth
+      G.rect(5, 11, 2, 6, S); G.set(5, 11, SL);                 // pole
+      G.rect(2, 9, 8, 2, S); G.rect(2, 9, 8, 1, SL);            // platform
+      G.rect(3, 5, 6, 4, SD);                                   // fire box
+      G.rect(4, 6, 4, 2, on ? '#ffd27a' : '#3a3430'); if (on) { G.set(5, 6, '#fff4c8'); G.set(6, 6, '#fff4c8'); }
+      G.rect(1, 4, 10, 1, S); G.rect(2, 3, 8, 1, SL); G.rect(3, 2, 6, 1, SL); G.set(1, 3, SL); G.set(10, 3, S);   // roof, corners curled up
+      G.rect(5, 1, 2, 1, S); G.set(5, 0, SL);                   // jewel
+      if (snow) { G.rect(2, 2, 7, 1, '#ffffff'); G.rect(3, 1, 3, 1, '#ffffff'); G.set(5, 0, '#ffffff'); G.rect(2, 9, 8, 1, '#f2f6fb'); G.rect(2, 19, 8, 1, '#f2f6fb'); }
+    });
+    const x = c.getContext('2d'); x.fillStyle = 'rgba(27,27,47,.25)'; x.fillRect(9, 21, 2, 1);
+    return c;
+  });
+}
+// chochinString(lit): 32x10, a festival string of paper lanterns that tiles left-right (draw copies 32 px apart; the
+// rope meets itself at x 0 / 32, y 1). A red and a white lantern per tile; lit = their paper glows (night).
+function chochinString(lit) {
+  const on = !!lit;
+  return art('en:chochin:' + (on ? 1 : 0), () => _enMake(32, 10, G => {
+    for (let x = 0; x < 32; x++) { const y = 1 + Math.round(Math.sin(x / 32 * Math.PI) * 1.6); G.set(x, y, '#3a2a24'); if (!(x % 16)) G.set(x, y - 1, '#5a4434'); }
+    const lantern = (cx, body, hi, lo) => {
+      const top = 1 + Math.round(Math.sin(cx / 32 * Math.PI) * 1.6) + 1;
+      G.set(cx, top, '#2a2226'); G.set(cx + 1, top, '#2a2226');   // the hanger
+      for (let x = cx - 1; x <= cx + 2; x++) G.set(x, top + 1, '#1e1a1e');   // black top rim
+      for (let y = top + 2; y <= top + 5; y++) for (let x = cx - 2; x <= cx + 3; x++) {
+        const edge = x === cx - 2 || x === cx + 3;
+        if (edge && (y === top + 2 || y === top + 5)) continue;   // rounded
+        G.set(x, y, edge ? lo : x === cx - 1 && !on ? hi : y === top + 3 || y === top + 4 ? (on ? hi : body) : body);
+      }
+      for (let x = cx - 1; x <= cx + 2; x++) G.set(x, top + 6, '#1e1a1e');   // black bottom rim
+      if (on) { G.set(cx, top + 3, '#fffbe6'); G.set(cx + 1, top + 3, '#fff2c8'); }
+      G.set(cx + 1, top + 7, lo);   // tassel
+    };
+    if (on) { lantern(8, '#f06040', '#ffc890', '#b8301e'); lantern(24, '#ffe8b0', '#fffbe6', '#e0a050'); }
+    else { lantern(8, '#d8402c', '#f0705a', '#9a2a1c'); lantern(24, '#f4ecd8', '#ffffff', '#c8b898'); }
+    G.set(9, 5, on ? '#fff4d0' : '#f8f0e0'); G.set(24, 5, on ? '#e0603a' : '#d8402c'); G.set(25, 5, on ? '#e0603a' : '#d8402c');   // a stroke of brush lettering on each
   }));
 }
 /*ART:env:END*/
