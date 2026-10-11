@@ -1,16 +1,41 @@
 // ------------------------------------------------------------ public API
-function tileArt(ch, tx, ty, nb, season) {
+// look (v2.0.1, optional): a preset from map.js TILE_LOOK on top of the char (room floors / walls, the west hall, the
+// star-view bath, the lower garden); see the looks section at the end of env.js
+function tileArt(ch, tx, ty, nb, season, look) {
   nb = nb || {};
   season = (season | 0) & 3;   // v2.1 seasons; v2.0 always passes 0 and every season draws the same for now
-  if (ch === '~') return waterArt(0, tx, ty);   // static water; the animated frames are drawn on top by the core
+  if (ch === '~') {   // static water; the animated frames are drawn on top by the core
+    if (look === 'milky') { _EN_ROTENNB.set(tx + ',' + ty, { u: nb.u, d: nb.d, l: nb.l, r: nb.r }); return rotenWaterArt(0, tx, ty); }
+    return waterArt(0, tx, ty);
+  }
   if (ch === 'o') {   // static pond tile; remember its neighbours so pondArt() can draw the same rim every frame
     _EN_PONDNB.set(tx + ',' + ty, { u: nb.u, d: nb.d, l: nb.l, r: nb.r });
     return pondArt(0, tx, ty);
   }
-  const f = _EN_TILE[ch];
+  const lf = look ? _enLookFn(ch, look, nb) : null, f = lf || _EN_TILE[ch];
   if (!f) return null;   // 'D' (doors are drawn by doorArt) and anything unknown
-  const k = 'en:t:' + ch + ':' + tx + ',' + ty + ':' + nb.u + ',' + nb.d + ',' + nb.l + ',' + nb.r + ':' + season;
+  const k = 'en:t:' + ch + ':' + tx + ',' + ty + ':' + nb.u + ',' + nb.d + ',' + nb.l + ',' + nb.r + ':' + season + (lf ? ':' + look : '');
   return art(k, () => _enMake(16, 16, G => f(G, tx, ty, nb, season)));
+}
+// the painter for a look, or null (unknown look: the plain char)
+function _enLookFn(ch, look, nb) {
+  const L = _enLook(look);
+  if (ch === 't' && _EN_FLOOR[L.id]) return (G, tx, ty, nb2) => _enRoomFloor(G, tx, ty, nb2, _EN_FLOOR[L.id], L.a, L.b, L.c);
+  if (ch === 'r' && L.id === 'rockdry') return (G, tx, ty, nb2) => _enRock(G, tx, ty, Object.assign({}, nb2, { d: nb2.d === '~' ? 'x' : nb2.d }));   // behind a rimmed bath: no wet edge
+  if (ch === '#' && _EN_WALL[L.id]) return nb.d !== '#' && nb.d != null ? (G, tx, ty, nb2) => _enRoomWall(G, tx, ty, nb2, _EN_WALL[L.id], L.a, L.b) : null;
+  if (ch === '.' && L.id === 'hall') return _enHall;
+  if (ch === 's' && L.id === 'sunoko') return (G, tx, ty, nb2) => _enSunoko(G, tx, ty, nb2, false);
+  if (ch === 'r' && L.id === 'roten') return _enRotenSide;
+  return _enGardenLook(ch, L);
+}
+// the star-view bath's own water: milky, in a hinoki rim; 4 frames like waterArt (the core steps them every 0.4 s)
+const _EN_ROTENNB = new Map();
+function rotenWaterArt(frame, tx, ty) {
+  frame = (((frame | 0) % 4) + 4) % 4;
+  const isW = (x, y) => x >= 27 && x <= 37 && y >= 2 && y <= 3;   // SPEC_v2 2.4 pool, used before tileArt has run
+  const nb = _EN_ROTENNB.get(tx + ',' + ty) || { u: isW(tx, ty - 1) ? '~' : 'r', d: isW(tx, ty + 1) ? '~' : 's', l: isW(tx - 1, ty) ? '~' : 'r', r: isW(tx + 1, ty) ? '~' : 'r' };
+  const k = 'en:rw:' + frame + ':' + tx + ',' + ty + ':' + (nb.u === '~' ? 1 : 0) + (nb.d === '~' ? 1 : 0) + (nb.l === '~' ? 1 : 0) + (nb.r === '~' ? 1 : 0);
+  return art(k, () => _enMake(16, 16, G => _enRotenWater(G, frame, tx, ty, nb)));
 }
 function waterArt(frame, tx, ty) {
   frame = (((frame | 0) % 4) + 4) % 4;
@@ -18,13 +43,16 @@ function waterArt(frame, tx, ty) {
 }
 // doors: 'left' (left room, in the corridor's west wall) | 'right' (mirror) | 'onsen' (in the horizontal wall, red noren)
 // v2: 'hdoor' (horizontal wall, west wing) | 'gate' (bamboo wicket gate in a north-south fence) | 'gateH' (in the hedge)
-function doorArt(kind, open, col, emb, gold, tx, ty) {
+// floor (v2.0.1, optional): [room floor look, outside look or char] for a room door, so the doorway shows that room's
+// floor (and the west hall's parquet); without it the floors come from the crest (_EN_DOORFLOOR) as before
+function doorArt(kind, open, col, emb, gold, tx, ty, floor) {
   open = !!open;
   const gate = kind === 'gate' || kind === 'gateH';
   let sty = !gate && kind !== 'onsen' && open && !!(col || emb || gold);   // a closed door is the same shoji in every style
   if (kind === 'hdoor') sty = open;
   if (gate) { tx = tx == null ? (kind === 'gate' ? 24 : 25) : tx | 0; ty = ty == null ? (kind === 'gate' ? 4 : 29) : ty | 0; }
-  const k = 'en:d:' + kind + ':' + (open ? 1 : 0) + (sty ? ':' + (col || '') + ':' + (emb || '') + ':' + (gold ? 1 : 0) : '') + (gate ? ':' + tx + ',' + ty + ':' + (emb || '') : '');
+  const fl = sty && Array.isArray(floor) ? floor : null;
+  const k = 'en:d:' + kind + ':' + (open ? 1 : 0) + (sty ? ':' + (col || '') + ':' + (emb || '') + ':' + (gold ? 1 : 0) : '') + (gate ? ':' + tx + ',' + ty + ':' + (emb || '') : '') + (fl ? ':' + fl.join('/') : '');
   return art(k, () => {
     if (kind === 'onsen') return _enMake(16, 16, G => _enOnsenDoor(G, open));
     if (kind === 'hdoor') return _enMake(16, 16, G => _enHDoor(G, open, col, emb, gold));
@@ -33,9 +61,9 @@ function doorArt(kind, open, col, emb, gold, tx, ty) {
       if (kind === 'right') return flipC(doorArt('left', open));
       return _enMake(16, 16, G => _enRoomDoor(G, open));
     }
-    const right = kind === 'right';
+    const right = kind === 'right', dfl = _EN_DOORFLOOR[emb];
     return _enMake(16, 16, G => {
-      _enRoomDoor(G, open, { col, gold, floor: _EN_DOORFLOOR[emb] });
+      _enRoomDoor(G, open, { col, gold, floor: fl ? [_enLook(fl[0]).id, fl[1] === 'p' ? 'grav' : fl[1] === 'hall' ? 'hall' : (dfl ? dfl[1] : null)] : dfl });
       if (right) _enFlipG(G);
       if (emb) _enEmblem(G, emb, right ? 5 : 6, 3, col || _EN.ind);
     });
@@ -97,8 +125,11 @@ function _enRoomDoor(G, open, sty) {   // left room's door; its room (tatami) is
     let c = x < 6 ? ((y & 1) ? _enM(_EN.tat, _EN.tatW, .55) : _EN.tat) : x < 8 ? (x === 6 ? _EN.dwH : _EN.dw) : ((y % 4 === 0) ? _enM(_EN.woodS, _EN.dw, .25) : y % 4 === 1 ? _enM(_EN.wood, _EN.woodH, .45) : _EN.wood);
     if (x === 2) c = _EN.heri;
     if (fl) {   // v2: the right floors for doors that are not between a room and the corridor
-      const k = x < 6 ? fl[0] : x < 8 ? null : fl[1];
-      if (k === 'din') c = y % 6 === 0 ? _EN.dinS : y % 6 === 1 ? _EN.dinH : _EN.din;
+      const k = x < 6 ? fl[0] : x < 8 ? null : fl[1], F = k ? _EN_FLOOR[k] : null;
+      if (F && F.wood) c = _enWoodPx(F.k, F.wood, x + 3, y);   // v2.0.1: the room's own floor (A1)
+      else if (F && F.tat) c = x === 2 && F.lay !== 'q' ? F.heri : (y & 1) ? _enM(F.tat, F.tatW, .55) : F.tat;
+      else if (k === 'hall') c = _enWoodPx('chevron', _EN_HALLW, x + 2, y);
+      else if (k === 'din') c = y % 6 === 0 ? _EN.dinS : y % 6 === 1 ? _EN.dinH : _EN.din;
       else if (k === 'lobby') c = y % 8 === 0 ? _EN.dw : y % 8 === 1 ? _enM(_EN.wood, _EN.dwH, .2) : _enM(_EN.wood, _EN.dwH, .42);
       else if (k === 'grav') c = (x + y * 3) % 5 === 0 ? '#b4ad9e' : '#d2cbbb';
     }
@@ -139,8 +170,8 @@ function _enHDoor(G, open, col, emb, gold) {
   _enCap(G, false);
   G.rect(0, 5, 16, 1, _EN.dwD);
   if (!open) { _enShoji(G, 0, 6, 15, 14, 2); for (let x = 0; x < 16; x++) G.set(x, 15, _EN.dwH); return; }
-  for (let y = 6; y < 16; y++) for (let x = 0; x < 16; x++) {
-    const c = y % 4 === 0 ? _enM(_EN.woodS, _EN.dw, .25) : y % 4 === 1 ? _enM(_EN.wood, _EN.woodH, .45) : _EN.wood;
+  for (let y = 6; y < 16; y++) for (let x = 0; x < 16; x++) {   // v2.0.1: the west hall's parquet and runner beyond
+    const c = _enHallPx(8 * 16 + x, 17 * 16 + y);
     G.set(x, y, _enM(c, OUT, y < 12 ? .42 : .14));
   }
   for (let x = 0; x < 16; x++) G.set(x, 15, _EN.dwH);
@@ -159,9 +190,9 @@ function _enHDoor(G, open, col, emb, gold) {
   else [[6, 4], [7, 4], [8, 4], [5, 5], [9, 5], [5, 6], [9, 6], [6, 7], [7, 7], [8, 7]].forEach(([x, y]) => G.set(x, y, _EN.wht));
 }
 // v2: bamboo wicket gate (shiorido), seen from the front: cedar posts, a capped top rail, a woven dried-bamboo leaf.
-// It paints its own paving (slate for 'gate', the plaza stones for 'gateH') lined up with tile (tx, ty).
+// It paints its own paving (slate for 'gate', the gravel walk for 'gateH') lined up with tile (tx, ty).
 function _enGate(G, open, tx, ty, horiz, lamp) {
-  if (horiz) _enStoneQ(G, tx, ty, {}); else _enSlate(G, tx, ty, {});
+  if (horiz) _enGardenPath(G, tx, ty, { u: 'p', d: 'p', l: 'f', r: 'f' }); else _enSlate(G, tx, ty, {});   // v2.0.1: the gravel walk between the two gardens
   const post = x0 => {
     for (let y = 0; y < 15; y++) { G.set(x0, y, _EN.cedarH); G.set(x0 + 1, y, _EN.cedar); G.set(x0 + 2, y, _EN.cedarD); }
     G.set(x0, 0, _EN.dryH); G.set(x0 + 1, 0, _EN.dry); G.set(x0 + 2, 0, _EN.dryD);
@@ -296,10 +327,10 @@ function waterfallArt(frame) {
       const w0 = 10 - Math.floor((y - 5) * .07), w1 = 21 + Math.floor((y - 5) * .07);
       for (let x = w0; x <= w1; x++) {
         const col = x - w0, edge = x === w0 || x === w1, ph = ((y - frame * 4 + Math.floor(_enH(x, 0, 242) * 16)) % 16 + 16) % 16;
-        let c = ph < 2 ? '#ffffff' : ph < 5 ? '#d6f6f2' : ph < 9 ? '#a6e8e2' : '#7ad4d2';
-        if (col === 1 || x === w1 - 1) c = _enM(c, '#3aa6b4', .35);
-        if (edge) c = x === w0 ? '#5cc8c8' : '#3a9aac';
-        if (y < 8) c = y === 5 ? '#5cc8c8' : y === 6 ? '#e8fbf8' : '#ffffff';   // the lip where the water tips over
+        let c = ph < 2 ? '#ffffff' : ph < 5 ? '#e4f2f0' : ph < 9 ? '#c4dede' : '#a8ccd0';   // v2.0.1: falls into the milky bath
+        if (col === 1 || x === w1 - 1) c = _enM(c, '#7aa4b0', .35);
+        if (edge) c = x === w0 ? '#9cc4cc' : '#6a96a6';
+        if (y < 8) c = y === 5 ? '#9cc4cc' : y === 6 ? '#eef6f4' : '#ffffff';   // the lip where the water tips over
         G.set(x, y, c);
       }
     }
@@ -307,14 +338,14 @@ function waterfallArt(frame) {
     for (let y = 28; y < 40; y++) for (let x = 0; x < 32; x++) {
       const nx = (x + .5 - 16) / 14, ny = (y + .5 - 35) / 4.6, d = nx * nx + ny * ny;
       if (d > 1.15) continue;
-      let c = d < .35 ? '#ffffff' : d < .7 ? '#e8fbf8' : '#bfeee8';
-      if (d > .85) { if (((x + y + frame) & 3) > 1) continue; c = '#8ae0dc'; }   // the ragged rim creeps round, no flicker
-      if (d > .5 && d < .85 && ((x + frame) % 5 === 0)) c = '#bfeee8';
+      let c = d < .35 ? '#ffffff' : d < .7 ? '#f4f9f8' : '#dbe8e6';
+      if (d > .85) { if (((x + y + frame) & 3) > 1) continue; c = '#c6d8d8'; }   // the ragged rim creeps round, no flicker
+      if (d > .5 && d < .85 && ((x + frame) % 5 === 0)) c = '#dbe8e6';
       G.set(x, y, c);
     }
     for (let i = 0; i < 6; i++) {
       const sx = 6 + Math.floor(_enH(i, 0, 244) * 20), st = (frame + i) % 4, sy = 31 - st * 2;
-      G.set(sx, sy, st < 2 ? '#ffffff' : '#bfeee8'); if (st === 0) G.set(sx + 1, sy, '#e8fbf8');
+      G.set(sx, sy, st < 2 ? '#ffffff' : '#dbe8e6'); if (st === 0) G.set(sx + 1, sy, '#f4f9f8');
     }
   }));
 }
@@ -463,7 +494,8 @@ function glowArt(r, col) {
     return c;
   });
 }
-// v2.0 festival plaza (shut, not darkened): weeds in the paving joints and a few fallen leaves; transparent overlay
+// v2.0 festival plaza (shut, not darkened): weeds in the paving joints and a few fallen leaves; transparent overlay.
+// v2.0.1: no longer drawn (the plaza became the lower garden, A3); kept for the art contract (sys_art)
 function plazaDecor(tx, ty) {
   return art('en:plaza:' + tx + ',' + ty, () => _enMake(16, 16, G => {
     for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {   // weeds in the same joints _enStoneQ draws

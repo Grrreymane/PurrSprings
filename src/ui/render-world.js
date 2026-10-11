@@ -10,19 +10,25 @@ function paintDoor(dr) {
   const [tx, ty] = dr.at, wg = WORLD.getContext('2d'), nb = { u: ch(tx, ty - 1), d: ch(tx, ty + 1), l: ch(tx - 1, ty), r: ch(tx + 1, ty) };
   wg.imageSmoothingEnabled = false; wg.clearRect(tx * TILE, ty * TILE, TILE, TILE);
   const base = tileArt(dr.base || '.', tx, ty, nb, 0); if (base) wg.drawImage(base, tx * TILE, ty * TILE);
-  const c = dr.room ? roomCombo(ROOM[dr.room]) : null;
-  wg.drawImage(doorArt(dr.kind, doorIsOpen(dr), c ? c.col : dr.col || null, c ? c.emb : dr.emb || null, !!dr.gold, tx, ty), tx * TILE, ty * TILE);   // gates paint their own ground: they need where they stand
+  const rm = dr.room ? ROOM[dr.room] : null, c = rm ? roomCombo(rm) : null;
+  // a room door shows its own room's floor through the doorway, and what lies outside (corridor / west hall / gravel)
+  const fl = rm ? [rm.floor, tileLook(tx + (rm.left ? 1 : -1), ty) || ch(tx + (rm.left ? 1 : -1), ty)] : null;
+  wg.drawImage(doorArt(dr.kind, doorIsOpen(dr), c ? c.col : dr.col || null, c ? c.emb : dr.emb || null, !!dr.gold, tx, ty, fl), tx * TILE, ty * TILE);   // gates paint their own ground: they need where they stand
 }
 const tubBusy = rm => !!VIPG && VIPG.suite === rm.id && (VIPG.st === 'soak' || (VIPG.st === 'seated' && VIPG.actT > 0 && vipWish() === 'bath'));
 // a VIP's face, 8x8 from its front sprite (photo frames, the polaroid; the album crops its own)
 function vipFace(id) { return art('vipface:' + id, () => { const v = VIP[id], c = mk(8, 8); c.getContext('2d').drawImage(catSprite('down', 0, { fur: v.fur, outfit: 'robe', robe: v.robe, hat: v.hat || null }), 4, 6, 8, 8, 0, 0, 8, 8); return c; }); }
 function rebuildWorld() {
   buildObjects(); buildBlock(); padsUpdate(); buildLights();
+  for (const o of OBJS) if (o.light && areaOpen(areaAt(o.tx, o.ty))) {   // scenery lamps (map.js SCENERY); a locked area stays dark (the lower garden until v2.1)
+    const [r, dy, k] = o.light;
+    LIGHTS.push({ x: o.tx * TILE + o.fw * 8, y: o.ty * TILE + dy, r, col: k === 'deck' ? DECK_COL : LAMP_COL, room: null });
+  }
   const wg = WORLD.getContext('2d'); wg.imageSmoothingEnabled = false; wg.clearRect(0, 0, MAPW, MAPH);
   for (let ty = 0; ty < MH; ty++) for (let tx = 0; tx < MW; tx++) {
     const c = MAP[ty][tx], nb = { u: ch(tx, ty - 1), d: ch(tx, ty + 1), l: ch(tx - 1, ty), r: ch(tx + 1, ty) };
     if (c === 'D') paintDoor(DOOR_AT[ty * MW + tx]);
-    else { const t = tileArt(c, tx, ty, nb, 0); if (t) wg.drawImage(t, tx * TILE, ty * TILE); }
+    else { const t = tileArt(c, tx, ty, nb, 0, TILE_LOOK[ty * MW + tx]); if (t) wg.drawImage(t, tx * TILE, ty * TILE); }   // looks: room floors / walls (A1) ...
   }
   // wall decor (2.4): gift shelf + photo frames on the lobby's north wall, the dining menu boards, the garden wall lamp
   const wall = (k, tx, ty) => wg.drawImage(wallDecorArt(k), tx * TILE, ty * TILE);
@@ -107,10 +113,10 @@ function drawFutons(rm) {
   const one = (fx, heads) => {
     if (heads && rs === 'occupied' && s === 1) {   // sleeping: futon, head(s) on the pillow, duvet over
       const fr = Math.floor(T * 1.2) & 1;
-      drawObj(futonArt('sleep', fr), fx, by, 1);
+      drawObj(futonArt('sleep', fr, rm.furn), fx, by, 1);
       for (const [fur, dx] of heads) drawA(catSleepHead(fur), fx * TILE + 8 + dx, rm.y0 * TILE + 13, 6, 8);
-      drawObj(futonArt('cover', fr), fx, by, 1);
-    } else drawObj(futonArt(rs === 'messy' ? 'messy' : 'clean', 0), fx, by, 1, s);
+      drawObj(futonArt('cover', fr, rm.furn), fx, by, 1);
+    } else drawObj(futonArt(rs === 'messy' ? 'messy' : 'clean', 0, rm.furn), fx, by, 1, s);   // the west wing sleeps in beds (A1)
   };
   let hA = null, hB = null;
   if (gu && gu.st === 'sleep') {
@@ -150,9 +156,9 @@ function guestDraws(L, gu) {
   const m = gu.mate;
   if (gu.st === 'sleep') return;
   if (gu.st === 'bathing') {   // a couple shares one slot (8 px apart); a kitten sits on the edge where its parent stood
-    const bx = SLOTS[gu.slot].x * TILE + 8, by = 3 * TILE + 10, fr = Math.floor(T * 1.4 + gu.id * .37) & 1;
-    if (m && m.kind === 'cat') L.push({ y: by, f: () => { drawA(catBathing(gu.look.fur, fr), bx - 4, by, 9, 9); drawA(catBathing(m.look.fur, fr ^ 1), bx + 4, by + 1, 9, 9); } });
-    else L.push({ y: by, f: () => drawA(catBathing(gu.look.fur, fr), bx, by, 9, 9) });
+    const bx = SLOTS[gu.slot].x * TILE + 8, by = 3 * TILE + 10, fr = Math.floor(T * 1.4 + gu.id * .37) & 1, wk = SLOTS[gu.slot].roten ? 'milky' : null;   // the water line takes the bath's colour
+    if (m && m.kind === 'cat') L.push({ y: by, f: () => { drawA(catBathing(gu.look.fur, fr, wk), bx - 4, by, 9, 9); drawA(catBathing(m.look.fur, fr ^ 1, wk), bx + 4, by + 1, 9, 9); } });
+    else L.push({ y: by, f: () => drawA(catBathing(gu.look.fur, fr, wk), bx, by, 9, 9) });
     if (m && m.kind === 'kitten') L.push({ y: 4 * TILE + 12, f: () => drawA(kittenSit(m.look.fur), bx, 4 * TILE + 12, 5, 11) });
     return;
   }
@@ -182,8 +188,8 @@ function drawScene(vw, vh, live, noPlayer, card) {
   if (sw > 0 && sh > 0) g.drawImage(WORLD, sx, sy, sw, sh, sx - CX, sy - CY, sw, sh);
   // animated water (visible tiles only): onsen, roten, the koi pond
   const fr = Math.floor(T / .4) & 3, water = (x0, x1, y0, y1, fn) => { for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) if (VIS(tx * TILE + 8, ty * TILE + 8, 12)) g.drawImage(fn(fr, tx, ty), tx * TILE - CX, ty * TILE - CY); };
-  if (S.unlocked.onsen) water(13, 21, 2, 3, waterArt);
-  if (S.unlocked.roten) { water(27, 37, 2, 3, waterArt); if (VIS(32 * TILE, 20, 40)) g.drawImage(waterfallArt(fr), 31 * TILE - CX, -CY); }
+  if (S.unlocked.onsen) water(13, 21, 2, 3, waterArt);   // jade-green rock bath
+  if (S.unlocked.roten) { water(27, 37, 2, 3, rotenWaterArt); if (VIS(32 * TILE, 20, 40)) g.drawImage(waterfallArt(fr), 31 * TILE - CX, -CY); }   // milky water in a hinoki rim (A4)
   if (S.unlocked.garden) water(27, 30, 15, 17, pondArt);
   if (S.unlocked.koi) for (let i = 0; i < 3; i++) {   // three koi circle the pond
     const a = T * .35 + i * 2.1, x = 29 * TILE + Math.cos(a) * 22, y = 16 * TILE + 8 + Math.sin(a) * 12;
@@ -231,7 +237,7 @@ function drawScene(vw, vh, live, noPlayer, card) {
   if (S.unlocked.shop && VIS(48, 31 * TILE - 12, 48)) L.push({ y: 31 * TILE + .02, f: () => decorOwned().forEach((id, i) => { if (i < 8) drawA(decorIcon(id), TILE + (i >> 1) * TILE + (i & 1 ? 9 : 2) + 5, 31 * TILE - 24 + 7, 5, 5); }) });
   if (live && VIPG && VIS(VIPG.x, VIPG.y, 24)) {
     const v = VIPG;
-    if (v.st === 'soak') { const tb = ROOM[v.suite].tub; L.push({ y: (tb[1] + 1) * TILE + .02, f: () => drawA(catBathing(v.look.fur, Math.floor(T * 1.4) & 1), tcx(tb), tb[1] * TILE + 8, 9, 9) }); }
+    if (v.st === 'soak') { const tb = ROOM[v.suite].tub; L.push({ y: (tb[1] + 1) * TILE + .02, f: () => drawA(catBathing(v.look.fur, Math.floor(T * 1.4) & 1, 'tub'), tcx(tb), tb[1] * TILE + 8, 9, 9) }); }
     else L.push({ y: v.y, f: () => drawCat(v, v.look) });
   }
   if (live) {

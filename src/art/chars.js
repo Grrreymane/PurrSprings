@@ -611,9 +611,12 @@ function _chSitBody(G, f, o, fr, shirt, x) {
 
 // ---------------------------------------------------------------- bathing / sleeping / bowing
 // 18x12, anchor (9,9) = middle of the water line. Head + shoulders, folded towel on top, content squint.
-function catBathing(fur, frame) {
-  const fid = FURS[fur] ? fur : 'orange', f = FURS[fid], fr = frame ? 1 : 0;
-  return art('chb:' + fid + ':' + fr, () => {
+// water (v2.0.1, optional): the bath the cat sits in tints its water line: default = the jade onsen, 'milky' = the
+// star-view bath, 'tub' = a suite's clear hinoki tub
+const _CH_BATHW = { jade: ['rgba(46,150,130,0.55)', '#e6faf2', '#86dcc4'], milky: ['rgba(214,226,226,0.7)', '#ffffff', '#c9d8d9'], tub: ['rgba(58,166,180,0.55)', '#e8fbf8', '#8ae0dc'] };
+function catBathing(fur, frame, water) {
+  const fid = FURS[fur] ? fur : 'orange', f = FURS[fid], fr = frame ? 1 : 0, wk = _CH_BATHW[water] ? water : 'jade', WC = _CH_BATHW[wk];
+  return art('chb:' + fid + ':' + fr + ':' + wk, () => {
     const oy = fr ? 0 : 1;   // frame 0 breathes out and sinks 1px, frame 1 rises
     const c = paint(18, 12, G => {
       const S = (x, y, col) => G.set(x, y + oy, col), ear = f.ear || f.O;
@@ -634,10 +637,10 @@ function catBathing(fur, frame) {
     });
     const x = c.getContext('2d');
     x.save(); x.globalCompositeOperation = 'source-atop';      // below the water line: tinted by the water
-    x.fillStyle = 'rgba(58,166,180,0.55)'; x.fillRect(0, 10, 18, 2);
+    x.fillStyle = WC[0]; x.fillRect(0, 10, 18, 2);
     x.restore();
-    _chPx(c, '#e8fbf8', [[1, 9], [2, 10], [16, 9], [15, 10], [4, 11], [13, 11]]);
-    _chPx(c, '#8ae0dc', [[0, 10], [17, 10], [3, 11], [14, 11]]);
+    _chPx(c, WC[1], [[1, 9], [2, 10], [16, 9], [15, 10], [4, 11], [13, 11]]);
+    _chPx(c, WC[2], [[0, 10], [17, 10], [3, 11], [14, 11]]);
     _chPx(c, _chTip, [[1, 7 + oy], [2, 7 + oy], [15, 7 + oy], [16, 7 + oy]]);
     return c;
   });

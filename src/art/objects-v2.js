@@ -486,8 +486,35 @@ function _obTreeCanvas(w, h, fn, dark, shCx, shRx) {   // own outline (crown col
 const _obTREE = {
   sakura: [32, 44], maple: [28, 36], pine: [32, 40],
 };
-function treeArt(kind) {   // sakura 32x44 / maple 28x36 / pine 32x40; anchor = (width/2, height) = bottom-centre of the footprint tile
+// v2.0.1 (A2): smaller trees for the groves. size 1 = medium, 2 = sapling: [w, h, trunk pts, trunk w0, w1, branches,
+// crown cx, cy, rx, ry, clump seed, clump r]. Anchor stays (w/2, h).
+const _obTREE_S = {
+  sakura: [null,
+    [26, 36, [[13, 33], [13, 27], [12, 22]], 4, 3, [[12, 25, 7, 19], [14, 24, 19, 18]], 13, 13, 11.5, 10.5, 11, 2.3],
+    [20, 28, [[10, 25], [10, 20], [10, 16]], 3, 2, [[10, 19, 6, 14], [10, 18, 14, 13]], 10, 10, 8.5, 8, 13, 2]],
+  maple: [null,
+    [24, 30, [[12, 27], [12, 21], [11, 17]], 4, 3, [[11, 20, 7, 15], [13, 19, 17, 14]], 12, 11.5, 10.5, 9.5, 19, 2],
+    [18, 24, [[9, 21], [9, 17], [9, 13]], 3, 2, [[9, 16, 5, 12], [9, 15, 13, 11]], 9, 9, 7.5, 7, 23, 1.8]],
+};
+const _obCROWN = {
+  sakura: [['#8a3a5a', '#a8506e', '#c66a88', '#de86a0', '#eea2b8', '#f8c0d0', '#fde0ea'], '#5a1e38'],
+  maple: [['#6a1e1a', '#8a2a1e', '#ae3a22', '#cc5226', '#e4702c', '#f29a40', '#fac46a'], '#4a1410'],
+};
+// season: v2.1 (0 for now, like tileArt). size 0 = the full tree (SPEC_v2 12.3 sizes), 1 / 2 = smaller (sakura / maple)
+function treeArt(kind, season, size) {   // sakura 32x44 / maple 28x36 / pine 32x40; anchor = (width/2, height) = bottom-centre of the footprint tile
   if (!_obTREE[kind]) kind = 'sakura';
+  size = _obTREE_S[kind] && (size === 1 || size === 2) ? size : 0;
+  if (size) return art('ob:tree:' + kind + ':' + size, () => {
+    const [w, h, tp, w0, w1, br, cx, cy, rx, ry, seed, cr] = _obTREE_S[kind][size], [pal, dark] = _obCROWN[kind], TR = ['#4a3024', '#6a4632', '#8a6246'];
+    return _obTreeCanvas(w, h, G => {
+      _obTrunk(G, tp, w0, w1, TR);
+      G.set(tp[0][0] - 2, tp[0][1], TR[1]); G.set(tp[0][0] + 2, tp[0][1], TR[0]);   // roots
+      br.forEach(([a, b, c2, d]) => { gLine(G, a, b, c2, d, TR[1]); if (size === 1) gLine(G, a + 1, b, c2 + 1, d, TR[0]); });
+      _obCrown(G, cx, cy, rx, ry, pal, seed, cr);
+      if (kind === 'sakura') for (let y = 2; y < h - 8; y++) for (let x = 1; x < w - 1; x++) { const c = G.get(x, y); if (c && (c === pal[5] || c === pal[4]) && _obH(x, y, seed + 2) < .07) G.set(x, y, '#ffffff'); }
+      G.set(cx - 6, h - 2, kind === 'sakura' ? pal[5] : pal[4]); G.set(cx + 5, h - 3, kind === 'sakura' ? pal[4] : pal[3]);   // a fallen petal / leaf
+    }, dark, cx, rx * .62);
+  });
   return art('ob:tree:' + kind, () => {
     const [w, h] = _obTREE[kind], TR = ['#4a3024', '#6a4632', '#8a6246'];
     if (kind === 'sakura') return _obTreeCanvas(w, h, G => {
@@ -588,20 +615,30 @@ function gardenLampArt(lit) {   // 10x24 garden path lamp (wood post + square pa
   }, [[2, 7, 23, .32]]));
 }
 
-function deckLanternArt(lit) {   // 12x24 deck lantern: wood post with a hanging paper chochin, anchor (6,24); lit = warm glow
+// v2.0.1 (A4): the star-view bath's lanterns are bamboo (take-akari): three cut culms of different heights in a little
+// stand of pebbles, light showing through carved holes when lit
+function deckLanternArt(lit) {   // 12x24 bamboo lantern, anchor (6,24); lit = warm light in the carved holes
   const on = !!lit;
   return art('ob:dlamp:' + (on ? 1 : 0), () => _obObj(12, 24, G => {
-    const P = _obP;
-    G.rect(2, 2, 2, 19, P.dk); G.rect(2, 2, 1, 19, P.dkL); G.rect(2, 2, 8, 1, P.dk2); G.rect(1, 20, 4, 2, P.dk2);
-    G.ell(7.5, 10.5, 3.4, 4.6, (x, y) => {
-      const d = Math.abs(x + .5 - 7) / 3.4 + Math.abs(y + .5 - 10) / 5 + (DITHER[y & 1][x & 1] - .375) * .3;
-      return on ? (d < .55 ? '#fff6d0' : d < 1 ? '#ffd27a' : '#f0a040') : (d < .8 ? '#f6f2ea' : '#d8d2c4');
-    });
-    [8, 10, 12].forEach(y => G.rect(5, y, 6, 1, on ? '#e8a040' : '#c8c0b0'));
-    G.rect(6, 5, 3, 1, '#2a2228'); G.rect(6, 15, 3, 1, '#2a2228');
-    G.rect(4, 9, 7, 1, P.red); G.rect(4, 13, 7, 1, P.red);
-    G.set(7, 3, P.dk2); G.set(7, 4, P.dk2);
-  }, [[1, 6, 23, .32]]));
+    const SK = ['#c4e48c', '#94c860', '#74ac48', '#6aa040', '#5a9038', '#4a7c30', '#3a6428'];   // lit edge -> shaded edge
+    const tube = (x0, w, top, bot, nodes) => {   // a culm cut at a slant (higher on the left), hollow showing at the cut
+      for (let y = top; y <= bot; y++) for (let x = x0; x < x0 + w; x++) {
+        const e = x - x0, cut = top + Math.round(e * 3 / w);
+        if (y < cut) continue;
+        let c = SK[Math.min(SK.length - 1, Math.round(e * (SK.length - 1) / (w - 1)))];
+        if (y === cut) c = '#e8f4c8'; else if (y === cut + 1 && e > 0 && e < w - 1) c = '#3a4a24';   // the cut rim, the hollow
+        if (nodes.indexOf(y) >= 0) c = mixHex(c, '#2e5222', .6); else if (nodes.indexOf(y - 1) >= 0) c = mixHex(c, '#d8f0a8', .35);
+        G.set(x, y, c);
+      }
+    };
+    tube(7, 4, 9, 21, [15]);          // a short one behind, on the right
+    tube(2, 6, 3, 21, [10, 17]);      // the lantern
+    const hole = on ? ['#fff6c8', '#ffc860'] : ['#2e3a22', '#3e4a2c'];
+    [[4, 6], [5, 6], [4, 7], [5, 7]].forEach(([x, y]) => G.set(x, y, hole[0]));                 // a round window
+    [[4, 12], [5, 13], [4, 14], [5, 12], [5, 14], [4, 13]].forEach(([x, y], i) => G.set(x, y, hole[i < 3 ? 0 : 1]));   // a crescent
+    G.set(8, 12, hole[1]); G.set(8, 13, hole[0]);
+    G.rect(1, 21, 10, 1, '#8a8a84'); G.rect(1, 20, 2, 1, '#a8a8a0'); G.rect(9, 20, 2, 1, '#9a9a94');   // pebbles at the foot
+  }, [[1, 11, 23, .32]], on ? (x, px) => { px('rgba(255,236,170,.55)', [[3, 6], [6, 7], [3, 13], [6, 13]]); } : null));
 }
 
 function koiArt(col, frame) {   // 9x5 koi seen from above, facing right, centre anchor (4,2); col 'red' | 'gold' | 'black'; frame 0/1 tail swish
@@ -635,6 +672,45 @@ function flowerPotArt(k) {   // 12x14 flower pot for the plaza, 1x1, anchor (0,1
       G.rect(2, 8, 8, 2, PC[1]); G.rect(3, 10, 6, 2, PC[0]); G.rect(3, 11, 6, 1, PC[2]); G.set(3, 10, PC[1]);
     }
   }, [[2, 10, 13, .3]]));
+}
+
+// ------------------------------------------------------------ v2.0.1 lower garden (FEEDBACK A3)
+function tsukubaiArt() {   // 16x18 stone water basin: round basin, a bamboo spout dripping into it, a ladle across; 1x1, anchor (0,18)
+  return art('ob:tsukubai', () => _obObj(16, 18, G => {
+    const RP = ['#5e5e60', '#7a7a78', '#8a8a84', '#a8a8a0', '#c4c2b8'];
+    G.ell(3.2, 15.6, 2.8, 1.5, _obLit(RP, 2.6, 15, 3.2, 2));                              // front stone
+    G.ell(8.5, 12.4, 5.8, 3.8, _obLit(RP, 7.4, 11.2, 6.4, 4.4, { base: .66, lx: .35 }));   // the basin
+    G.ell(8.5, 10.8, 4.2, 1.9, '#4a4c50');
+    G.ell(8.5, 11.1, 3.4, 1.4, (x, y) => (y < 11 ? '#5ab4a4' : '#3a9688'));               // water
+    G.set(7, 10, '#c8f0e4'); G.set(4, 13, '#6a9a4a'); G.set(5, 14, '#84b05a'); G.set(12, 14, '#5a8a3a');   // moss
+    G.rect(14, 3, 1, 10, '#7cb04a'); G.set(14, 3, '#a8d070'); G.rect(15, 4, 1, 9, '#4e7e30');   // the stake
+    for (let x = 9; x <= 14; x++) { G.set(x, 5, '#a8d070'); G.set(x, 6, '#5a8a3a'); }        // the spout
+    G.set(9, 6, '#2a3a1a');
+    gLine(G, 2, 9, 10, 8, '#c8a060'); G.ell(2.5, 9.6, 1.6, 1, '#b08848');                  // a ladle laid across
+  }, [[2, 15, 17, .3]], (x, px) => { px('rgba(170,230,240,.9)', [[9, 7], [9, 8]]); px('rgba(255,255,255,.7)', [[9, 9]]); }));
+}
+// tea-ceremony red bench (the lobby's bench) under a big red parasol, a cat asleep on the felt: 36x46, footprint 2x1
+// (drawObj centres it: 2 px either side of the two tiles), anchor = bottom-left of the footprint
+function nodateArt(fur) {
+  return art('ob:nodate:' + (fur || ''), () => {
+    const c = mk(36, 46), x = c.getContext('2d');
+    x.drawImage(paint(36, 46, G => {
+      G.rect(26, 12, 1, 31, '#8a6246'); G.rect(27, 12, 1, 31, '#4a3024');   // the pole
+      const cx = 22, cy = 10, rx = 15.5, ry = 6.4;
+      for (let y = 0; y < 22; y++) for (let px = 0; px < 36; px++) {
+        const nx = (px + .5 - cx) / rx, ny = (y + .5 - cy) / ry, d = nx * nx + ny * ny;
+        if (d <= 1) {
+          const a = Math.atan2(ny, nx), rib = Math.abs(((a / (Math.PI / 6)) % 1 + 1) % 1 - .5) > .42;
+          const v = -nx * .35 - ny * .55 + (DITHER[y & 1][px & 1] - .375) * .2;
+          G.set(px, y, rib ? '#e86a60' : v > .35 ? '#e04848' : v > -.2 ? '#c8323a' : '#a8262e');
+        } else if (y > cy && ((px + .5 - cx) / rx) ** 2 + ((y - 1.5 - cy) / ry) ** 2 <= 1) G.set(px, y, (px & 1) ? '#7a1a20' : '#d8b878');   // the underside, bamboo ribs
+      }
+      G.rect(21, 3, 3, 2, '#3a2418'); G.set(22, 3, '#6a4a2a');   // finial
+    }), 0, 0);
+    x.drawImage(benchArt(), 2, 30);
+    if (fur) x.drawImage(catCurl(fur), 4, 28);
+    return c;
+  });
 }
 
 function chestArt(level) {   // 16x16 money chest at the front desk, anchor (8,14); level 1 wooden coin box, 2 = gold showing + soft warm glow
