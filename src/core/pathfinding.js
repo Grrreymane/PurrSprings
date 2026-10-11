@@ -31,8 +31,6 @@ const PROPS = [
   // garden
   { k: 'urn', at: [26, 25], need: 'garden', img: () => urnArt() },
   { k: 'shishi', at: [26, 16], need: 'g_shishi', img: () => shishiArt(T % 20 >= .3 && T % 20 < .9 ? 1 : 0) },   // tips over every 20 s (in step with the audio's knock)
-  { k: 'tree', at: [27, 24], need: 'g_sakura', img: () => treeArt('sakura') },
-  { k: 'tree', at: [37, 18], need: 'g_maple', img: () => treeArt('maple') },
   { k: 'tree', at: [38, 9], need: 'garden', img: () => treeArt('pine') },
   { k: 'yukimi', at: [31, 17], need: 'garden', img: () => yukimiArt() },
   { k: 'rock', at: [35, 16], need: 'garden', img: () => rockArt(0) }, { k: 'rock', at: [37, 17], need: 'garden', img: () => rockArt(1) },
@@ -41,17 +39,16 @@ const PROPS = [
   // roten deck
   // deck lanterns 4 tiles either side of the hedge gap (stage M: at the deck's ends (25,7) / (38,7) no view ever showed them)
   { k: 'deckLantern', at: [28, 7], need: 'roten', img: () => deckLanternArt(lampLit()) }, { k: 'deckLantern', at: [36, 7], need: 'roten', img: () => deckLanternArt(lampLit()) },
-  // v2.0 scenery on the closed festival plaza: three flower pots and a cat asleep in the sun
-  { k: 'pot', at: [27, 31], block: false, img: () => flowerPotArt(0) }, { k: 'pot', at: [32, 33], block: false, img: () => flowerPotArt(1) },
-  { k: 'pot', at: [37, 31], block: false, img: () => flowerPotArt(2) }, { k: 'curl', at: [34, 32], block: false, img: () => catCurl('orange') },
+  // v2.0.1 art scenery (data/map.js SCENERY): the sakura / maple groves (A2), the roten's bamboo lanterns, the lower garden (A3)
+  ...SCENERY,
 ];
 const propOn = p => !p.need || (typeof p.need === 'function' ? p.need() : !!S.unlocked[p.need]);
 function buildObjects() {
   const L = [], add = (o, uid) => L.push(Object.assign({ fw: 1, fh: 1, block: true, ground: false }, o, { tx: o.at[0], ty: o.at[1], uid: uid || (typeof o.uid === 'function' ? o.uid() : o.uid) || (typeof o.need === 'string' ? o.need : null) }));
   for (const p of PROPS) if (propOn(p)) add(p);
   for (const rm of ROOMS) if (roomOpen(rm)) {
-    add({ k: 'andon', at: rm.andon, img: () => andonArt() }, rm.id + ':a');
-    add({ k: 'table', at: rm.table, img: () => tableArt() }, rm.id + ':t');
+    add({ k: 'andon', at: rm.andon, img: () => andonArt(rm.furn) }, rm.id + ':a');   // furn 'west': lamp + tea table (map.js ROOM_LOOK)
+    add({ k: 'table', at: rm.table, img: () => tableArt(rm.furn) }, rm.id + ':t');
     if (rm.tub) add({ k: 'tub', at: rm.tub, img: () => tubArt(tubBusy(rm) ? Math.floor(T * 1.5) & 1 : 2) }, rm.id + ':u');
   }
   OBJS = L;

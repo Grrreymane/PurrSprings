@@ -31,11 +31,11 @@ const MAP = [
   'b#mmmmmmmm#lllllllllllll#pggggggpggggggb',
   'b#mmmmmmmm#lllllllllllll#pggggggpggggggb',
   'b###############EEE######Dfffffffffffffb',   // r29 (16-18,29) main entrance, (25,29) plaza gate (v2.1)
-  'bqqqqqqqqqgggggpppppgggggqqqqqqqqqqqqqqb',   // r30 shop | front garden | festival plaza (v2.1)
-  'bqqqqqqqqqgggggpppppgggggqqqqqqqqqqqqqqb',
-  'bqqqqqqqqqgggggpppppgggggqqqqqqqqqqqqqqb',
-  'bqqqqqqqqqgggggpppppgggggqqqqqqqqqqqqqqb',
-  'bqqqqqqqqqgggggpppppgggggqqqqqqqqqqqqqqb',
+  'bqqqqqqqqqgggggpppppgggggpfffggggggffffb',   // r30 shop | front garden | the lower garden (v2.0.1 A3; festival plaza in v2.1)
+  'bqqqqqqqqqgggggpppppgggggpppppppppppppfb',
+  'bqqqqqqqqqgggggpppppgggggfgggggggggggpgb',
+  'bqqqqqqqqqgggggpppppgggggfgggggggggggggb',
+  'bqqqqqqqqqgggggpppppgggggfffffggfffffffb',
   'bbbbbbbbbbbbbbbpppppbbbbbbbbbbbbbbbbbbbb',   // r35 guests come in from (17,36)
 ];
 const WALK_CH = new Set(['s', 't', '.', 'l', 'E', 'g', 'p', 'k', 'm', 'z', 'x', 'q']);
@@ -58,7 +58,7 @@ const AREAS = [
   { id: 'garden', r: [25, 9, 38, 28],  open: 'garden', lock: 'block', dim: true, music: 'garden', amb: 'garden', sign: [24, 26], n: 4 },
   { id: 'roten',  r: [25, 1, 38, 8],   open: 'roten',  lock: 'block', dim: true, music: 'onsen',  amb: 'falls', sign: [24, 4], n: 5 },
   { id: 'shrine', r: [1, 1, 9, 5],     open: 'shrine', lock: 'block', dim: false, music: 'garden', amb: null, scenery: 'bamboo' },   // v2.1
-  { id: 'plaza',  r: [25, 30, 38, 34], open: 'plaza',  lock: 'block', dim: false, music: 'lobby',  amb: null, scenery: 'plaza' },    // v2.1
+  { id: 'plaza',  r: [25, 30, 38, 34], open: 'plaza',  lock: 'block', dim: false, music: 'lobby',  amb: null },   // v2.1; v2.0.1: the lower garden (A3), lawn left open
 ];
 const AREA = NUL(); AREAS.forEach((a, i) => { a.i = i; AREA[a.id] = a; });
 const AREA_AT = new Int8Array(MW * MH).fill(-1);
@@ -99,6 +99,16 @@ function roomGeom([id, name, emb, col, wing, trait, open]) {
 }
 const ROOMS = ROOM_DEF.map(roomGeom);
 const ROOM = NUL(); ROOMS.forEach(r => { ROOM[r.id] = r; });
+// ---- v2.0.1 (FEEDBACK A1): every room its own floor + wall (art presets: _EN_FLOOR / _EN_WALL in src/art/env.js).
+// Main wing: washitsu variations after each room's noren colour; west wing: Taisho roman (wood floor + rug, wallpaper,
+// furn 'west' = bed, table lamp, tea table on the same tiles); cottages: rustic; suites: the richest (gold, brocade).
+const ROOM_LOOK = {
+  room1: ['tatami', 'shikkui'],  room2: ['aotatami', 'uguisu'], room3: ['ume', 'juraku'],    room4: ['ryukyu', 'sakura'],
+  room5: ['kiku', 'kuchiba'],    room6: ['momiji', 'bengara'],  room7: ['hagi', 'fuji'],     room8: ['tsubaki', 'gunjo'],
+  w1: ['oak', 'stripe', 'west'], w2: ['chevron', 'trellis', 'west'], w3: ['basket', 'damask', 'west'],
+  c1: ['hana', 'tsuchi'],        c2: ['hotaru', 'itakabe'],     c3: ['tsuki', 'kinpaku'],    c4: ['yuki', 'karakami'],
+};
+ROOMS.forEach(r => { const [floor, wall, furn] = ROOM_LOOK[r.id] || ['tatami', 'shikkui']; Object.assign(r, { floor, wall, furn: furn || null }); });
 const GUEST_ROOMS = ROOMS.filter(r => !r.vip);       // suites are only for VIPs
 const roomOpen = (rm, s) => !rm.open || !!(s || S).unlocked[rm.open];
 const futonC = rm => rm.cleanC;
@@ -141,3 +151,53 @@ Object.assign(PILE_AT, { recep: [15, 24], onsen: [18, 5], milk: [21, 5], dining:
 ROOMS.forEach(r => { PILE_AT[r.id] = r.pile; });
 const pileOpen = (id, s) => id === 'recep' || (ROOM[id] ? roomOpen(ROOM[id], s) : !!(s || S).unlocked[id]);
 const SHIRTS = ['#e05a5a', '#5a9ae0', '#6ac06a', '#e0b04a', '#b07ae0', '#e08ac0', '#4ac0b8', '#f08a4a'];
+
+// ---- v2.0.1 tile looks (FEEDBACK A1 / A3 / A4): what tileArt paints over a tile's char (null = the plain char).
+// Room floors 'preset|i,j' and walls 'preset|i,n' carry the tile's place in the room (rugs, windows line up).
+const TILE_LOOK = new Array(MW * MH).fill(null);
+{
+  const set = (x, y, v) => { if (x >= 0 && y >= 0 && x < MW && y < MH) TILE_LOOK[y * MW + x] = v; };
+  for (const r of ROOMS) {
+    const [x0, y0] = r.box;   // every room is 4 x 3 tiles; its wall face is the row above it
+    for (let j = 0; j < 3; j++) for (let i = 0; i < 4; i++) set(x0 + i, y0 + j, (r.tub && j === 2 && i >= 2 ? 'bath' : r.floor) + '|' + i + ',' + j);   // a suite's tub stands on hinoki slats
+    if (r.wing === 'mainL' || r.wing === 'mainR') set(r.slotA[0], r.slotA[1], r.floor + '|' + (r.slotA[0] - x0) + ',0,1');   // main wing: the decor corner is a tokonoma
+    for (let i = 0; i < 4; i++) set(x0 + i, y0 - 1, r.wall + '|' + i + ',4');
+  }
+  for (let y = 7; y <= 17; y++) for (let x = 7; x <= 9; x++) set(x, y, 'hall');             // west wing hall: parquet + runner
+  for (let x = 7; x <= 9; x++) set(x, 6, 'hall|' + (x - 7) + ',3');                          // its wallpapered north wall
+  for (let y = 2; y <= 3; y++) { for (let x = 27; x <= 37; x++) set(x, y, 'milky'); set(26, y, 'roten'); set(38, y, 'roten'); }   // star-view bath
+  for (let x = 26; x <= 38; x++) set(x, 1, 'rockdry');
+  for (let x = 25; x <= 38; x++) set(x, 4, 'sunoko');
+  // the lower garden (A3): flower beds (v 0 hydrangea, 1 iris, 2 cosmos, 3 marigold), a clipped hedge and a low bamboo
+  // fence on its west side (towards the front yard), stepping stones from the walk to the bench
+  [[26, 30, 0], [27, 30, 0], [28, 30, 2], [35, 30, 3], [36, 30, 2], [37, 30, 0], [38, 30, 0], [38, 31, 1],
+    [26, 34, 1], [27, 34, 0], [28, 34, 0], [29, 34, 2], [32, 34, 2], [33, 34, 3], [34, 34, 3], [35, 34, 0], [36, 34, 0], [37, 34, 1], [38, 34, 1]].forEach(([x, y, v]) => set(x, y, 'bed|' + v));
+  for (let y = 32; y <= 34; y++) set(25, y, 'hedge|0,1');
+  set(25, 30, 'gd|0,1'); set(25, 31, 'gd|0,1'); set(29, 32, 'gd|1'); set(30, 33, 'gd|1');
+}
+const tileLook = (tx, ty) => (tx < 0 || ty < 0 || tx >= MW || ty >= MH) ? null : TILE_LOOK[ty * MW + tx];
+
+// ---- v2.0.1 scenery props (FEEDBACK A2 / A3), spread into PROPS (core/pathfinding.js); same fields as PROPS.
+// light: [radius, dy, colour key] = a lamp for the night pass (render-world adds it next to buildLights()).
+// A2: each tree unlock plants a small grove. The first tree of each stays where SPEC_v2 2.4 put it (it blocks); the
+// others are walk-over (block: false) on lawn tiles off the walks, so no walkable / reachable tile changes (map_check).
+const SCENERY = [
+  { k: 'tree', at: [27, 24], need: 'g_sakura', img: () => treeArt('sakura') },
+  { k: 'tree', at: [29, 25], need: 'g_sakura', block: false, img: () => treeArt('sakura', 0, 1) },
+  { k: 'tree', at: [31, 24], need: 'g_sakura', block: false, img: () => treeArt('sakura', 0, 2) },
+  { k: 'tree', at: [29, 28], need: 'g_sakura', block: false, img: () => flipOf(treeArt('sakura', 0, 1)) },
+  { k: 'tree', at: [37, 18], need: 'g_maple', img: () => treeArt('maple') },
+  { k: 'tree', at: [34, 18], need: 'g_maple', block: false, img: () => treeArt('maple', 0, 1) },
+  { k: 'tree', at: [36, 15], need: 'g_maple', block: false, img: () => flipOf(treeArt('maple', 0, 1)) },
+  { k: 'tree', at: [33, 15], need: 'g_maple', block: false, img: () => treeArt('maple', 0, 2) },
+  // A4: bamboo lanterns at the star-view bath's two corners (on rock tiles: nothing walkable)
+  { k: 'bambooLamp', at: [26, 3], need: 'roten', block: false, img: () => deckLanternArt(lampLit()), light: [10, 2, 'deck'] },
+  { k: 'bambooLamp', at: [38, 2], need: 'roten', block: false, img: () => deckLanternArt(lampLit()), light: [10, 2, 'deck'] },
+  // A3: the lower garden. Shut (BLOCK) in v2.0; the lawn in the middle stays open for the v2.1 festival stalls.
+  { k: 'nodate', at: [30, 34], fw: 2, img: () => nodateArt('gray') },           // red bench under a parasol, a cat asleep on it
+  { k: 'tsukubai', at: [38, 32], img: () => tsukubaiArt() },                     // stone water basin at the end of the walk
+  { k: 'toro', at: [38, 30], img: () => toroArt(), light: [18, 0, 'lamp'] },     // its stone lantern, in the hydrangeas
+  { k: 'curl', at: [28, 32], block: false, img: () => catCurl('orange') },       // cats asleep in the sun
+  { k: 'curl', at: [34, 33], block: false, img: () => catCurl('calico') },
+  { k: 'kitten', at: [37, 33], block: false, img: () => kittenSit('white') },    // a kitten watching the water drip
+];

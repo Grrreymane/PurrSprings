@@ -34,7 +34,7 @@ const _EN = {
   paper: '#fbf6e8', paperF: '#8a5a34',
   ind: '#2f4a7a', wht: '#f4f0e6', red: '#c8463a',
   sl: '#a8a8a0', slD: '#8a8a84', slH: '#c4c2b8', rk: '#7a7a78', rkD: '#5e5e60',
-  wa: '#5cc8c8', waD: '#3aa6b4', waH: '#8ae0dc', foam: '#e8fbf8',
+  wa: '#4cbaa4', waD: '#2f9a88', waH: '#86dcc4', foam: '#e6faf2',   // v2.0.1 A4: jade-green onsen water (was cyan)
   gr: '#6aa84a', grD: '#5a9640', grH: '#84c060', step: '#b8b2a4',
   bam: '#7cb84a', bamD: '#5a9a3a', rope: '#c8a860',
   lan: '#e0503a', warm: '#ffd27a',
@@ -43,7 +43,7 @@ const _EN = {
   din: '#9a6038', dinD: '#7a4a2a', dinS: '#55321e', dinH: '#b47c4a',
   goza: '#c9b46c', gozaW: '#b19c58', gozaH: '#dccb86',
   sand: '#e0dccf', sandS: '#c6bfac', sandH: '#f3f0e8',
-  deck: '#b98b5a', deckD: '#9a6e44', deckH: '#d2a876', deckS: '#5e3e26',
+  deck: '#d2a870', deckD: '#b88c56', deckH: '#e6c48e', deckS: '#6e4e30',   // v2.0.1 A4: hinoki deck (was cedar)
   qs: '#b8b2a4', qsD: '#a09a8c', qsJ: '#7e786c', qsH: '#d2ccbe',
   pond: '#2f7f86', pondD: '#24666e', pondH: '#5aa4a4',
   cedar: '#8a5a34', cedarH: '#b07a45', cedarD: '#5a3420', dry: '#c9b273', dryD: '#8f7a3e', dryH: '#e2cf92',
@@ -239,8 +239,8 @@ function _enSlate(G, tx, ty, nb) {
   if (nb.u === '~') {   // the pool's stone lip
     for (let x = 0; x < 16; x++) {
       const wx = tx * 16 + x;
-      G.set(x, 0, '#2f7c88'); G.set(x, 1, '#dcdad0'); G.set(x, 2, _EN.slH); G.set(x, 3, (wx % 20 === 0) ? _EN.slD : '#b4b2aa'); G.set(x, 4, _EN.slD);
-      if (_enBay(x, 5) < .5) G.set(x, 5, _enM(G.get(x, 5), '#5a8a90', .3));
+      G.set(x, 0, '#2a7e6e'); G.set(x, 1, '#dcdad0'); G.set(x, 2, _EN.slH); G.set(x, 3, (wx % 20 === 0) ? _EN.slD : '#b4b2aa'); G.set(x, 4, _EN.slD);
+      if (_enBay(x, 5) < .5) G.set(x, 5, _enM(G.get(x, 5), '#5a8c80', .3));
     }
   }
   const soft = { u: nb.u === 'r' || nb.u === '#' || nb.u === 'D' ? '#' : null, l: nb.l === 'f' || nb.l === 'r' ? '#' : null, r: nb.r === 'f' || nb.r === 'r' ? '#' : null };
@@ -666,7 +666,7 @@ function _enRock(G, tx, ty, nb) {   // onsen boulders; the side facing the water
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
     const wx = tx * 16 + x, wy = ty * 16 + y, b = own(wx, wy), wd = wetD(x, y);
     if (!b) {
-      if (wd < 6) G.set(x, y, wd < 2 ? '#2a8c98' : _enBay(x, y) < .5 ? '#2a8c98' : '#2a6670');
+      if (wd < 6) G.set(x, y, wd < 2 ? '#2a8c7c' : _enBay(x, y) < .5 ? '#2a8c7c' : '#2a665c');
       else G.set(x, y, _enH(wx, wy, 124) < .25 ? '#46553a' : '#3a4234');
       continue;
     }
@@ -681,7 +681,7 @@ function _enRock(G, tx, ty, nb) {   // onsen boulders; the side facing the water
       if (b.moss && ny < -.2 && _enVN(wx / 3, wy / 3, 125) > .5) c = ny < -.55 ? '#7a9a52' : '#5e7e44';
     }
     const lit = c === RAMP[3] || c === RAMP[4];
-    if (wd < 5) { c = _enM(c, '#1e4650', (5 - wd) / 5 * .55); if (wd > 0 && wd < 4 && lit && _enH(wx, wy, 126) < .3) c = '#bfe6e2'; }
+    if (wd < 5) { c = _enM(c, '#1e463e', (5 - wd) / 5 * .55); if (wd > 0 && wd < 4 && lit && _enH(wx, wy, 126) < .3) c = '#c2e8d8'; }
     G.set(x, y, c);
   }
 }
@@ -714,3 +714,474 @@ const _EN_TILE = {
   'b': _enFence, 'f': _enBush, 'r': _enRock,
   'k': _enKitchen, 'm': _enDining, 'z': _enSand, 'x': _enDeck, 'q': _enStoneQ,
 };
+
+// ============================================================ v2.0.1 looks (FEEDBACK A1 / A4)
+// map.js (TILE_LOOK) gives some tiles a look on top of their map char; tileArt(ch, tx, ty, nb, season, look).
+//   room floors 't'   look 'preset|i,j'  (i, j = the tile's column / row inside its 4x3 room: rugs, mats line up)
+//   room walls  '#'   look 'preset|i,n'  (i = index along the room's wall face, n = its width in tiles: windows, posts)
+//   west hall   '.'   look 'hall'        (Taisho parquet + runner)      roten  '~' 'milky' / 'r' 'roten' / 's' 'sunoko'
+// Presets are plain colour tables, so a room can be re-dressed by changing one word in map.js.
+const _EN_HIN = { hin: '#e6c48c', hinL: '#f6dcaa', hinD: '#c49a62', hinS: '#8a6a44', gap: '#5e4430' };   // hinoki
+const _EN_FLOOR = {
+  // tatami: lay v (mats run north-south, v1) | h (east-west) | q (ryukyu squares, no heri); hp = heri pattern colour
+  tatami:   { lay: 'v', tat: '#cdbf7a', tatW: '#b8aa62', tatH: '#e0d494', heri: '#3d5a3a', toko: '#8a5a34' },
+  aotatami: { lay: 'h', tat: '#bfc47c', tatW: '#a5ab60', tatH: '#d5db9a', heri: '#2c2c30', toko: '#b88c54' },
+  ume:      { lay: 'v', tat: '#d2b06c', tatW: '#b8964e', tatH: '#e6c88a', heri: '#8a2e2a', hp: '#e8a0a0', toko: '#7a4a30' },
+  ryukyu:   { lay: 'q', tat: '#dac98c', tatW: '#c2ae6e', tatH: '#eee2aa', heri: '#a8945a', toko: '#d0a86c' },
+  kiku:     { lay: 'v', tat: '#d8b868', tatW: '#be9c4e', tatH: '#eacf8a', heri: '#5a3a22', hp: '#e8b830', toko: '#7a4a2a' },
+  momiji:   { lay: 'h', tat: '#c8ac6c', tatW: '#ae9254', tatH: '#dcc488', heri: '#2a3456', toko: '#6a4230' },
+  hagi:     { lay: 'v', tat: '#c8c690', tatW: '#acaa74', tatH: '#dedcaa', heri: '#5a3a6a', hp: '#c8a0d0', toko: '#9a7048' },
+  tsubaki:  { lay: 'h', tat: '#d4b874', tatW: '#b89c58', tatH: '#e8d092', heri: '#8a1e30', hp: '#e8c060', toko: '#5a3436' },
+  hana:     { lay: 'v', tat: '#d6c68c', tatW: '#bcaa6e', tatH: '#e8dca8', heri: '#9a5a5a', hp: '#f4c4c8' },
+  hotaru:   { lay: 'h', tat: '#c4c280', tatW: '#aaa864', tatH: '#d8d89c', heri: '#23402c' },
+  tsuki:    { lay: 'v', tat: '#d8ca8a', tatW: '#c0ae6c', tatH: '#eee2aa', heri: '#22284a', hp: '#e8c860', lux: 1 },
+  yuki:     { lay: 'q', tat: '#ded6a8', tatW: '#c8bc8c', tatH: '#f2eac8', heri: '#b4bccc', lux: 1 },
+  // west wing: wood under a rug. wood = [base, lo, lt, seam, hi]; rug f / f2 field, b border, e edge, m motif, mk kind
+  oak:      { k: 'planks', wood: ['#7a5234', '#684428', '#8a6040', '#3e2818', '#a07450'], rug: { f: '#2f5a3e', f2: '#3a6a4a', b: '#c8a050', e: '#1c3424', m: '#e0c070', mk: 'diamond' } },
+  chevron:  { k: 'chevron', wood: ['#c08a54', '#a87444', '#d29c64', '#6a4428', '#e2b27c'], rug: { f: '#6e5294', f2: '#7c62a6', b: '#ece2c8', e: '#3e2c5a', m: '#f8d8ec', mk: 'flower' } },
+  basket:   { k: 'basket', wood: ['#8e4e32', '#7a4028', '#a0603e', '#4a2416', '#b8784e'], rug: { f: '#a63a44', f2: '#b44c52', b: '#28386a', e: '#16182e', m: '#ecc474', mk: 'medallion' } },
+  bath:     { k: 'sunoko' },   // a suite's bath corner: hinoki duckboards under the tub
+};
+const _EN_WALL = {
+  shikkui:  { pl: '#f0e6d0', plS: '#d8cbb0', low: 'wood', win: 'shoji' },
+  uguisu:   { pl: '#dde0bc', plS: '#c0c49c', tex: 'sand', low: 'bamboo' },
+  juraku:   { pl: '#e8d4ae', plS: '#ccb48a', tex: 'sand', low: 'paper', lp: '#f8f0e2', ld: '#e0707a' },
+  sakura:   { pl: '#f2dcd8', plS: '#dabcb8', win: 'round' },
+  kuchiba:  { pl: '#e6cc8e', plS: '#caac6c', tex: 'sand', low: 'wood', win: 'ranma' },
+  bengara:  { pl: '#b8583f', plS: '#8e3e2c', tex: 'sand', low: 'paper', lp: '#f0e0c4', ld: '#c8784a' },
+  fuji:     { pl: '#dcd2e4', plS: '#c0b4cc', win: 'shoji' },
+  gunjo:    { pl: '#36498c', plS: '#24336a', tex: 'gold', low: 'lacquer', gold: 1 },
+  stripe:   { pl: '#ece2bc', plS: '#ccc096', pat: 'stripe', c1: '#7e8a48', c2: '#a8ae6e', low: 'panel', pc: '#5a3a24' },
+  trellis:  { pl: '#dcd2ec', plS: '#bcb0d0', pat: 'trellis', c1: '#9a84c4', c2: '#fbf6ff', low: 'panelW' },
+  damask:   { pl: '#dea8b0', plS: '#be8892', pat: 'damask', c1: '#b26c7a', c2: '#f4d2d6', low: 'panel', pc: '#6a2e24' },
+  tsuchi:   { pl: '#c89e6c', plS: '#aa8050', tex: 'straw', win: 'shitaji' },
+  itakabe:  { pl: '#86593a', plS: '#5e3c26', tex: 'boards', win: 'hotaru' },
+  kinpaku:  { pl: '#dcb24c', plS: '#b08a30', tex: 'leaf', win: 'moon', gold: 1 },
+  karakami: { pl: '#dde4ee', plS: '#bcc8d8', pat: 'yukiwa', c1: '#ffffff', c2: '#c0cce0', win: 'yukimi', gold: 1 },
+  hall:     { pl: '#ece2bc', plS: '#ccc096', pat: 'stripe', c1: '#8a3a3a', c2: '#b0645a', low: 'panel', pc: '#5a3a24', win: 'frame' },
+};
+function _enLook(look) {   // 'preset|a,b[,c]' -> { id, a, b, c }
+  const s = String(look), k = s.indexOf('|'), ab = k < 0 ? [] : s.slice(k + 1).split(',');
+  return { id: k < 0 ? s : s.slice(0, k), a: +ab[0] || 0, b: +ab[1] || 0, c: +ab[2] || 0 };
+}
+
+// ------------------------------------------------------------ room floors
+function _enTatP(G, tx, ty, nb, p) {
+  const T = p.tat, TW = p.tatW, TH = p.tatH, HE = p.heri;
+  if (p.lay === 'q') {   // ryukyu: square borderless mats, the weave turning a quarter on every other mat
+    const chk = ((tx + ty) & 1) === 0, v = _enH(tx, ty, 3);
+    const base = v < .33 ? _enM(T, TW, .22) : v > .7 ? _enM(T, TH, .25) : T, weave = _enM(base, TW, .55), hi = _enM(base, TH, .6);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) G.set(x, y, (chk ? (y & 1) : (x & 1)) ? weave : base);
+    for (let k = 0; k < 16; k++) { G.set(k, 0, hi); G.set(0, k, hi); G.set(k, 15, _enM(base, HE, .75)); G.set(15, k, _enM(base, HE, .75)); }
+    G.set(0, 0, _enM(hi, '#ffffff', .3));
+    if (p.lux) for (let k = 2; k < 14; k += 4) { G.set(k, 15, _enM(HE, '#ffffff', .4)); G.set(15, k, _enM(HE, '#ffffff', .4)); }   // a silver thread in the seams
+    _enAO(G, nb, OUT); return;
+  }
+  const h = p.lay === 'h', first = ((tx + ty) & 1) === 0;   // v: first = the top half of a mat; h: the left half
+  const v = _enH(h ? (first ? tx : tx - 1) : tx, h ? ty : (first ? ty : ty - 1), 3);
+  const base = v < .33 ? _enM(T, TW, .2) : v > .7 ? _enM(T, TH, .25) : T;
+  const weave = _enM(base, TW, .55), hi = _enM(base, TH, .6), seam = _enM(base, '#6a5a28', .7), heriD = _enM(HE, OUT, .2);
+  const heriPx = k => p.lux ? ((k & 1) ? p.hp : HE) : (p.hp && k % 4 === 1 ? p.hp : HE);   // dotted / brocade heri
+  if (!h) {
+    for (let y = 0; y < 16; y++) for (let x = 1; x < 15; x++) G.set(x, y, (y & 1) ? weave : base);
+    for (let y = 0; y < 16; y++) { G.set(0, y, heriPx(ty * 16 + y)); G.set(15, y, heriD); G.set(1, y, hi); G.set(14, y, _enM(base, TW, .8)); }
+    if (first) { for (let x = 1; x < 15; x++) { G.set(x, 0, seam); G.set(x, 1, hi); } }
+    else for (let x = 1; x < 15; x++) { G.set(x, 15, _enM(base, '#8a7a3a', .55)); G.set(x, 14, _enM(base, TW, .7)); }
+  } else {
+    for (let y = 1; y < 15; y++) for (let x = 0; x < 16; x++) G.set(x, y, (x & 1) ? weave : base);
+    for (let x = 0; x < 16; x++) { G.set(x, 0, heriPx(tx * 16 + x)); G.set(x, 15, heriD); G.set(x, 1, hi); G.set(x, 14, _enM(base, TW, .8)); }
+    if (first) { for (let y = 1; y < 15; y++) { G.set(0, y, seam); G.set(1, y, hi); } }
+    else for (let y = 1; y < 15; y++) { G.set(15, y, _enM(base, '#8a7a3a', .55)); G.set(14, y, _enM(base, TW, .7)); }
+  }
+  _enAO(G, nb, OUT);
+}
+// west wing wood floors (world-pixel patterns: joints run on across tiles). W = [base, lo, lt, seam, hi]
+function _enWoodPx(k, W, wx, wy) {
+  if (k === 'chevron') {   // 8 px bands of 45-degree slats, every other band mirrored: a chevron parquet
+    const b = Math.floor(wx / 8), xi = wx - b * 8, d = wy + ((b & 1) ? xi : 7 - xi), s = Math.floor(d / 3), sp = d - s * 3;
+    const t = _enH(b, s, 301);
+    let c = t < .3 ? W[1] : t > .72 ? W[2] : W[0];
+    if (xi === 0) c = _enM(W[3], W[0], .35); else if (sp === 0) c = _enM(c, W[3], .55); else if (sp === 1) c = _enM(c, W[4], .25);
+    return c;
+  }
+  if (k === 'basket') {   // basket weave: 6 px squares of three 2 px slats, turning every square
+    const a = Math.floor(wx / 6), b = Math.floor(wy / 6), xi = wx - a * 6, yi = wy - b * 6, hz = ((a + b) & 1) === 0, q = hz ? yi : xi, sl = q >> 1;
+    const t = _enH(a * 3 + (hz ? sl : 0), b * 3 + (hz ? 0 : sl), 302);
+    let c = t < .3 ? W[1] : t > .7 ? W[2] : W[0];
+    if (xi === 0 || yi === 0) c = W[3]; else if ((q & 1) === 0) c = _enM(c, W[4], .22); else c = _enM(c, W[3], .18);
+    return c;
+  }
+  // planks: 4 px boards, staggered butt joints
+  const row = wy >> 2, py = wy & 3, sx = wx + Math.floor(_enH(row, 9, 11) * 36), seg = Math.floor(sx / 36), jx = sx - seg * 36, t = _enH(row, seg, 9);
+  let c = t < .3 ? W[1] : t > .72 ? W[2] : W[0];
+  if (py === 0 || jx === 0) c = W[3]; else if (py === 1) c = _enM(c, W[4], .3); else if (py === 2 && _enH(wx >> 3, row, 303) < .15) c = _enM(c, W[3], .35);
+  return c;
+}
+function _enRug(r, lx, ly, X0, Y0, X1, Y1) {   // rug pixel at room-local (lx, ly); null = no rug here
+  if (lx < X0 || lx > X1 || ly < Y0 || ly > Y1) return null;
+  const e = Math.min(lx - X0, X1 - lx, ly - Y0, Y1 - ly), W = X1 - X0, H = Y1 - Y0;
+  if (e === 0) return r.e;
+  if (e === 1 || e === 3) return r.b;
+  if (e === 2) return ((lx + ly) & 3) < 2 ? r.m : r.e;   // a running border of little knots
+  if (e === 4) return r.e;
+  const u = lx - X0, v = ly - Y0, cx = W / 2, cy = H / 2;
+  let c = ((u + v) & 1) ? r.f : _enM(r.f, r.f2, .5);
+  if (r.mk === 'diamond') {
+    const d1 = (u + v) % 8, d2 = (u - v + 64) % 8;
+    if (d1 === 0 || d2 === 0) c = r.f2; if (d1 === 4 && d2 === 4) c = r.m;
+  } else if (r.mk === 'flower') {
+    const gx = (u - 2) % 9, gy = (v + ((Math.floor((u - 2) / 9) & 1) ? 4 : 0)) % 8;
+    if ((gx === 4 && gy === 3) || (gx === 4 && gy === 5) || (gx === 3 && gy === 4) || (gx === 5 && gy === 4)) c = r.m;
+    else if (gx === 4 && gy === 4) c = '#f0c040'; else if ((gx === 6 && gy === 6) || (gx === 2 && gy === 2)) c = r.f2;
+  } else {   // rosettes on a lattice (a single medallion would hide under the bed)
+    const gx = (u - 3) % 12, gy = (v - 3 + ((Math.floor((u - 3) / 12) & 1) ? 6 : 0)) % 12, ad = Math.abs(gx - 4) + Math.abs(gy - 4);
+    if (ad === 0) c = r.e; else if (ad === 1) c = r.m; else if (ad === 2 && (gx === 4 || gy === 4)) c = r.m; else if (ad === 3 && gx !== 4 && gy !== 4) c = r.f2;
+  }
+  return c;
+}
+function _enRoomFloor(G, tx, ty, nb, p, i, j, toko) {
+  if (p.k === 'sunoko') { _enSunoko(G, tx, ty, nb, true); return; }
+  if (toko && p.toko) { _enToko(G, tx, ty, nb, p, i); return; }
+  if (!p.k) { _enTatP(G, tx, ty, nb, p); return; }
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) G.set(x, y, _enWoodPx(p.k, p.wood, tx * 16 + x, ty * 16 + y));
+  const X0 = 5, Y0 = 6, X1 = 58, Y1 = 41;   // the rug, in room-local pixels (the room is 64 x 48)
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const lx = i * 16 + x, ly = j * 16 + y, c = _enRug(p.rug, lx, ly, X0, Y0, X1, Y1);
+    if (c) { G.set(x, y, c); continue; }
+    if ((lx === X0 - 1 || lx === X1 + 1) && ly >= Y0 + 1 && ly <= Y1 - 1 && (ly & 1)) { G.set(x, y, '#f2ead6'); continue; }   // fringe at the ends
+    if ((lx === X1 + 2 && ly > Y0 && ly <= Y1 + 1) || (ly === Y1 + 1 && lx > X0 && lx <= X1 + 1)) G.set(x, y, _enM(G.get(x, y), OUT, .35));   // its shadow
+  }
+  _enAO(G, nb, OUT);
+}
+
+// the tokonoma (main wing): the decor corner is a raised board of the room's own wood, framed on its open sides
+function _enToko(G, tx, ty, nb, p, i) {
+  const W = p.toko, L = _enM(W, '#ffffff', .22), D = _enM(W, OUT, .3), openL = nb.l === 't', openR = nb.r === 't';
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const t = _enH((tx * 16 + x) >> 3, ty * 16 + y, 361);
+    let c = (y & 3) === 0 && _enH(x >> 2, y, 362) < .5 ? _enM(W, D, .4) : t < .2 ? _enM(W, L, .3) : W;
+    if (y === 1 || y === 2) c = _enM(c, '#ffffff', .12);   // polish catching the light
+    G.set(x, y, c);
+  }
+  for (let x = 0; x < 16; x++) { G.set(x, 13, '#2a1a14'); G.set(x, 14, _enM(W, OUT, .5)); G.set(x, 15, _enM(p.tat, OUT, .35)); }   // the front frame and its shadow
+  if (openL) for (let y = 0; y < 15; y++) { G.set(0, y, '#2a1a14'); G.set(1, y, L); }
+  if (openR) for (let y = 0; y < 15; y++) { G.set(15, y, '#2a1a14'); G.set(14, y, D); }
+  _enAO(G, nb, OUT);
+}
+// ------------------------------------------------------------ room walls
+function _enWallField(p, lx, y) {   // the plaster / paper at wall-local (lx = 0..16n-1, y = 5..12)
+  const P = p.pl, PS = p.plS, h = _enH(lx, y * 7 + 3, 311);
+  if (p.pat === 'stripe') { const m = lx % 8; return m < 2 ? p.c1 : m === 2 || m === 7 ? p.c2 : P; }
+  if (p.pat === 'trellis') { const d1 = (lx + y) % 6, d2 = (lx - y + 60) % 6; return d1 === 0 || d2 === 0 ? p.c1 : (d1 === 3 && d2 === 3 ? p.c2 : P); }
+  if (p.pat === 'damask') {
+    const cx = (lx % 8), r = ['..X..', '.XXX.', 'XX.XX', '.XXX.', '..X..'][y - 5], k = r && cx >= 2 && cx <= 6 ? r[cx - 2] : '.';
+    return k === 'X' ? p.c1 : (cx === 6 && y === 9) || (cx === 2 && y === 5) ? p.c2 : P;
+  }
+  if (p.pat === 'yukiwa') {
+    const col = Math.floor(lx / 8), oy = (col & 1) ? 1 : 0, cx = lx % 8, r = ['.X.X.', 'X...X', '..X..', 'X...X', '.X.X.'][y - 6 - oy], k = r && cx >= 1 && cx <= 5 ? r[cx - 1] : '.';
+    if (k === 'X') return p.c1;
+    return (cx === 0 && ((y + col) & 1)) ? p.c2 : (h < .06 ? _enM(P, '#ffffff', .5) : P);   // mica sparkle
+  }
+  if (p.tex === 'leaf') {   // gold leaf: 5 px squares in slightly different golds, lit seams
+    const a = Math.floor(lx / 5), b = Math.floor((y - 5) / 4), xi = lx - a * 5, yi = (y - 5) - b * 4, t = _enH(a, b, 312);
+    const base = t < .3 ? _enM(P, PS, .35) : t > .7 ? _enM(P, '#f4d880', .4) : P;
+    return xi === 0 || yi === 0 ? _enM(base, '#fff0b0', .35) : base;
+  }
+  if (p.tex === 'boards') {   // dark cedar boards with battens
+    const b = Math.floor(lx / 5), xi = lx - b * 5, t = _enH(b, 0, 313);
+    const base = t < .35 ? _enM(P, PS, .35) : t > .7 ? _enM(P, '#a07450', .3) : P;
+    return xi === 0 ? PS : xi === 1 ? _enM(base, '#b08860', .25) : (_enH(b, y >> 1, 314) < .1 ? _enM(base, PS, .4) : base);
+  }
+  if (p.tex === 'straw') {   // earthen wall with chopped straw
+    const s = _enH(lx >> 1, y, 315);
+    return s < .09 ? '#e6c88e' : s > .93 ? _enM(P, PS, .6) : h < .2 ? _enM(P, PS, .3) : P;
+  }
+  if (p.tex === 'sand') return h < .16 ? _enM(P, PS, .5) : h > .94 ? _enM(P, '#ffffff', .3) : P;
+  if (p.tex === 'gold') return h < .04 ? '#e0b850' : h < .07 ? '#f2d478' : h > .9 ? _enM(P, PS, .4) : P;
+  return h < .07 ? _enM(P, PS, .45) : P;
+}
+function _enWinPx(p, lx, y, n) {   // a window across the middle of the wall; null = none here
+  const m = n * 8, w = p.win;   // m = the wall's centre (local px)
+  if (w === 'shoji' || w === 'yukimi') {
+    const x0 = m - 13, x1 = m + 12; if (lx < x0 || lx > x1 || y < 6 || y > 12) return null;
+    if (lx === x0 || lx === x1 || y === 6 || y === 12) return y === 12 ? _EN.dwH : _EN.dwD;
+    if (w === 'yukimi' && y >= 9) {   // glass in the lower half: the snowy garden outside
+      const s = _enH(lx, y, 321);
+      if (y === 9) return _EN.dw;
+      return (lx - x0) % 9 === 4 && y === 10 ? '#3a5a4a' : ((lx - x0) % 9 >= 3 && (lx - x0) % 9 <= 5 && y === 11) ? '#2e4a3c' : s < .2 ? '#dce8f4' : '#f6fafe';
+    }
+    return (lx - x0) % 5 === 0 || (y - 6) % 3 === 0 ? _EN.paperF : (y < 9 ? _EN.paper : '#f2ead6');
+  }
+  if (w === 'round' || w === 'moon') {
+    const dx = lx + .5 - m, dy = y + .5 - 8.8, d = Math.hypot(dx, dy * 1.05);
+    if (d > 5.2) return null;
+    if (d > 4.3) return w === 'moon' ? '#2a2026' : _EN.dwD;
+    if (d > 3.6) return w === 'moon' ? '#e0b448' : _EN.dw;
+    if (w === 'moon') {
+      const md = Math.hypot(dx - 1.2, dy + .9);
+      if (md < 1.9) return md < 1.1 ? '#fff8d8' : '#f6e49a';
+      return (dx === -1.5 && dy === 1.5) || (Math.round(dx) === -2 && Math.round(dy) === -1) ? '#d8dcf0' : (dy > 1.5 ? '#26305a' : '#1e2850');
+    }
+    return Math.abs(dx) < .6 || Math.abs(dy) < .6 ? _EN.paperF : (dy < 0 ? _EN.paper : '#f2ead6');
+  }
+  if (w === 'ranma') {   // carved lattice transom
+    const x0 = m - 12, x1 = m + 11; if (lx < x0 || lx > x1 || y < 6 || y > 9) return null;
+    if (y === 6 || y === 9 || lx === x0 || lx === x1) return _EN.dwD;
+    return ((lx + y) % 4 === 0 || (lx - y + 40) % 4 === 0) ? _EN.dw : '#f6ecd4';
+  }
+  if (w === 'shitaji') {   // rustic window: a bamboo lattice behind paper, rounded corners
+    const x0 = m - 10, x1 = m + 9; if (lx < x0 || lx > x1 || y < 6 || y > 11) return null;
+    if ((lx === x0 || lx === x1) && (y === 6 || y === 11)) return null;
+    if (lx === x0 || lx === x1 || y === 6 || y === 11) return '#8a6a3a';
+    const vx = (lx - x0) === 4 || (lx - x0) === 9 || (lx - x0) === 15, hy = y === 8 || (y === 10 && (lx - x0) > 6);
+    return vx || hy ? '#a8884a' : (y < 9 ? '#f6ead0' : '#ecdcbc');
+  }
+  if (w === 'hotaru') {   // a small window onto the night: dark leaves, a few fireflies
+    const x0 = m - 8, x1 = m + 7; if (lx < x0 || lx > x1 || y < 6 || y > 11) return null;
+    if (lx === x0 || lx === x1 || y === 6 || y === 11) return '#3a2418';
+    const u = lx - x0, f = (u === 4 && y === 8) || (u === 10 && y === 9) || (u === 7 && y === 7);
+    return f ? '#e8f890' : (u === 5 && y === 9) || (u === 11 && y === 10) ? '#7a9a40' : (_enVN(lx / 2, y / 2, 322) > .55 ? '#24402c' : '#182a22');
+  }
+  if (w === 'frame') {   // the west hall: a gilt frame with a little landscape in oils
+    const x0 = m - 7, x1 = m + 6; if (lx < x0 || lx > x1 || y < 6 || y > 11) return null;
+    if (lx === x0 || y === 6) return '#f0c860'; if (lx === x1 || y === 11) return '#a07020';
+    const u = lx - x0;
+    return y === 7 ? '#a8c8e0' : y === 8 ? (u > 7 ? '#c8dcec' : '#9ab8d4') : y === 9 ? (u < 6 ? '#4a7a4a' : '#6a9a5a') : '#5a8a4a';
+  }
+  return null;
+}
+function _enRoomWall(G, tx, ty, nb, p, i, n) {
+  n = n || 4;
+  _enCap(G, nb.u === '#');
+  if (p.gold) for (let x = 0; x < 16; x++) if (((i * 16 + x) % 16) === 7 || ((i * 16 + x) % 16) === 8) { G.set(x, 3, '#f2d478'); G.set(x, 4, '#c8962e'); }   // gilt nail covers on the beam
+  const low = p.low, lowTop = low === 'bamboo' || low === 'panel' || low === 'panelW' ? 9 : 10;
+  for (let y = 5; y < 13; y++) for (let x = 0; x < 16; x++) {
+    const lx = i * 16 + x;
+    let c = _enWallField(p, lx, y);
+    if (low && y >= lowTop) {
+      const k = y - lowTop;
+      if (low === 'wood') c = k === 0 ? _EN.dwH : (lx % 6 === 0 ? _EN.dwD : (k === 1 ? _enM(_EN.dw, _EN.dwH, .3) : _EN.dw));
+      else if (low === 'bamboo') { const m3 = lx % 3, node = 10 + Math.floor(_enH(Math.floor(lx / 3), 0, 331) * 2); c = k === 0 ? '#c8a860' : (m3 === 0 ? '#4e7e30' : m3 === 1 ? '#a8d070' : '#7cb04a'); if (y === node && k > 0) c = _enM(c, '#3e6a2c', .6); }
+      else if (low === 'paper') { c = k === 0 ? _enM(p.lp, p.plS, .45) : ((lx * 3 + y * 5) % 11 === 0 ? p.ld : ((lx * 3 + y * 5) % 11 === 1 && y === 11) ? _enM(p.ld, p.lp, .5) : p.lp); }
+      else if (low === 'lacquer') c = k === 0 ? '#d8b050' : (k === 1 && _enH(lx >> 2, 0, 332) < .3 ? '#4a3a42' : '#2a2026');
+      else if (low === 'panel' || low === 'panelW') {
+        const P2 = low === 'panelW' ? '#ece6f2' : p.pc, rail = low === 'panelW' ? '#fbf8ff' : '#b07a48', railD = low === 'panelW' ? '#c8c0d4' : '#7a4a2a';
+        const q = lx % 16, inset = q >= 2 && q <= 13 && k >= 2;
+        c = k === 0 ? rail : k === 1 ? railD : inset ? (q === 2 || k === 2 ? _enM(P2, '#000000', .18) : q === 13 ? _enM(P2, '#ffffff', .15) : P2) : _enM(P2, '#ffffff', .08);
+      }
+    }
+    if (y === 5) c = _enM(c, '#2a2430', .3); else if (y === 6 && _enBay(x, y) < .5) c = _enM(c, '#2a2430', .14);   // the beam's shadow
+    const w = p.win ? _enWinPx(p, lx, y, n) : null;
+    G.set(x, y, w || c);
+  }
+  if (p.win === 'round' || p.win === 'moon') for (const y of [4, 13]) for (let x = 0; x < 16; x++) { const w = _enWinPx(p, i * 16 + x, y, n); if (w) G.set(x, y, w); }
+  // skirting
+  for (let x = 0; x < 16; x++) {
+    if (!(p.win === 'round' || p.win === 'moon') || !_enWinPx(p, i * 16 + x, 13, n)) G.set(x, 13, _enM(p.plS, '#2a2430', .15));
+    G.set(x, 14, _EN.dwH); G.set(x, 15, _EN.dwD);
+  }
+  if (p.gold) for (let x = 0; x < 16; x++) G.set(x, 14, (x + i) % 4 === 0 ? '#f2d478' : '#c8962e');
+  // posts at the room's two corners, and one in the middle when there is no window there
+  const post = (x0, lit) => { for (let y = 5; y < 16; y++) { G.set(x0, y, lit ? _EN.dwH : _EN.dw); G.set(x0 + 1, y, lit ? _EN.dw : _EN.dwD); } };
+  if (i === 0) post(0, true);
+  if (i === n - 1) post(14, false);
+  if (!p.win && n > 2 && i === (n >> 1)) post(0, true);
+}
+
+// ------------------------------------------------------------ west wing hall (Taisho): chevron parquet, a red runner
+const _EN_HALLW = ['#9a6a40', '#86582f', '#ac7a4c', '#4e3220', '#c8925c'];
+function _enHallPx(wx, wy) {
+  const R0 = 127, R1 = 144;   // the runner, world x (col 8 centre +- 9)
+  if (wx < R0 || wx > R1) return wx === R1 + 1 ? _enM(_enWoodPx('chevron', _EN_HALLW, wx, wy), OUT, .3) : _enWoodPx('chevron', _EN_HALLW, wx, wy);
+  const e = Math.min(wx - R0, R1 - wx);
+  if (e === 0) return '#4a1a1e'; if (e === 1) return '#c8a050'; if (e === 2) return '#7a2228';
+  return ((wy >> 1) + (wx >> 1)) % 5 === 0 ? '#9a3238' : '#8a2a30';
+}
+function _enHall(G, tx, ty, nb) {
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) G.set(x, y, _enHallPx(tx * 16 + x, ty * 16 + y));
+  _enAO(G, nb, OUT);
+}
+
+// ------------------------------------------------------------ the star-view bath (roten): hinoki everywhere, milky water
+function _enSunoko(G, tx, ty, nb, inRoom) {   // hinoki duckboard: 3 px slats east-west, 1 px gaps, staggered joints
+  const H = _EN_HIN;
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const wx = tx * 16 + x, wy = ty * 16 + y, row = wy >> 2, py = wy & 3, sx = wx + Math.floor(_enH(row, 0, 341) * 30), seg = Math.floor(sx / 30), jx = sx - seg * 30;
+    const t = _enH(row, seg, 342);
+    let c = t < .3 ? _enM(H.hin, H.hinD, .35) : t > .7 ? _enM(H.hin, H.hinL, .3) : H.hin;
+    if (py === 3) c = H.gap; else if (jx === 0) c = H.hinS; else if (py === 0) c = _enM(c, H.hinL, .45); else if (py === 2) c = _enM(c, H.hinD, .3);
+    if ((jx === 2 || jx === 27) && py === 1) c = '#8a6040';   // nails
+    G.set(x, y, c);
+  }
+  _enAO(G, inRoom ? nb : { u: nb.u === 'r' || nb.u === '#' ? '#' : null, l: nb.l === 'D' || nb.l === '#' ? '#' : null, r: null }, OUT, .7);
+}
+// bath corners (the 'r' tiles at each end of the roten pool): deck, stacked buckets, a bamboo lantern
+function _enRotenSide(G, tx, ty, nb) {
+  const H = _EN_HIN;
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {   // north-south boards
+    const wx = tx * 16 + x, b = Math.floor(wx / 4), bx = wx & 3, t = _enH(b, ty, 343);
+    let c = t < .3 ? _enM(H.hin, H.hinD, .3) : t > .7 ? _enM(H.hin, H.hinL, .3) : H.hin;
+    if (bx === 3) c = H.gap; else if (bx === 0) c = _enM(c, H.hinL, .4);
+    G.set(x, y, c);
+  }
+  const bottom = nb.d !== 'r', left = tx < 32, sh = (x, y, k) => G.set(x, y, _enM(G.get(x, y) || H.hin, OUT, k));
+  if (!bottom) for (let x = 0; x < 16; x++) { sh(x, 0, .5); sh(x, 1, .25); }   // in the shade of the rocks
+  if (left !== bottom) {   // a little stool with two buckets stacked upside down on it
+    const cx = left ? 7 : 8;
+    for (let x = cx - 6; x <= cx + 5; x++) { G.set(x, 11, H.hinL); G.set(x, 12, H.hinD); sh(x, 14, .35); }   // stool seat
+    for (const lx of [cx - 5, cx + 4]) { G.set(lx, 13, H.hinS); G.set(lx, 14, H.hinS); }
+    const bucket = (bx, by) => {   // seen upside down: the round wooden bottom on top, the staves, a copper hoop
+      for (let y = by; y <= by + 4; y++) for (let x = bx - 4; x <= bx + 3; x++) G.set(x, y, x === bx - 4 ? H.hinL : x === bx + 3 ? H.hinS : (x - bx + 8) % 3 === 0 ? _enM(H.hin, H.hinD, .45) : H.hin);
+      for (let x = bx - 4; x <= bx + 3; x++) G.set(x, by + 3, x === bx - 4 ? '#d88a4a' : '#b0602c');
+      for (let x = bx - 3; x <= bx + 2; x++) { G.set(x, by - 1, H.hinL); G.set(x, by, x < bx ? '#fbe8c0' : H.hinL); }
+      G.set(bx + 3, by, H.hinD);
+    };
+    bucket(cx, 6); bucket(cx - 1, 1);
+  } else {   // the bamboo lantern (a prop, map.js SCENERY) stands here in a ring of pebbles
+    for (const [x, y, c] of [[3, 13, '#a8a8a0'], [4, 14, '#8a8a84'], [7, 14, '#b4b2aa'], [10, 14, '#9a9a94'], [12, 13, '#a8a8a0'], [2, 11, '#9a9a94'], [13, 11, '#8a8a84']]) { G.set(x, y, c); G.set(x + 1, y, _enM(c, OUT, .2)); }
+  }
+  if (nb.l === 'f') for (let y = 0; y < 16; y++) { sh(0, y, .35); if (_enBay(1, y) < .5) sh(1, y, .15); }
+}
+// milky (nigori) water inside a hinoki rim; 4 slow frames like waterArt, seamless; rim on the sides that are not water.
+// Soft wavy bands (big dither patches read as ice), slow white crests, the rim's shadow on the top / left.
+const _EN_MILK = { m: '#d8e6e2', mS: '#c0d4d2', mD: '#a8c0c2', mH: '#eef6f3' };
+function _enRotenWater(G, frame, tx, ty, nb) {
+  const M = _EN_MILK, H = _EN_HIN, eU = nb.u !== '~', eD = nb.d !== '~', eL = nb.l !== '~', eR = nb.r !== '~';
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const wx = tx * 16 + x, wy = ty * 16 + y, n = _enVN(wx / 24, wy / 12, 351), w = Math.sin(wx / 7 + wy * .9 + n * 5);
+    let c = w > .82 ? M.mH : w < -.86 ? M.mS : M.m;
+    if (n < .3 && w < -.5) c = M.mS; else if (n > .72 && w > .5) c = M.mH;
+    G.set(x, y, c);
+  }
+  // slow crests: short white lines with a blue-grey trough under them, each cycling 4 stages with its own phase
+  const RH = 6, SW = 13, y0 = ty * 16, x0 = tx * 16;
+  for (let r = Math.floor(y0 / RH) - 1; r <= Math.floor((y0 + 15) / RH) + 1; r++) {
+    const off = (r * 5) % SW;
+    for (let s = Math.floor((x0 - off) / SW) - 1; s <= Math.floor((x0 + 16 - off) / SW) + 1; s++) {
+      if (_enH(s, r, 356) < .25) continue;
+      const st = (frame + Math.floor(_enH(r, s, 352) * 4)) % 4, cx = s * SW + off + 3 + Math.floor(_enH(s, r, 353) * 6), cy = r * RH + Math.floor(_enH(s, r, 354) * 3);
+      const len = [2, 4, 5, 3][st], sh = st >= 2 ? 1 : 0;
+      for (let i = 0; i < len; i++) {
+        const px = cx - (len >> 1) + i + sh - x0, py = cy - y0;
+        if (px >= 0 && px < 16 && py >= 0 && py < 16) G.set(px, py, st === 1 || st === 2 ? '#ffffff' : M.mH);
+        if ((st === 1 || st === 2) && px >= 0 && px < 16 && py + 1 >= 0 && py + 1 < 16) G.set(px, py + 1, M.mD);
+      }
+    }
+  }
+  // the hinoki rim (3 px: lit edge, top, inner edge) and the soft shadow it casts on the water (top and left sides)
+  const rim = [H.hinL, H.hin, H.hinD];
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const dU = eU ? y : 99, dD = eD ? 15 - y : 99, dL = eL ? x : 99, dR = eR ? 15 - x : 99, d = Math.min(dU, dD, dL, dR);
+    if (d < 3) {
+      const along = d === dU || d === dD ? tx * 16 + x : ty * 16 + y;
+      let c = rim[d];
+      if ((d === dD || d === dR) && d === 0) c = H.hinS;
+      else if (d === 1 && along % 24 === 0) c = H.hinS;   // butt joints between rim boards
+      else if (d === 1 && _enH(along >> 2, d, 355) < .12) c = _enM(c, H.hinD, .4);
+      G.set(x, y, c);
+    } else if (d === 3) G.set(x, y, dU === 3 || dL === 3 ? '#8aa4ac' : M.mD);
+    else if (d === 4 && (dU === 4 || dL === 4)) G.set(x, y, _enM(G.get(x, y), '#8aa4ac', _enBay(x, y) < .5 ? .45 : .2));
+    else if (d === 5 && (dU === 5 || dL === 5) && _enBay(x, y) < .3) G.set(x, y, _enM(G.get(x, y), '#8aa4ac', .2));
+  }
+}
+// ------------------------------------------------------------ the lower garden (FEEDBACK A3; the bare v2.0 plaza)
+// looks: 'bed|v,f' flower bed on an 'f' tile (v 0 hydrangea, 1 iris, 2 cosmos, 3 marigold), 'hedge|0,f' clipped box
+// hedge on 'f', 'gd|s,f' the char's own painter (+ s = 1: a stepping stone in the grass). f = 1: the low bamboo fence
+// (yotsume-gaki) along the tile's west edge, between the garden and the front yard.
+function _enGardenLook(ch, L) {
+  if (L.id === 'bed' && ch === 'f') return (G, tx, ty, nb) => { _enFlowerBed(G, tx, ty, nb, L.a); if (L.b) _enLowFence(G, tx, ty); };
+  if (L.id === 'hedge' && ch === 'f') return (G, tx, ty, nb) => { _enHedge(G, tx, ty, nb); if (L.b) _enLowFence(G, tx, ty); };
+  if (L.id === 'gd' && _EN_TILE[ch]) return (G, tx, ty, nb) => { _EN_TILE[ch](G, tx, ty, nb); if (L.a) _enGrassStone(G, tx, ty); if (L.b) _enLowFence(G, tx, ty); };
+  return null;
+}
+const _EN_BLOOM = [
+  [['#4a5ac8', '#7a8ae8', '#b4c0ff'], ['#8a4ab8', '#b07ae0', '#dcc0ff'], ['#5a7ad8', '#94b0f0', '#e0e8ff']],   // hydrangea: blue / violet / sky
+  [['#5a2a9a', '#7a4ac0', '#f0d040']],                                                                        // iris: purple, yellow throat
+  [['#e0609a', '#f490b8', '#ffe070'], ['#f4f0f4', '#ffffff', '#ffd040'], ['#c03a78', '#e070a0', '#ffe070']],   // cosmos
+  [['#e86a10', '#f89a30', '#7a3a10'], ['#f0b010', '#ffd850', '#8a5a10']],                                       // marigold
+];
+// planting: a mass of leaf clumps (lit top-left, like the azaleas) over dark soil, flowers on a hashed lattice, an edging
+// of small stones on every side that is not more planting
+function _enFlowerBed(G, tx, ty, nb, v) {
+  v = clamp(v | 0, 0, 3);
+  const LP = v === 2 ? ['#2e5a26', '#3e7a2c', '#5a9a3a', '#7cb850', '#9ad068'] : ['#1f4a2a', '#2c6a30', '#3f8a38', '#56a040', '#74b84e'];
+  const open = c => c !== 'f' && c !== 'b' && c !== '#' && c != null;
+  const eU = open(nb.u), eD = open(nb.d), eL = open(nb.l), eR = open(nb.r);
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const wx = tx * 16 + x, wy = ty * 16 + y, edge = Math.min(eU ? y : 9, eD ? 15 - y : 9, eL ? x : 9, eR ? 15 - x : 9);
+    let c = _enH(wx, wy, 401) < .2 ? '#6a543a' : '#54402c';   // soil
+    if (edge >= 1) {
+      if (v === 1) {   // iris: upright blades
+        const col = wx % 3, top = 2 + Math.floor(_enH(wx >> 1, 7, 402) * 6), base = 15 - (eD ? 2 : 0);
+        if (col !== 2 && (wy % 16) >= top - (col ? 1 : 0) && y <= base && edge >= 2) c = col === 0 ? '#84c058' : '#3e7a2c';
+        else if (_enVN(wx / 3, wy / 3, 403) > .4) c = edge >= 2 ? LP[2] : LP[1];
+      } else {
+        const S = 4, ci = Math.floor(wx / S), cj = Math.floor(wy / S);
+        let best = 99, ox = 0, oy = 0;
+        for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) {
+          const fx = i * S + _enH(i, j, 404) * S, fy = j * S + _enH(j, i, 405) * S, d = Math.hypot(wx - fx, wy - fy);
+          if (d < best) { best = d; ox = wx - fx; oy = wy - fy; }
+        }
+        const mass = _enVN(wx / 6, wy / 5, 406) * .6 + edge * .14;   // a full mound inside, ragged towards the edge
+        if (mass > .42) c = LP[clamp(Math.round(2.6 - (ox + oy) / S * .9 - best / S * .6 + (_enBay(x, y) - .5) * .5 - (edge < 2 ? 1 : 0)), 0, 4)];
+      }
+    }
+    if (edge === 0) {   // where the bed meets the lawn / walk: a ragged soil line, a stone now and then
+      const t = _enH(wx >> 1, wy >> 1, 408);
+      c = t < .3 ? (t < .12 ? '#c4c2b8' : '#9a9a94') : _enM(c, '#3a2c1e', .3);
+    }
+    G.set(x, y, c);
+  }
+  // flowers on a jittered lattice; hydrangea = big round heads, the others small blooms
+  const PAL = _EN_BLOOM[v], step = v === 0 ? 7 : 4;
+  for (let j = Math.floor(ty * 16 / step) - 1; j <= Math.floor((ty * 16 + 15) / step) + 1; j++) for (let i = Math.floor(tx * 16 / step) - 1; i <= Math.floor((tx * 16 + 15) / step) + 1; i++) {
+    if (_enH(i, j, 409) < (v === 0 ? .1 : .22)) continue;
+    const fx = i * step + Math.floor(_enH(i, j, 410) * (step - 1)), fy = j * step + Math.floor(_enH(j, i, 411) * (step - 1)), p = PAL[Math.floor(_enH(i, j, 412) * PAL.length)];
+    const lx = fx - tx * 16, ly = fy - ty * 16, edge = Math.min(eU ? ly : 9, eD ? 15 - ly : 9, eL ? lx : 9, eR ? 15 - lx : 9);
+    if (edge < (v === 0 ? 3 : 2)) continue;
+    const put = (x, y, col) => { if (x >= 0 && y >= 0 && x < 16 && y < 16) G.set(x, y, col); };
+    if (v === 0) {   // hydrangea head: a 5x4 mound of florets, lit top-left
+      [[-1, -2], [0, -2], [1, -2], [-2, -1], [-1, -1], [0, -1], [1, -1], [2, -1], [-2, 0], [-1, 0], [0, 0], [1, 0], [2, 0], [-1, 1], [0, 1], [1, 1]].forEach(([dx, dy]) => put(lx + dx, ly + dy, dx + dy < -1 ? p[2] : dx + dy > 0 ? p[0] : p[1]));
+      put(lx - 1, ly - 1, '#ffffff'); put(lx + 1, ly + 2, '#1f4a2a');
+    } else if (v === 1) {   // iris flower on a blade top
+      put(lx, ly - 1, p[1]); put(lx - 1, ly, p[0]); put(lx + 1, ly, p[0]); put(lx, ly, p[2]); put(lx, ly + 1, p[0]);
+    } else {
+      put(lx, ly - 1, p[1]); put(lx - 1, ly, p[1]); put(lx + 1, ly, p[0]); put(lx, ly + 1, p[0]); put(lx, ly, p[2]);
+    }
+  }
+}
+function _enHedge(G, tx, ty, nb) {   // clipped box hedge: small leaf clumps lit top-left, a flat bright top edge, a shaded front
+  const PAL = ['#1e4226', '#2a5a2e', '#357036', '#468a3e', '#62a446', '#84bc56'];
+  const front = nb.d !== 'f', top = nb.u !== 'f', l = nb.l !== 'f', r = nb.r !== 'f';
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const wx = tx * 16 + x, wy = ty * 16 + y, S = 3, ci = Math.floor(wx / S), cj = Math.floor(wy / S);
+    let best = 99, ox = 0, oy = 0;
+    for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) {
+      const fx = i * S + _enH(i, j, 421) * S, fy = j * S + _enH(j, i, 422) * S, d = Math.hypot(wx - fx, wy - fy);
+      if (d < best) { best = d; ox = wx - fx; oy = wy - fy; }
+    }
+    let k = Math.round(3.2 - (ox + oy) / S * .8 - best / S * .7 + (_enBay(x, y) - .5) * .4);
+    if (front && y >= 12) k = y === 15 ? 0 : Math.min(k - 2, 2);   // the front face, in shade
+    else if (top && y < 2) k = y === 0 ? 3 : 5;                    // the clipped top edge catches the light
+    if (l && x < 1) k = Math.min(5, k + 1);
+    if (r && x > 14) k = Math.max(1, k - 2);
+    G.set(x, y, PAL[clamp(k, 0, 5)]);
+  }
+}
+function _enLowFence(G, tx, ty) {   // a knee-high bamboo fence along the tile's west edge, tied at each post
+  for (let y = 0; y < 16; y++) {
+    const wy = ty * 16 + y, post = wy % 8 === 3 || wy % 8 === 4;
+    G.set(0, y, '#2a3a1a'); G.set(1, y, post ? '#e0c890' : '#c8a860'); G.set(2, y, post ? '#b89858' : '#9a7a40');
+    G.set(3, y, post ? '#5a4024' : _enM(G.get(3, y), OUT, .25));
+    if (wy % 8 === 4) G.set(1, y, '#5a3a1e');   // rope tie
+  }
+}
+function _enGrassStone(G, tx, ty) {   // a flat stepping stone set in the grass (tobi-ishi), lit top-left, contact shadow
+  const wx0 = tx * 16 + 8, wy0 = ty * 16 + 8, cx = 8 + (_enH(wx0, wy0, 431) - .5) * 3, cy = 8 + (_enH(wy0, wx0, 432) - .5) * 2, rx = 4.8, ry = 3.6;
+  const base = ['#bcb6a8', '#c6c0b2', '#b0aa9c'][Math.floor(_enH(tx, ty, 433) * 3)];
+  for (let y = 2; y < 15; y++) for (let x = 1; x < 15; x++) {
+    const nx = (x + .5 - cx) / rx, ny = (y + .5 - cy) / ry, r2 = nx * nx + ny * ny, sh = ((x + .5 - cx - .8) / rx) ** 2 + ((y + .5 - cy - 1.2) / ry) ** 2;
+    if (r2 > 1) { if (sh <= 1) G.set(x, y, _enM(G.get(x, y), '#24402a', .35)); continue; }
+    G.set(x, y, r2 > .6 && nx + ny > .35 ? _enM(base, '#5a5040', .3) : r2 > .5 && nx + ny < -.45 ? _enM(base, '#ffffff', .32) : base);
+  }
+}

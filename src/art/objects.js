@@ -176,9 +176,11 @@ function milkArt(frame) {   // 16x30, footprint 1x1, anchor (0,30)
 
 // futon (ground layer, 16x32 over 1x2 tiles, anchor (0,32)). For 'sleep' draw catSleepHead with its anchor at
 // sprite pixel (8,13) (= tile-top + 13); state 'cover' = only the sleep duvet, to draw over the head and tuck the chin in.
-function futonArt(state, frame) {
+// furn (v2.0.1, optional): 'west' = the west wing's Taisho bed on the same footprint and head spot (_obBed)
+function futonArt(state, frame, furn) {
   frame = frame ? 1 : 0;
   if (state !== 'sleep' && state !== 'messy' && state !== 'cover') state = 'clean';
+  if (furn === 'west') return _obBed(state, frame);
   const anim = state === 'sleep' || state === 'cover';
   return art('ob:futon:' + state + ':' + (anim ? frame : 0), () => {
     const P = _obP;
@@ -234,7 +236,8 @@ function futonArt(state, frame) {
   });
 }
 
-function tableArt() {   // 16x16, footprint 1x1, anchor (0,16)
+function tableArt(furn) {   // 16x16, footprint 1x1, anchor (0,16); furn 'west' = a round tea table (v2.0.1)
+  if (furn === 'west') return _obTeaTable();
   return art('ob:table', () => _obObj(16, 16, G => {
     const P = _obP;
     // low table: polished top, dark apron, stubby legs
@@ -252,7 +255,8 @@ function tableArt() {   // 16x16, footprint 1x1, anchor (0,16)
   }, [[1, 15, 15, .3]]));
 }
 
-function andonArt() {   // 12x20, footprint 1x1, anchor (0,20); drawing is centred in its 12px canvas
+function andonArt(furn) {   // 12x20, footprint 1x1, anchor (0,20); drawing is centred in its 12px canvas; furn 'west' = table lamp
+  if (furn === 'west') return _obLamp();
   return art('ob:andon', () => _obObj(12, 20, G => {
     const P = _obP;
     G.rect(1, 1, 10, 2, P.dk); G.rect(1, 1, 10, 1, P.dkL);          // top frame
@@ -265,6 +269,82 @@ function andonArt() {   // 12x20, footprint 1x1, anchor (0,20); drawing is centr
     G.rect(5, 3, 1, 5, '#e8b860'); G.rect(5, 9, 1, 4, '#e8b860');
     // legs + bottom shelf
     G.rect(2, 14, 1, 4, P.dk); G.rect(9, 14, 1, 4, P.dk); G.rect(2, 16, 8, 1, P.dk2);
+  }, [[1, 11, 19, .3]]));
+}
+
+// ------------------------------------------------------------ v2.0.1 west wing (Taisho roman) furniture, same tiles as
+// the futon / andon / low table. Mahogany + brass, a rose quilt, a fringed lamp, a lace-covered tea table.
+const _obW = { mah: '#7a3a2a', mahL: '#9a5a40', mahD: '#4e2018', brass: '#f0c860', brassD: '#c8962e',
+  q: '#b04e5e', qL: '#cc6e7c', qD: '#86303e', qP: '#f2d8c4', lace: '#fbf6ee', laceD: '#e2d8c8' };
+function _obBed(state, frame) {   // 16x32 bed, anchor (0,32); head on the pillow at (8,13) like the futon; 'cover' = the quilt only
+  return art('ob:bed:' + state + ':' + frame, () => {
+    const W = _obW, P = _obP;
+    const quiltPx = (x, y, top) => {   // rose quilt, cream diamond stitching, darker towards the lower right
+      const st = ((x + y) % 6 === 0 || (x - y + 60) % 6 === 0) && y > top + 2;
+      const v = (x + .5 - 6) / 7 + (y + .5 - 18) / 12;
+      return st ? W.qP : v < -.25 ? W.qL : v < .7 ? W.q : W.qD;
+    };
+    const quilt = (G, top, bulge) => {
+      for (let y = top; y <= 28; y++) for (let x = 1; x <= 14; x++) G.set(x, y, quiltPx(x, y, top));
+      if (bulge !== null) G.ell(7.5, 19.5 - bulge * .5, 5.6, 6.6 + bulge * .5, (x, y) => (y < top + 2 ? null : quiltPx(x, y, top) === W.qP ? W.qP : ((x + .5 - 6) / 6 + (y + .5 - 15) / 9 < .2 ? W.qL : quiltPx(x, y, top))));
+      for (let x = 1; x <= 14; x++) { G.set(x, top, W.lace); G.set(x, top + 1, (x & 1) ? W.laceD : W.lace); }   // turned-down sheet, lace edge
+      for (let x = 1; x <= 14; x++) G.set(x, 28, W.qD);
+    };
+    const frameBed = G => {
+      for (let y = 1; y <= 30; y++) { G.set(1, y, W.mahL); G.set(14, y, W.mahD); }   // corner posts / side rails
+      G.rect(2, 1, 12, 5, W.mah); G.rect(2, 1, 12, 1, W.mahL); G.rect(3, 2, 10, 3, W.mahD); G.rect(4, 3, 8, 1, '#6a2e22');   // headboard + carved panel
+      G.rect(2, 6, 12, 23, P.sheet); G.rect(2, 6, 12, 1, P.sheetD);   // mattress
+      G.rect(1, 29, 14, 2, W.mah); G.rect(1, 29, 14, 1, W.mahL);       // footboard
+    };
+    const pillow = (G, ox, oy, askew) => {
+      if (askew) { G.tri(3, 8, 9, 5.5, 11, 10, W.lace); G.tri(3, 8, 11, 10, 5, 12, W.lace); gLine(G, 5, 11, 10, 9, W.laceD); return; }
+      G.rect(ox + 1, oy, 8, 5, W.lace); G.rect(ox, oy + 1, 10, 3, W.lace); G.rect(ox + 1, oy + 4, 8, 1, W.laceD);
+      for (let x = ox; x <= ox + 9; x += 2) G.set(x, oy + 2, W.laceD);   // lace
+    };
+    const knobs = (x, px) => px(W.brass, [[1, 0], [14, 0], [1, 28], [14, 28]]);
+    if (state === 'cover') return _obObj(16, 32, G => { quilt(G, 12, frame); }, [], null);
+    return _obObj(16, 32, G => {
+      frameBed(G);
+      if (state === 'messy') {
+        pillow(G, 3, 6, true);
+        gLine(G, 3, 15, 10, 12, P.sheetD); gLine(G, 4, 19, 12, 15, P.sheetD);
+        G.tri(1, 22, 14, 15, 14, 28, W.q); G.tri(1, 22, 14, 28, 1, 28, W.q);   // quilt thrown back
+        G.map((x, y, c) => (c === W.q && ((x + y) % 6 === 0)) ? W.qP : c);
+        gLine(G, 1, 22, 14, 15, W.lace); gLine(G, 1, 23, 14, 16, W.qL); gLine(G, 4, 25, 13, 20, W.qD);
+      } else {
+        pillow(G, 3, 6, false);
+        quilt(G, 12, state === 'sleep' ? frame : null);
+      }
+    }, [[2, 15, 31, .3]].concat(Array.from({ length: 28 }, (_, i) => [15, 15, 3 + i, .24])), knobs);
+  });
+}
+function _obTeaTable() {   // 16x16 round mahogany tea table, a lace doily, a white teapot, two cups, a rose; anchor (0,16)
+  return art('ob:teatable', () => _obObj(16, 16, G => {
+    const W = _obW;
+    G.rect(7, 10, 2, 4, W.mahD); G.set(7, 10, W.mah); G.rect(4, 13, 8, 1, W.mah); G.set(4, 13, W.mahL); G.set(11, 13, W.mahD);   // pedestal, splayed feet
+    G.ell(8, 7.4, 7.2, 3.4, (x, y) => (y >= 9 ? W.mahD : (x + .5 - 6) / 7 + (y + .5 - 6) / 3 < -.5 ? W.mahL : W.mah));   // the round top, polished
+    G.ell(7.5, 7, 4.6, 2, (x, y) => ((x + y) & 1) && y > 7 ? W.laceD : W.lace);                                          // lace doily
+    G.ell(6, 5.6, 2.2, 1.8, (x, y) => (x < 6 ? '#ffffff' : '#e2e2ee')); G.rect(4, 6, 5, 1, '#5a7ac8');                   // teapot, blue band
+    G.set(8, 5, '#e2e2ee'); G.set(9, 4, '#e2e2ee'); G.set(6, 3, '#5a7ac8'); G.set(3, 5, '#e2e2ee');
+    [[11, 8], [13, 6]].forEach(([x, y]) => { G.rect(x - 1, y + 1, 3, 1, '#d8d4e4'); G.rect(x - 1, y, 2, 1, '#ffffff'); G.set(x, y, '#b07a40'); });   // cups on saucers
+    G.set(12, 2, '#5a9a3a'); G.set(12, 3, '#5a9a3a'); G.set(11, 1, '#e04a5a'); G.set(12, 1, '#c8303e'); G.set(12, 4, '#e8f0f8'); G.set(13, 4, '#c8d4e4');   // a rose in a glass
+  }, [[1, 15, 15, .3]]));
+}
+function _obLamp() {   // 12x20 nightstand + table lamp with a fringed amber shade (glows like the andon); anchor (0,20)
+  return art('ob:lamp', () => _obObj(12, 20, G => {
+    const W = _obW;
+    G.rect(1, 12, 10, 2, W.mahL); G.rect(1, 12, 10, 1, '#b8744e');                    // nightstand top
+    G.rect(2, 14, 8, 3, W.mah); G.rect(2, 15, 8, 1, W.mahD); G.set(6, 14, W.brass);   // drawer + knob
+    G.rect(2, 17, 1, 2, W.mahD); G.rect(9, 17, 1, 2, W.mahD);                         // legs
+    G.rect(5, 9, 2, 3, W.brassD); G.rect(4, 11, 4, 1, W.brass); G.set(5, 9, W.brass);  // brass stand
+    for (let y = 1; y <= 7; y++) {                                                    // flared silk shade
+      const hw = 2 + (y >> 1);
+      for (let x = 6 - hw; x < 6 + hw; x++) {
+        const d = Math.abs(x + .5 - 6) / hw + (DITHER[y & 1][x & 1] - .375) * .3;
+        G.set(x, y, y === 1 ? '#e8a040' : d < .45 ? '#fff4c8' : d < .8 ? '#ffd27a' : '#e89a3a');
+      }
+    }
+    for (let x = 1; x <= 10; x++) if (x & 1) G.set(x, 8, '#c8743a');                  // fringe
   }, [[1, 11, 19, .3]]));
 }
 

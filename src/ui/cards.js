@@ -85,9 +85,9 @@ function drawPreview(u) {
   }
   for (const rm of ROOMS) if (rm.open === u.id && VIS(rm.cleanC[0], rm.cleanC[1], 48)) {   // a room: futon, table, andon (+ the suite's tub)
     const by = (rm.y0 + 1) * TILE;
-    drawObj(gh(futonArt('clean', 0)), rm.futon[0], (rm.y0 + 2) * TILE, 1);
-    if (rm.futonB) drawObj(gh(futonArt('clean', 0)), rm.futonB[0], (rm.y0 + 2) * TILE, 1);
-    drawObj(gh(tableArt()), rm.table[0], by, 1); drawObj(gh(andonArt()), rm.andon[0], by, 1);
+    drawObj(gh(futonArt('clean', 0, rm.furn)), rm.futon[0], (rm.y0 + 2) * TILE, 1);
+    if (rm.futonB) drawObj(gh(futonArt('clean', 0, rm.furn)), rm.futonB[0], (rm.y0 + 2) * TILE, 1);
+    drawObj(gh(tableArt(rm.furn)), rm.table[0], by, 1); drawObj(gh(andonArt(rm.furn)), rm.andon[0], by, 1);
     if (rm.tub) drawObj(gh(tubArt(2)), rm.tub[0], (rm.tub[1] + 1) * TILE, 1);
   }
   for (const id in STAFF_DEF) {   // a new hire: its ghost at its post
