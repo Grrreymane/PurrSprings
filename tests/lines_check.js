@@ -13,12 +13,14 @@ for (let i = 1; i <= 4; i++) IDS.push('K0' + i);
 for (let i = 1; i <= 12; i++) IDS.push('V' + String(i).padStart(2, '0'));
 for (let i = 1; i <= 11; i++) IDS.push('P' + String(i).padStart(2, '0'));
 IDS.push('A01', 'A02');
+for (let i = 1; i <= 12; i++) if (i !== 11) IDS.push('E' + String(i).padStart(2, '0'));   // v2.1 core A (16.12; E11 the rare guests: core B)
 for (const id of IDS) ok(!!LINES[id], 'line ' + id + ' missing');
 ok(Object.keys(LINES).length === IDS.length, 'table has ' + Object.keys(LINES).length + ' lines (want ' + IDS.length + ')');
 const texts = [];
 for (const id in LINES) {
   const L = LINES[id];
-  const all = id === 'G36' ? MILESTONES.map(n => L.text(n)) : id === 'P05' ? [L.text(false), L.text(true)] : [L.text];
+  const all = id === 'G36' ? MILESTONES.map(n => L.text(n)) : id === 'P05' ? [L.text(false), L.text(true)] : id === 'E09' ? [1, 2, 3, 4, 5].map(n => L.text(n))
+    : id === 'E10' ? ['come', 'grown', 'ten', 'go'].map(k => L.text(k)) : [L.text];
   for (const t of all) { texts.push(t); ok([...t].length <= 8, id + ' "' + t + '" longer than 8'); }
   ok(L.p > 0 && L.p <= 1, id + ' odds ' + L.p);
 }
@@ -55,7 +57,7 @@ for (let i = 0, n = Math.round(MIN * 60 / DT); i < n; i++) {
   think -= DT;
   if (think <= 0) { think = .3; const t = guideTarget(); if (!t || t.here) { path = []; key = ''; } else if (t.tx + ',' + t.ty !== key || !path.length) { key = t.tx + ',' + t.ty; const [sx, sy] = tileOf(P); path = findPath(sx, sy, t.tx, t.ty) || []; } }
   if (path.length) { const [tx, ty] = path[0], dx = tx * 16 + 8 - P.x, dy = ty * 16 + 8 - P.y, d = Math.hypot(dx, dy); if (d < 1.5) path.shift(); botMove = d > .01 ? { x: dx / d * Math.min(1, d / 3), y: dy / d * Math.min(1, d / 3) } : null; } else botMove = null;
-  update(DT); if (state === 'celebrate') { S.done = true; go('play'); }
+  update(DT); if (state === 'celebrate') { S.done = true; go('play'); } if (state === 'card') modalClose();
   maxOn = Math.max(maxOn, LINE ? 1 : 0);
   if (i % 300 === 0) try { render(); } catch (e) { errs.push('render: ' + (e && e.message || e)); break; }
 }

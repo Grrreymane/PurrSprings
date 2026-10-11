@@ -26,7 +26,7 @@ function setup(five, extra) {
   for (let i = STAFF.length - 1; i >= 0; i--) if (STAFF[i].role !== 'owner') STAFF.splice(i, 1);
   P.x = 17 * 16 + 8; P.y = 27 * 16 + 8; SFXLOG.length = 0; LINES.length = 0; BANNER_Q.length = 0;
 }
-const run = (sec, f) => { for (let i = 0, n = Math.round(sec / DT); i < n; i++) { update(DT); if (state === 'celebrate') go('play'); if (f && f()) return true; } return false; };
+const run = (sec, f) => { for (let i = 0, n = Math.round(sec / DT); i < n; i++) { update(DT); if (state === 'celebrate') go('play'); if (state === 'card') modalClose(); if (f && f()) return true; } return false; };
 const at = (tx, ty) => { P.x = tx * 16 + 8; P.y = ty * 16 + 8; };
 function walkTo(tx, ty, maxSec) {
   const [sx, sy] = tileOf(P); const path = findPath(sx, sy, tx, ty) || [];

@@ -1,6 +1,6 @@
 // SPEC_v2 7 (stage 3 UI): the menu pauses the game and its pages / taps work; banners slide through the queue (paused in
 // the menu); first-time cards; "new" edge tags; the info card target; a new hire walks in; the screen zones (7.7) and
-// that every banner / card / page text fits; the album counts 36; the line switch is saved.
+// that every banner / card / page text fits; the album counts 42 (v2.1: 12 combos); the line switch is saved.
 //   node D:/Minigame/_workflow/tools/headless.js D:/Minigame/Hotelgame tests/ui_check.js --seed 2
 const errs = [], ok = (c, m) => { if (!c) errs.push(m); };
 const eq = (a, b, m) => ok(a === b, m + ': ' + a + ' (want ' + b + ')');
@@ -10,10 +10,10 @@ function setup(list, money) {
   S.peak = starOf(S); S.basket = BASKET_MAX; S.tut.moved = true; S.done = true; S.stats.time = 300; S.money = money || 0; resetWorld(); go('play');
   BANNER_Q.length = 0; FIRST_Q.length = 0; EDGE_Q.length = 0;
 }
-const run = (sec, f) => { for (let i = 0, n = Math.round(sec / DT); i < n; i++) { update(DT); if (state === 'celebrate') go('play'); if (f && f()) return true; } return false; };
+const run = (sec, f) => { for (let i = 0, n = Math.round(sec / DT); i < n; i++) { update(DT); if (state === 'celebrate') go('play'); if (state === 'card') modalClose(); if (f && f()) return true; } return false; };
 const at = (tx, ty) => { P.x = tx * TILE + 8; P.y = ty * TILE + 8; updCam(0, true); };
 const tryRender = tag => { try { render(); } catch (e) { errs.push(tag + ': render threw ' + (e && e.stack || e)); } };
-const STAR4 = UNLOCKS.filter(u => !u.need5 && u.id !== 'roten').map(u => u.id);
+const STAR4 = UNLOCKS.filter(u => !u.need5 && !u.when && u.id !== 'roten').map(u => u.id);   // (v2.1 seasonal decor: after a festival)
 
 // ---- 7.5 the menu pauses everything but T: guests, the clock, time played, money, banners
 setup(['room2', 'room3', 'onsen', 'recep', 'maid1', 'tea']); spawnT = 0; run(25);
@@ -46,7 +46,7 @@ setup(STAR4.concat(['maid4']), 500); S.album.vip = { kawa: 2, ozeki: 1 }; S.albu
   menuPress({ x: 48, y: 262 }); eq(MENU.pg, pages - 2, 'previous page');
   MENU.page = 'inn'; tryRender('inn'); menuPress({ x: 90, y: 256 }); ok(!!shareEl, 'the photo button makes the share card'); shareEl = null;
   closeMenu(); }
-{ const c = albumCount(); eq(c.m, 36, 'album size (6 VIPs + 6 combos + 9 furs + 3 types + 12 staff: v2.0.1 + the tea runner)'); }
+{ const c = albumCount(); eq(c.m, 42, 'album size (6 VIPs + 12 combos (v2.1: + 6 seasonal / hidden) + 9 furs + 3 types + 12 staff)'); }
 // ---- 7.3 banners: a buy shows "new!" with the info card's line; 0.2 + 2.6 + 0.2 s; at most 3 queued, the one on screen stays
 setup(['room2', 'room3'], 60); at(18, 21);
 { unlock('shoes1'); const b = BANNER_Q[0]; ok(b && b.kind === 'buy' && b.id === 'shoes1', 'buy banner'); const st = bannerParts(b);

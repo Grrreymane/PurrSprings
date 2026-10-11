@@ -15,5 +15,5 @@ const u0 = unlock; unlock = function (id) {
   if (gate) { const q = BANNER_Q.slice(n0 > 0 ? 0 : 0).map(b => b.kind + (b.kind === 'rank' ? '(' + b.id + ')' : '')); out.push(id + ': queue [' + q.join(', ') + '] line ' + (LINE ? LINE.id : '-') + ' next ' + (LINE_NEXT ? LINE_NEXT.id : '-')); }
   return r;
 };
-for (let i = 0; i < 40 * 60 / DT && star() < 5; i++) { aDrive(DT); update(DT); if (state === 'celebrate') { S.done = true; go('play'); } }
+for (let i = 0; i < 40 * 60 / DT && star() < 5; i++) { aDrive(DT); update(DT); if (state === 'celebrate') { S.done = true; go('play'); } if (state === 'card') modalClose(); }
 console.log(out.join(' | '));

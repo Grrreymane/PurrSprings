@@ -33,7 +33,7 @@ function vipLeave(happy) {
   firstDone('vip');
   if (v.suite) { const id = v.suite; RT[id].guest = null; S.rooms[id] = 'messy'; RT[id].vipMess = true; RT[id].cleanP = 0; }   // the suite needs a long clean
   S.vipOwe = 0; vipT = S.stats.time + vipGap(); S.vipAt = Math.ceil(vipT); if (!happy) RUN.vipLeft++;
-  lineSay(v, happy ? 'V11' : 'V12');
+  if (v.mom) momLeaveLine(v); else lineSay(v, happy ? 'V11' : 'V12');   // v2.1: mom's goodbye (mom.js)
   setSt(v, 'leave'); v.goal = null; v.halt = false; goTo(v, EXIT_TILE[0], EXIT_TILE[1], EXIT.slice());
   markDirty();
 }
@@ -59,8 +59,9 @@ function vipWishDone() {
   const used = S.stats.time - (v.greetAt !== null ? v.greetAt : v.t0), f = .6 + .4 * clamp(1 - (used - 90) / 120, 0, 1);
   const pay = R(v.G * .5 * f), first = !S.album.photos.some(p => p.v === v.id);
   v.paid += pay; earn(pay, v.x, v.y - 4); addHearts(10 + (first ? 10 : 0));
-  S.album.photos.push({ v: v.id, d: S.day, h: S.equip.hat, p: S.equip.pet }); if (S.album.photos.length > 40) S.album.photos.shift();
-  if (!S.gifts.includes(v.id)) { S.gifts.push(v.id); if (S.gifts.length > 6) S.gifts.shift(); }
+  if (v.mom) momPhoto(v);   // v2.1: mom's photo is the family photo (mom.js), not a VIP photo / gift
+  else { S.album.photos.push({ v: v.id, d: S.day, h: S.equip.hat, p: S.equip.pet }); if (S.album.photos.length > 40) S.album.photos.shift();
+    if (!S.gifts.includes(v.id)) { S.gifts.push(v.id); if (S.gifts.length > 6) S.gifts.shift(); } }
   S.stats.vips++; RUN.vipDone++; RUN.vipF.push(f); RUN.vipUsed.push(used); RUN.vipPaid += v.paid;
   vipLeave(true);
 }

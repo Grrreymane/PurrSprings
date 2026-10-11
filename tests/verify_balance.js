@@ -57,7 +57,7 @@ const steps = Math.round(MAXMIN * 60 / DT);
 let lastSec = -1;
 for (let i = 0; i < steps; i++) {
   drive(DT); update(DT);
-  if (state === 'celebrate') { S.done = true; go('play'); }
+  if (state === 'celebrate') { S.done = true; go('play'); } if (state === 'card') modalClose();
   const t = S.stats.time;
   for (const u of UNLOCKS) if (S.unlocked[u.id] && unlockT[u.id] === undefined) unlockT[u.id] = t;
   if (S.unlocked.onsen && onsenAt === null) onsenAt = t;

@@ -80,7 +80,7 @@ for (const f of files) {
   for (let i = 0; i < MIN * 60 / DT; i++) {
     drive(DT);
     try { update(DT); } catch (e) { bad(tag, 'update threw ' + (e && e.stack || e)); break; }
-    if (state === 'celebrate') { celebrated = true; S.done = true; go('play'); }
+    if (state === 'celebrate') { celebrated = true; S.done = true; go('play'); } if (state === 'card') modalClose();
     if (Math.floor(S.stats.time) !== lastSec) { lastSec = Math.floor(S.stats.time); invariants(tag, stt); }
   }
   if (celebrated && (raw.done || !innComplete())) bad(tag, 'a celebration showed ' + (raw.done ? 'again (the v1 panel was seen)' : 'before the inn was complete'));

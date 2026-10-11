@@ -23,7 +23,7 @@ function drive(dt) {
   } else botMove = null;
 }
 newGame();
-for (let i = 0; i < 30 * 60 * 30 && star() < 5; i++) { drive(DT); update(DT); if (state === 'celebrate') { S.done = true; go('play'); } }
+for (let i = 0; i < 30 * 60 * 30 && star() < 5; i++) { drive(DT); update(DT); if (state === 'celebrate') { S.done = true; go('play'); } if (state === 'card') modalClose(); }
 S.done = true; if (state !== 'play') go('play');
 let created = 0, clears = 0, bfs = 0, bfsMax = 0, framesWithNew = 0;
 const _ts = textSprite; textSprite = function (t) { const k = t.s + '|' + t.size + '|' + t.col + '|' + t.stroke + '|' + K; if (!TXC.has(k)) { created++; if (TXC.size > 400) clears++; } return _ts(t); };
@@ -49,7 +49,7 @@ console.log(`  BFS calls: ${bfs} total, max ${bfsMax} in one frame | update + re
   S.peak = 5; S.done = true; S.equip = { hat: 'h_straw', pet: 'p_shiba' }; S.clock = .85;
   for (const sl of DSLOTS) if (roomOpen(sl.rm)) S.decor[sl.key] = sl.k === 'A' ? 'd_scroll' : 'd_ikebana';
   resetWorld(); go('play');
-  for (let i = 0; i < 30 * 40; i++) { update(DT); if (state === 'celebrate') { S.done = true; go('play'); } }   // staff out, guests flowing
+  for (let i = 0; i < 30 * 40; i++) { update(DT); if (state === 'celebrate') { S.done = true; go('play'); } if (state === 'card') modalClose(); }   // staff out, guests flowing
   // GUEST_MAX guests: the queue takes what it can, the rest walk out through the garden (spread over its paths)
   const garden = []; for (let ty = 0; ty < MH; ty++) for (let tx = 0; tx < MW; tx++) { const ar = areaAt(tx, ty); if (ar && ar.id === 'garden' && walkable(tx, ty)) garden.push([tx, ty]); }
   const crowd = () => { while (GUESTS.length < GUEST_MAX) { const q = Q.length < QSPOTS.length - 1; addGuest(); if (q) continue; const gu = GUESTS[GUESTS.length - 1]; Q.splice(Q.indexOf(gu), 1); const t = garden[Math.floor(Math.random() * garden.length)]; gu.x = tcx(t); gu.y = tcy(t); guestLeave(gu, false); } };

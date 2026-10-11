@@ -76,6 +76,8 @@ const missed = [];   // targets not met (profile: target)
       ok(med(M(m => m.E3.used)) >= 40 && med(M(m => m.E3.used)) <= 100 && med(M(m => m.E3.f)) >= .85 && med(M(m => m.E3.share)) <= .15, 'E3'),
       ok(med(M(m => m.E4.firstCombo)) >= 240 && med(M(m => m.E4.firstCombo)) <= 420 && med(M(m => m.E4.rooms5)) >= 6, 'E4'));
     if (p !== 'afk') tgt.push(ok(mx(M(m => m.E5)) < (p === 'novice' ? .12 : .08), 'E5'));
+    { const v = rs.map(r => r.v21).filter(Boolean), st = v.flatMap(x => x.press.map(p => +String(p)[0])), aw = {}; v.forEach(x => x.awards.forEach(a => { const k = a.replace(/♥.*/, ''); aw[k] = (aw[k] || 0) + 1; }));   // v2.1 core A
+      console.log(`  v2.1 festivals all lit ${v.reduce((a, x) => a + x.festOk, 0)}/${v.reduce((a, x) => a + x.fests, 0)} | press stars ${[1, 2, 3, 4, 5].map(n => n + '★×' + st.filter(x => x === n).length).join(' ')} | awards ${Object.entries(aw).map(([k, n]) => k + '×' + n).join(' ') || '-'} | mom ${v.reduce((a, x) => a + x.mom, 0)} | seasonal combos med ${med(v.map(x => x.seasonal))}`); }
     console.log(`  F1 lines/min ${med(M(m => m.F1))} | F2 ok med ${P2(med(M(m => m.F2.ok)))} min ${P2(mn(M(m => m.F2.ok)))} | jumps/run ${R(med(M(m => m.F2.jumps)))}, >3 in 5 s ${R(med(M(m => m.F2.many)))} (max ${R(mx(M(m => m.F2.many)))}), A-B-A ${R(med(M(m => m.F2.flip)))} | H1 pads on screen max ${mx(M(m => m.H1.max))} (shop ${mx(M(m => m.H1.shop))})`);
     tgt.push(ok(med(M(m => m.F1)) >= 4 && med(M(m => m.F1)) <= 8, 'F1 4-8/min'), ok(mn(M(m => m.F2.ok)) >= .95, 'F2 >=95%'), ok(mx(M(m => m.H1.max)) <= 4, 'H1'));
     if (p === 'shopper') {
@@ -102,6 +104,6 @@ const missed = [];   // targets not met (profile: target)
   if (sum.ignore && sum.eager) { const a3 = sum.ignore.fin / sum.eager.fin; console.log(`\nA3 ignore ★5 ÷ eager ★5 (medians): ${a3.toFixed(2)} ${ok(a3 <= 1.4, 'A3 <=1.4')}`); if (a3 > 1.4) missed.push('A3'); }
   console.log(missed.length ? 'TARGETS NOT MET (' + missed.length + '): ' + missed.join(' | ') : 'TARGETS: every 14.2 target that applies is met');
   console.log(`\n${bad ? 'BALANCE RUNS FAILED: ' + bad + ' run(s) with an error, an invariant failure or no star 5' : 'ALL RUNS OK: every profile reached star 5 on every seed, invariants OK'}`);
-  if (argv.includes('json')) console.log(JSON.stringify({ cfg, set, seeds: N, sum, runs: all.map(r => ({ profile: r.profile, seed: r.seed, fin: r.fin, M: r.M, inv: r.inv, afk: r.afk, A4: r.A4, A4lit: r.A4lit, unlockT: r.unlockT })) }));
+  if (argv.includes('json')) console.log(JSON.stringify({ cfg, set, seeds: N, sum, runs: all.map(r => ({ profile: r.profile, seed: r.seed, fin: r.fin, M: r.M, inv: r.inv, afk: r.afk, A4: r.A4, A4lit: r.A4lit, unlockT: r.unlockT, v21: r.v21 })) }));
   process.exitCode = bad ? 1 : 0;
 })();

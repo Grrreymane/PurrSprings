@@ -2,7 +2,8 @@
 //   node D:/Minigame/_workflow/tools/headless.js D:/Minigame/Hotelgame tests/sys_economy.js --seed 3
 const errs = [], ok = (c, m) => { if (!c) errs.push(m); };
 const eq = (a, b, m) => ok(a === b, m + ': ' + a + ' (want ' + b + ')');
-function st(list, peak, o) { S = defaults(); for (const id of list) S.unlocked[id] = true; for (const rm of ROOMS) if (roomOpen(rm)) S.rooms[rm.id] = 'clean'; S.peak = Math.max(starOf(S), peak || 1); Object.assign(S, o || {}); resetWorld(); go('play'); }
+// v2.1: day 7 = autumn, the season with no fee change (16.1)
+function st(list, peak, o) { S = defaults(); S.day = 7; for (const id of list) S.unlocked[id] = true; for (const rm of ROOMS) if (roomOpen(rm)) S.rooms[rm.id] = 'clean'; S.peak = Math.max(starOf(S), peak || 1); Object.assign(S, o || {}); resetWorld(); go('play'); }
 // STARS table = SPEC 3.1 (v1 room / tip / bath / milk / gap unchanged)
 eq(STARS.slice(1).map(s => [s.room, s.tip, s.bath, s.milk, s.meal, s.souv, s.gap].join('/')).join(' '),
   '12/5/6/4/0/0/7 14/5/9/5/0/4/6 16/6/10/6/10/6/5 20/8/12/8/12/10/4.2 25/10/15/10/15/12/3.6', 'STARS');

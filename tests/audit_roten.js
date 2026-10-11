@@ -10,7 +10,7 @@ function aDrive(dt) {
 let t5 = null; const occ = [];
 const RS = SLOTS.map((s, i) => s.need === 'roten' ? i : -1).filter(i => i >= 0), OS = SLOTS.map((s, i) => s.need !== 'roten' ? i : -1).filter(i => i >= 0);
 for (let i = 0; i < 45 * 60 / DT; i++) {
-  aDrive(DT); update(DT); if (state === 'celebrate') { S.done = true; go('play'); }
+  aDrive(DT); update(DT); if (state === 'celebrate') { S.done = true; go('play'); } if (state === 'card') modalClose();
   if (t5 === null && star() >= 5) t5 = S.stats.time;
   if (t5 !== null && i % 30 === 0) { const t = S.stats.time - t5; if (t > 600) break; occ.push([t, RS.filter(k => SLOT_OCC[k]).length, OS.filter(k => SLOT_OCC[k]).length, dayLight().night]); }
 }

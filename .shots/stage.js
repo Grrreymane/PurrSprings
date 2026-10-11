@@ -21,7 +21,7 @@
       botMove = d > .01 ? { x: dx / d * Math.min(1, d / 3), y: dy / d * Math.min(1, d / 3) } : null;
     } else botMove = null;
   }
-  const ff = (sec, bot) => { for (let i = 0, n = Math.round(sec / DT); i < n; i++) { if (bot) drive(DT); update(DT); if (state === 'celebrate' && bot) { S.done = true; go('play'); } } botMove = null; };
+  const ff = (sec, bot) => { for (let i = 0, n = Math.round(sec / DT); i < n; i++) { if (bot) drive(DT); update(DT); if (state === 'celebrate' && bot) { S.done = true; go('play'); } if (state === 'card') modalClose(); } botMove = null; };
   const unl = ids => { ids.forEach(id => { S.unlocked[id] = true; S.paid[id] = UNLOCK[id].price; for (const rm of ROOMS) if (rm.open === id) S.rooms[rm.id] = S.rooms[rm.id] || 'clean'; }); S.peak = Math.max(S.peak, starOf(S)); };
   const place = (x, y, dir) => { Object.assign(P, { x: x * TILE + 8, y: y * TILE + 8, dir: dir || 'down', moving: false }); updCam(0, true); };
   // placed guests are already indoors (inside = true), or they say their arrival line on the first frame
@@ -447,6 +447,27 @@
     share_v2() {
       newGame(); S.tut.moved = true; unl(ALL.concat(['h_straw', 'h_beret', 'p_duck'])); S.done = true; S.equip = { hat: 'h_beret', pet: 'p_duck' }; S.hearts = 3200; S.stats.guests = 1840; S.earned = 412000; S.album.vip = { kawa: 3, ozeki: 2, sakura: 1 };
       S.album.photos = [{ v: 'kawa', d: 5, h: null, p: null }, { v: 'ozeki', d: 11, h: 'h_straw', p: 'p_duck' }]; S.combos = { c_ga: 3, c_zen: 6 }; S.album.furs = { calico: true, white: true }; resetWorld(); go('play'); ff(.5, false); makeShare();
+    },
+    // ---- v2.1 core A fun check (SPEC_v2 16.1-16.5): open a moment of the timeline (.shots/timeline.js saves the game
+    // every 30 s to .shots/tl/NNNNN.json, NNNNN = game seconds) and play on with the arrow bot for window.FF s, stopping
+    // early when window.UNTIL (an expression) is true; window.CARD: stop on the first paused card (shown 1.2 s in)
+    tl() {
+      const dir = window.TLDIR || '.shots/tl/';
+      fetch(dir + window.TL + '.json').then(r => r.json()).then(j => {
+        S = loadState(j.S); resetWorld(); go('play'); Object.assign(P, j.P, { moving: false }); updCam(0, true);
+        const until = window.UNTIL ? () => eval(window.UNTIL) : null;
+        for (let i = 0, n = Math.round((window.FF || 5) / DT); i < n; i++) {
+          drive(DT); update(DT);
+          if (state === 'celebrate') { S.done = true; go('play'); }
+          if (state === 'card') { if (window.CARD) break; modalClose(); }
+          if (until && until()) break;
+        }
+        botMove = null;
+        if (state === 'card') st = window.CARDT || 1.2;
+        else { if (window.PLACE) place(window.PLACE[0], window.PLACE[1], window.PLACE[2] || 'down'); for (let i = 0; i < (window.EXTRA || 0) * 30; i++) update(DT); }
+        GUIDE = guideTarget(); FREEZE_AT(); if (window.TLHOLD) update = dt => { T += dt; };   // TLHOLD: the world stops, animations (T) go on
+        document.title = 'TL READY ' + state + ' d' + S.day + ' c' + S.clock.toFixed(2);
+      });
     },
   };
   (sc[window.SHOT] || sc.title)();

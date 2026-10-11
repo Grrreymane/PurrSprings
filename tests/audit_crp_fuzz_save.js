@@ -33,7 +33,7 @@ for (let i = 0; i < N; i++) {
   try {
     localStorage.setItem(SAVE + 'state', txt);
     S = loadState(); stage = 'reset'; resetWorld(); stage = 'play'; go('play'); S.tut.moved = true;
-    for (let k = 0; k < 20; k++) { update(DT); if (state === 'celebrate') { S.done = true; go('play'); } }
+    for (let k = 0; k < 20; k++) { update(DT); if (state === 'celebrate') { S.done = true; go('play'); } if (state === 'card') modalClose(); }
     stage = 'render'; render();
     stage = 'roundtrip'; saveNow(); S = loadState(); resetWorld(); go('play'); update(DT); render();
     stage = 'menu'; openMenu(); for (const pg of ['home', 'sound', 'book', 'bought', 'inn']) { MENU.page = pg; for (let t = 0; t < 4; t++) { MENU.tab = t; render(); } } closeMenu();

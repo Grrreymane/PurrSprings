@@ -14,7 +14,7 @@ function aDrive(dt) {
 }
 const share = {}, runs = []; let cur = null, prevKey = '', starts = {}, firstSec = {};
 for (let i = 0; i < MIN * 60 / DT; i++) {
-  aDrive(DT); update(DT); if (state === 'celebrate') { S.done = true; go('play'); }
+  aDrive(DT); update(DT); if (state === 'celebrate') { S.done = true; go('play'); } if (state === 'card') modalClose();
   const D = MUSIC_DBG; if (!D.song) continue;
   const k = D.song + ':' + D.section; share[k] = (share[k] || 0) + DT;
   if (!cur || cur.song !== D.song || D.pass !== cur.pass && D.section === SONGS[D.song].form[0] && cur.lastSec !== D.section) {

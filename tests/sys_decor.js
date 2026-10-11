@@ -75,7 +75,7 @@ st(['d_scroll', 'd_ikebana', 'd_bonsai', 'd_screen'], 2);
   eq(slotCycle(SL('room3:A')).slice(0, 2).join(','), 'd_bonsai,d_screen', 'empty room: zen pieces first in the swap order'); }
 // ---- v2.0 audit ROOM-2: the hidden combos are hinted from gold star 3 / 4 (a banner + P11); with no bare room left the
 // arrow re-dresses a room whose combo 2+ rooms share
-st(UNLOCKS.filter(u => !u.need5).map(u => u.id).concat(['d_maneki', 'd_daruma', 'd_tank']), 5);
+st(UNLOCKS.filter(u => !u.need5 && !u.when).map(u => u.id).concat(['d_maneki', 'd_daruma', 'd_tank']), 5);   // (v2.1 seasonal decor: tests/sys_seasons.js)
 { eq(star(), 5, 'star 5'); S.stats.time = 100; S.hearts = 2999; goldSeen = goldStars(); ok(!hinted(COMBO.s_fish), 'gold x2: s_fish still hidden');
   BANNER_Q.length = 0; const said = []; const _ls = lineSay; lineSay = (w, k) => { said.push(k); return _ls(w, k); }; addHearts(1);
   eq(goldStars(), 3, 'gold x3'); ok(hinted(COMBO.s_fish) && !hinted(COMBO.s_tea), 'gold x3: s_fish hinted, s_tea not yet');

@@ -67,7 +67,7 @@ const steps = Math.round(90 * 60 / DT);
 for (let i = 0; i < steps; i++) {
   const k = segOf();
   drive(DT); update(DT);
-  if (state === 'celebrate') { S.done = true; go('play'); }
+  if (state === 'celebrate') { S.done = true; go('play'); } if (state === 'card') modalClose();
   const t = S.stats.time, s = SEG(k);
   const afkNow = afkFrom !== null && t >= afkFrom && t < afkTo;
   s.t += DT;

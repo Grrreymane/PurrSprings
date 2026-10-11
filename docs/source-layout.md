@@ -15,6 +15,7 @@
 | `src/core/constants.js` | 18 | 画面尺寸、字体、地图尺寸、小工具（`rand / clamp / fmt / mk / load / save`） |
 | `src/ui/pixel-painter.js` | 96 | 像素画板 `paint / Grid / rows / makeSpr / lit / eyeG …` |
 | `src/art/stubs.js` | 8 | ART 总说明 + `/*ART:stubs*/`（占位，12.4；现在是空的） |
+| `src/art/stubs-v21a.js` | 48 | v2.1 核心 A 用到的美术占位（只有函数声明，真美术同名后声明会覆盖；合并后删掉被覆盖的）：`seasonIcon lanternIcon trophyArt coverArt medalArt chochinString seasonWarm snowCapArt` |
 | `src/art/chars.js` | 702 | `/*ART:chars:BEGIN*/`：猫的头、帽子、服装、站 / 走 / 坐 / 泡澡 / 睡 / 鞠躬（`catSprite / catSit / catBathing / catSleepHead / catBow`） |
 | `src/art/chars-small.js` | 242 | 小猫、宠物、团成球的猫（`kittenSprite / kittenSit / petSprite / catCurl`）`/*ART:chars:END*/` |
 | `src/art/env.js` | 716 | `/*ART:env:BEGIN*/`：场景调色板、墙、地板（含 v2）、自然（私有 `_en*`） |
@@ -27,6 +28,7 @@
 | `src/audio/hooks.js` | 6 | 核心这边的 `sfx() / vib()`，切后台存档、pagehide 关 AudioContext |
 | `src/ui/drawing.js` | 78 | 文字队列 `txt`、`textW`、面板、按钮、飘字、`drawA / drawObj / ring` |
 | `src/data/map.js` | 143 | 地块图 `MAP`、区域、15 间客房、门、站位、取物圈、座位 |
+| `src/data/tables-v21a.js` | 85 | v2.1 核心 A 的数据（在 `tables.js` 之前）：四季、季节摆设 `UNLOCKS_V21A` + 组合 `COMBOS_V21A`、祭典 / 记者 / 年度大赏 / 猫妈妈的常数、台词 E01–E12 |
 | `src/data/tables.js` | 179 | 解锁表 `UNLOCKS`、`STARS`、客人类型、组合、贵宾、对手旅馆、昼夜、全部常数 |
 | `src/core/state-save.js` | 184 | `defaults / migrateV1 / loadState / saveNow`、收费 `fee`、价格圈 `padsUpdate` |
 | `src/core/pathfinding.js` | 143 | `BLOCK`、物件 `PROPS`、BFS `findPath`、走路、碰撞 |
@@ -44,6 +46,11 @@
 | `src/ui/render-world.js` | 250 | 静态层 `rebuildWorld`、猫、价格圈、被褥、`drawScene` |
 | `src/ui/render.js` | 303 | 夜间光照、覆盖层、箭头、HUD、`render()` |
 | `src/systems/lines.js` | 117 | 猫猫台词（SPEC_v2 第 8 节） |
+| `src/systems/seasons.js` | 245 | v2.1 四季（16.1）：日历、换季横幅 + 重建、季节收费、粒子 / 萤火虫 / 满月、冬天蒸汽和雪帽、季节组合的重新布置；核心 A 的总入口 `v21aReset / v21aTick`、存档字段 `loadV21a`、HUD 第二行、横幅、大堂北墙 |
+| `src/systems/festival.js` | 96 | v2.1 季节祭典（16.2）：灯笼进度、提灯串、夏天烟花、奖励 |
+| `src/systems/press.js` | 84 | v2.1 记者 / 电视台（16.4）：插队、四项打分、结果卡、「人气爆棚」、箭头 2b |
+| `src/systems/yearly.js` | 90 | v2.1 年度大赏（16.3）+ 暂停卡片（`state 'card'`、`MODAL_Q`）：年报卡、奖杯、殿堂旅馆 |
+| `src/systems/mom.js` | 75 | v2.1 猫妈妈（16.5）：走贵宾流程、全家福（按数据重画）、大堂北墙的小相框 |
 | `src/ui/cards.js` | 212 | 说明卡 + 预览、横幅、「新」标记、首次图示卡、`uiUpdate` |
 | `src/ui/menu.js` | 220 | 菜单、声音页、图鉴、已购、旅馆页 |
 | `src/ui/title.js` | 64 | 点按 `onPress`、`resetWorld / newGame / continueGame`、标题、庆祝 |

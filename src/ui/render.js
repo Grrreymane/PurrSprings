@@ -64,13 +64,14 @@ function guestHead(gu) {
 function badgeStaff() { let bs = null, bd = 2 * TILE + .01; for (const s of STAFF) { const d = dist(P.x, P.y, s.x, s.y); if (d < bd && s.x - cam.x > -8 && s.x - cam.x < W + 8 && s.y - cam.y > -8 && s.y - cam.y < H + 8) { bd = d; bs = s; } } return bs; }
 // world overlays: steam, rings, bubbles, head towels, sparkles, pad labels, pops
 function drawOverlays() {
-  const steam = (x0, n) => { for (let i = 0; i < n; i++) {   // steam over a bath (pure function of T)
-    const ph = (T * .35 + i * .37) % 1, x = (x0 + (i * 7) % n) * TILE + 8 + R(Math.sin(T * 1.3 + i) * 3), y = R(3 * TILE + 6 - ph * 22);
+  const steam = (x0, n, o) => { for (let i = 0; i < n; i++) {   // steam over a bath (pure function of T); o: a second set out of phase
+    const t = T + (o || 0), ph = (t * .35 + i * .37) % 1, x = (x0 + (i * 7) % n) * TILE + 8 + R(Math.sin(t * 1.3 + i) * 3), y = R(3 * TILE + 6 - ph * 22);
     if (!VIS(x, y, 4)) continue;
     g.globalAlpha = .45 * Math.sin(ph * Math.PI); g.fillStyle = '#ffffff'; g.fillRect(x - CX, y - CY, 2, 1); g.fillRect(x + 1 - CX, y - 1 - CY, 1, 1);
   } };
   if (S.unlocked.onsen) steam(13, 9);
   if (S.unlocked.roten) steam(27, 11);
+  if (winterSteam()) { if (S.unlocked.onsen) steam(13, 9, 1.43); if (S.unlocked.roten) steam(27, 11, 1.43); }   // v2.1 winter: twice the steam
   g.globalAlpha = 1;
   const f = Q[0]; if (f && f.ck > 0 && f.ready) ring(R(f.x) - CX, R(f.y) - 30 - CY, f.ck, '#ffe14a');
   for (const rm of ROOMS) if (S.rooms[rm.id] === 'messy' && RT[rm.id].cleanP > 0) ring(rm.cleanC[0] - CX, rm.y0 * TILE - 2 - CY, RT[rm.id].cleanP);
@@ -296,6 +297,7 @@ function drawHUD() {
   const rk = '#' + rankOf(S.hearts), rw = 13 + rk.length * 4; pill(26, 17, rw, 11); drawC(trophyIcon(), 32, 22); txt(rk, 37, 22.5, 7, '#ffe9a8', 'left');
   const nc = callCount(), bx = 26 + rw + 3;
   if (nc > 0) { pill(bx, 17, 21, 11); drawC(bellIcon(), bx + 6, 22); txt(String(nc), bx + 12, 22.5, 7, '#ffe9a8', 'left'); }
+  drawHudV21a(bx + (nc > 0 ? 24 : 0));   // v2.1: the festival lanterns, the "popular" cover + ring (seasons.js)
 }
 function drawFly() {
   for (const f of FX) if (f.k === 'fly' && f.t >= 0) {
@@ -311,13 +313,15 @@ function render() {
   CX = R(cam.x); CY = R(cam.y);
   padsUpdate();
   drawScene(W, H, state !== 'title');
+  drawSeasonFx(0);   // v2.1: petals / leaves / snow, under the night tint
   if (state === 'title') { drawTitle(); drawC(soundIcon(musicOn || sfxOn), 172, 8); present(); return; }   // the speaker stays on the title (7.1)
-  drawLighting(); if (INFO && state === 'play') drawPreview(INFO); drawOverlays(); drawGuide(); drawJoy();
+  drawLighting(); drawSeasonFx(1); if (INFO && state === 'play') drawPreview(INFO); drawOverlays(); drawGuide(); drawJoy();   // v2.1: drawSeasonFx(1) = fireflies, fireworks, the full moon, lantern glow
   if (LINE) { layerBreak(); drawLine(); }   // the line bubble covers the world's words under it (prices, names)
   layerBreak();
 
   drawEdgeNew(); drawBanner(); drawHUD(); drawBottomCard(); drawFly();
   if (state === 'celebrate') { layerBreak(); drawCelebrate(); }
   if (state === 'menu') { layerBreak(); drawMenu(); }
+  if (state === 'card') { layerBreak(); drawModal(); }   // v2.1: the year report / press result / family photo (yearly.js)
   present();
 }

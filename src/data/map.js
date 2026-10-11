@@ -182,14 +182,14 @@ const tileLook = (tx, ty) => (tx < 0 || ty < 0 || tx >= MW || ty >= MH) ? null :
 // A2: each tree unlock plants a small grove. The first tree of each stays where SPEC_v2 2.4 put it (it blocks); the
 // others are walk-over (block: false) on lawn tiles off the walks, so no walkable / reachable tile changes (map_check).
 const SCENERY = [
-  { k: 'tree', at: [27, 24], need: 'g_sakura', img: () => treeArt('sakura') },
-  { k: 'tree', at: [29, 25], need: 'g_sakura', block: false, img: () => treeArt('sakura', 0, 1) },
-  { k: 'tree', at: [31, 24], need: 'g_sakura', block: false, img: () => treeArt('sakura', 0, 2) },
-  { k: 'tree', at: [29, 28], need: 'g_sakura', block: false, img: () => flipOf(treeArt('sakura', 0, 1)) },
-  { k: 'tree', at: [37, 18], need: 'g_maple', img: () => treeArt('maple') },
-  { k: 'tree', at: [34, 18], need: 'g_maple', block: false, img: () => treeArt('maple', 0, 1) },
-  { k: 'tree', at: [36, 15], need: 'g_maple', block: false, img: () => flipOf(treeArt('maple', 0, 1)) },
-  { k: 'tree', at: [33, 15], need: 'g_maple', block: false, img: () => treeArt('maple', 0, 2) },
+  { k: 'tree', at: [27, 24], need: 'g_sakura', img: () => treeArt('sakura', seasonNow()) },   // v2.1: the season's tree (16.1)
+  { k: 'tree', at: [29, 25], need: 'g_sakura', block: false, img: () => treeArt('sakura', seasonNow(), 1) },
+  { k: 'tree', at: [31, 24], need: 'g_sakura', block: false, img: () => treeArt('sakura', seasonNow(), 2) },
+  { k: 'tree', at: [29, 28], need: 'g_sakura', block: false, img: () => flipOf(treeArt('sakura', seasonNow(), 1)) },
+  { k: 'tree', at: [37, 18], need: 'g_maple', img: () => treeArt('maple', seasonNow()) },
+  { k: 'tree', at: [34, 18], need: 'g_maple', block: false, img: () => treeArt('maple', seasonNow(), 1) },
+  { k: 'tree', at: [36, 15], need: 'g_maple', block: false, img: () => flipOf(treeArt('maple', seasonNow(), 1)) },
+  { k: 'tree', at: [33, 15], need: 'g_maple', block: false, img: () => treeArt('maple', seasonNow(), 2) },
   // A4: bamboo lanterns at the star-view bath's two corners (on rock tiles: nothing walkable)
   { k: 'bambooLamp', at: [26, 3], need: 'roten', block: false, img: () => deckLanternArt(lampLit()), light: [10, 2, 'deck'] },
   { k: 'bambooLamp', at: [38, 2], need: 'roten', block: false, img: () => deckLanternArt(lampLit()), light: [10, 2, 'deck'] },

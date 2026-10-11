@@ -299,7 +299,7 @@ const goldT = {};
 for (let i = 0; i < steps * 10; i++) {
   drive(DT);
   update(DT);
-  if (state === 'celebrate') { S.done = true; go('play'); }
+  if (state === 'celebrate') { S.done = true; go('play'); } if (state === 'card') modalClose();
   const t = t0();
   if (S.unlocked.recep && recepAt === null) { recepAt = t; base = { g: S.stats.guests, a: S.stats.angry }; }
   if (S.unlocked.teaboy && bTeaAt === null) { bTeaAt = t; bTeaBase = { made: RUN.calls, staff: RUN.callsStaff, self: RUN.callsSelf, missed: RUN.callsMissed, served: S.stats.calls }; }
@@ -396,7 +396,10 @@ const M = {
 };
 const out = { profile: PROFILE, cfg: CFGNAME, set: ARG('set') || '', fin, end: R(t0()), post: POST, unlockT, inc: INC, incPre: preInc, inc30,
   afk: afkFrom !== null ? { from: R(afkFrom), to: R(afkTo), inc: tot(incOf(recs.filter(r => r.t >= afkFrom && r.t < afkTo))) } : null,
-  M, inv, stuckN: bStuckN, maxActive: R(bMaxActive), guests: S.stats.guests, angry: S.stats.angry, menus, hearts: S.hearts };
+  M, inv, stuckN: bStuckN, maxActive: R(bMaxActive), guests: S.stats.guests, angry: S.stats.angry, menus, hearts: S.hearts,
+  // v2.1 core A (16.1-16.5): festivals held / all lit, the reporters' stars, the yearly awards, mom's visits, seasonal combos
+  v21: { fests: RUN.news.filter(n => n[1] === 'fest').length, festOk: RUN.news.filter(n => n[1] === 'festok').length, press: S.covers.map(c => c.n + (c.tv ? 't' : '')),
+    awards: S.awards.map(a => a.y + a.k + '♥' + a.h), yearH: S.hearts - S.year.h, mom: S.mom, seasonal: COMBOS.filter(c => c.season !== undefined && S.combos[c.id]).length } };
 if (JSONOUT) console.log(JSON.stringify(out));
 else {
   const T = (ok, s) => (ok === null || ok === undefined ? '-- ' : ok ? 'ok ' : 'NO ') + s;
@@ -409,6 +412,7 @@ else {
   console.log(`  E1 calls ${M.E1.made} made, ${M.E1.served} served (${M.E1.fast} fast), ${M.E1.missed} missed = ${M.E1.done} | E2 hungry no-chef ${M.E2.noChef} 2-waiters ${M.E2.twoWaiters} | E3 VIP ${M.E3.came} came ${M.E3.done} done ${M.E3.left} left, med ${M.E3.used}s f ${M.E3.f}, ${M.E3.share} of income | E4 first combo ${mmss(firstCombo)}, combo rooms at ★5 ${comboRooms5}`);
   console.log(`  F1 lines/min ${M.F1} | F2 arrivals ${M.F2.n} ok ${M.F2.ok} fail ${JSON.stringify(M.F2.fail)} ${M.F2.failAt.join(' / ')} | jumps ${swJumps}: >3 in 5 s ${swMany} ${swManyAt.join(' / ')}, A-B-A ${swFlip} ${JSON.stringify(swPairs)} | unreachable ${bUnreach} ${bUnreachAt.join(' / ')} | H1 pads on screen ${padsMax} (shop ${shopPadsMax})`);
   if (afkFrom !== null) console.log(`  afk ${mmss(afkFrom)}-${mmss(afkTo)}: income ${out.afk.inc}`);
+  console.log(`  v2.1: festivals ${out.v21.festOk}/${out.v21.fests} all lit | press ${out.v21.press.join(' ') || '-'} | awards ${out.v21.awards.join(' ') || '-'} (this year so far ♥${out.v21.yearH}) | mom ${out.v21.mom} | seasonal combos ${out.v21.seasonal}`);
   if (M.G) console.log(`  shopper: first hat ${mmss(M.G.firstHat)} | 1st hour ${M.G.hour} pieces, gap med ${mmss(M.G.gapMed)} max ${mmss(M.G.gapMax)} | gold after ★5 ${Object.entries(M.G.gold).map(([k, t]) => k + '@' + mmss(t)).join(' ') || '-'} (at ★5 ${goldAt5}) | G4 ${noBuyS}s with nothing to buy`);
   const kinds = {}; for (const r of arrowRecs(pre)) { const k = r.k ? r.k + (r.h ? '*' : '') : '-'; kinds[k] = (kinds[k] || 0) + 1; }
   console.log('  arrow: ' + Object.entries(kinds).sort((a, b) => b[1] - a[1]).map(([k, n]) => k + ' ' + n).join(', '));

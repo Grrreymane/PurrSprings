@@ -35,7 +35,7 @@ const reachedAt = {}, done = {};
 let halfDone = false;
 for (let i = 0; i < 40 * 60 * 30; i++) {
   drive(DT); update(DT);
-  if (state === 'celebrate') { S.done = true; saveNow(); go('play'); }
+  if (state === 'celebrate') { S.done = true; saveNow(); go('play'); } if (state === 'card') modalClose();
   const st = star(), t = S.stats.time;
   if (reachedAt[st] === undefined) reachedAt[st] = t;
   if (!done[st] && t - reachedAt[st] >= (st === 1 ? 100 : 40)) { done[st] = true; const s = snap(); dump('v1_s' + st, s); if (st === 5) { s.done = false; dump('v1_s5_notdone', s); } }

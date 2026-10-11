@@ -148,6 +148,8 @@ function guideTarget(opts) {
   if (S.stats.time - lastBuyAt >= STALL_T) { const t = rule6() || rule9(); if (t) return t; }
   // 2. the VIP follows you: it fell behind and stopped -> back to it; else -> into a clean empty suite
   if (v && v.st === 'follow') { if (v.halt) return gAt(2, T_VIP()); const rm = cleanSuite(); if (rm) return gAt(2, T_SUITE(rm)); }
+  // 2b (v2.1, 16.4): the reporter at the front and nobody at the desk -> the desk; it waits for a towel -> towels (press.js)
+  { const t = pressGuide(); if (t) return t; }
   // 3. something on the tray that someone waits for -> the VIP first (its wish never runs out, G1), else one of them who
   //    can still be reached in time (a Manhattan lower bound x 1.2): the nearest, unless the most urgent one gets tight
   //    (stage 4, 18.2); nobody in time: the tightest one that may still make it; else no arrow for it
