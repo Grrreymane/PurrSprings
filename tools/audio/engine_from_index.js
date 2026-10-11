@@ -1,5 +1,5 @@
 // Loads the audio engine from the game's index.html (the block between the AUDIO:BEGIN and AUDIO:END marker lines;
-// index.html is its only copy since the v2.0 merge) as a classic inline script, so its top-level let / const become
+// the source is src/audio/engine.js: npm run sync after editing it) as a classic inline script, so its top-level let / const become
 // globals for the page's next <script>. Serve the game folder over http (python -m http.server; render.py does it).
 (function () {
   const x = new XMLHttpRequest(); x.open('GET', '../../index.html?t=' + Date.now(), false); x.send();

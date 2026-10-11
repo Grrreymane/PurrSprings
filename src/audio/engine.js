@@ -1,5 +1,5 @@
 // ============================================================ audio (synthesised, no files)
-// The v2 engine (SPEC_v2 9 + 13), merged in stage M; index.html is its only copy.
+// The v2 engine (SPEC_v2 9 + 13), merged in stage M; edit it here (src/audio/engine.js), then npm run sync.
 /*AUDIO:BEGIN*/
 // ============================================================ audio v2 (SPEC_v2 9 + 13; was audio/engine.js until the stage M merge)
 // Everything is synthesised with WebAudio, no files. SPEC_v2 sections 9 + 13.
