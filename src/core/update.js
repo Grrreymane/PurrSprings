@@ -44,6 +44,7 @@ function gameUpdate(dt) {
   for (const s of STAFF) updStaff(s, dt);
   staffChat();
   updVip(dt);
+  tickB(dt);   // v2.1 core B (plaza.js): rare guests' kittens, fireworks, the tanuki's lantern, gold glints
   zones(dt);
   padsUpdate();
   { const bo = boutiqueOpen(); if (bo && !boutiqueWas) boutiqueOpened(); boutiqueWas = bo; }

@@ -138,9 +138,9 @@ function drawMate(m) {
 function drawPet(e, ghost) {
   const view = e.dir === 'left' || e.dir === 'right' ? 'side' : e.dir;
   const fr = e.moving ? 1 + (Math.floor(e.walkT * 7) & 1) : e.kind === 'shiba' && e.idle > 1 ? 3 + (Math.floor(T * 2) & 1) : 0;
-  let c = petSprite(e.kind, view, fr); if (e.dir === 'left') c = flipOf(c);
+  let c = e.lantern ? petLanternArt() : petSprite(e.kind, view, fr); if (e.dir === 'left' && !e.lantern) c = flipOf(c);   // v2.1: the tanuki's lantern trick
   if (ghost) g.globalAlpha = .5;
-  if (e.kind === 'shiba') drawA(c, R(e.x), R(e.y), 8, 15); else drawA(c, R(e.x), R(e.y), 5, 9);
+  drawA(c, R(e.x), R(e.y), c.width >> 1, c.height - 1);   // anchor = bottom centre (duck (5,9), shiba (8,15); v2.1 fox / tanuki / crane)
   g.globalAlpha = 1;
 }
 // a cat sitting on a seat cushion, side-on to its table (catSit faces right; eating = frames 1 / 3, bowl up / down, so the
@@ -232,13 +232,13 @@ function drawScene(vw, vh, live, noPlayer, card) {
   // decor in the rooms (ground items sorted by the tile centre: you can stand on them) and samples on the shop shelf
   for (const sl of DSLOTS) {
     const id = S.decor[sl.key]; if (!id || !roomOpen(sl.rm) || !VIS(tcx(sl.at), tcy(sl.at), 32)) continue;
-    L.push({ y: tcy(sl.at), f: () => drawObj(decorArt(id, Math.floor(T) & 1), sl.at[0], (sl.at[1] + 1) * TILE, 1, popScale(POPA['decor:' + sl.key])) });
+    L.push({ y: tcy(sl.at), f: () => drawObj(decorArt(id, Math.floor(T) & 1, goldOwned(id)), sl.at[0], (sl.at[1] + 1) * TILE, 1, popScale(POPA['decor:' + sl.key])) });   // v2.1: gold once its gold piece is bought
   }
   if (S.unlocked.shop && VIS(48, 31 * TILE - 12, 48)) L.push({ y: 31 * TILE + .02, f: () => decorOwned().forEach((id, i) => { if (i < 8) drawA(decorIcon(id), TILE + (i >> 1) * TILE + (i & 1 ? 9 : 2) + 5, 31 * TILE - 24 + 7, 5, 5); }) });
   if (live && VIPG && VIS(VIPG.x, VIPG.y, 24)) {
     const v = VIPG;
     if (v.st === 'soak') { const tb = ROOM[v.suite].tub; L.push({ y: (tb[1] + 1) * TILE + .02, f: () => drawA(catBathing(v.look.fur, Math.floor(T * 1.4) & 1, 'tub'), tcx(tb), tb[1] * TILE + 8, 9, 9) }); }
-    else L.push({ y: v.y, f: () => drawCat(v, v.look) });
+    else L.push({ y: v.y, f: () => v.kits ? drawKit(v, v.look.fur) : drawCat(v, v.look) });   // v2.1: the three kitten brothers (rare.js)
   }
   if (live) {
     for (const gu of GUESTS) guestDraws(L, gu);
@@ -250,6 +250,7 @@ function drawScene(vw, vh, live, noPlayer, card) {
   // the shop awning (once open) sorts just above row 30: the tanuki at (6,30) and the shelf's samples stand in front of it
   // (drawn over everyone it hid them - stage 2B note)
   if (S.unlocked.shop && VIS(88, 30 * TILE, 100)) L.push({ y: 30 * TILE - .5, f: () => g.drawImage(awningArt(), 16 - CX, 30 * TILE - 12 - CY) });
+  if (live && !card) { rareDraws(L); if (!noPlayer) dressGhostDraws(L); }   // v2.1: the kitten brothers following, the uniform ghost
   L.sort((a, b) => a.y - b.y); for (const e of L) e.f();
   // ---- over everyone: the entrance noren
   g.drawImage(entranceNoren(), 16 * TILE - CX, 29 * TILE - 6 - CY);

@@ -24,20 +24,23 @@ setup(['room2', 'room3', 'onsen', 'recep', 'maid1', 'tea']); spawnT = 0; run(25)
   const a = snap(), t0 = T; run(10);
   eq(snap(), a, 'nothing moves in the menu (guests, staff, clock, time, money, piles)'); ok(T - t0 > 9.9, 'T keeps going'); eq(b.age, age, 'the banner waits in the menu');
   // taps: home -> sound -> toggles -> back -> book -> tabs -> outside = back / close
-  MENU.page = 'home'; menuPress({ x: 90, y: 114 }); eq(MENU.page, 'sound', 'tap 声音');
+  const rowY = page => MENU_ROWS.find(r => r[4] === page)[3] + 12;   // v2.1: six rows (装扮 added)
+  MENU.page = 'home'; menuPress({ x: 90, y: rowY('sound') }); eq(MENU.page, 'sound', 'tap 声音');
   const m0 = musicOn, s0 = sfxOn; menuPress({ x: 90, y: 88 }); eq(musicOn, !m0, 'music switch'); menuPress({ x: 90, y: 116 }); eq(sfxOn, !s0, 'sfx switch');
   ok(load('music', null) === musicOn && load('sfx', null) === sfxOn, 'music / sfx saved under their own keys');
   setMusicOn(m0); setSfxOn(s0);
   menuPress({ x: 90, y: 144 }); eq(S.opts.lines, false, 'line switch off'); ok(!lineSay(P, 'P01') && !LINE, 'lines off: nothing said');
   saveNow(); eq(loadState().opts.lines, false, 'the line switch is saved (S.opts.lines)'); menuPress({ x: 90, y: 144 }); eq(S.opts.lines, true, 'line switch on');
-  menuPress({ x: 40, y: 54 }); eq(MENU.page, 'home', 'back button'); menuPress({ x: 90, y: 144 }); eq(MENU.page, 'book', 'tap 图鉴');
-  for (let i = 0; i < 4; i++) { menuPress({ x: 24 + i * 33 + 15, y: 71 }); eq(MENU.tab, i, 'album tab ' + i); tryRender('album tab ' + i); }
+  menuPress({ x: 40, y: 54 }); eq(MENU.page, 'home', 'back button'); menuPress({ x: 90, y: rowY('book') }); eq(MENU.page, 'book', 'tap 图鉴');
+  for (let i = 0; i < BOOK_TABS.length; i++) { menuPress({ x: 24 + i * bookTabW() + 8, y: 71 }); eq(MENU.tab, i, 'album tab ' + i); tryRender('album tab ' + i); }
+  menuPress({ x: 40, y: 54 }); menuPress({ x: 90, y: rowY('dress') }); eq(MENU.page, 'dress', 'tap 装扮'); tryRender('dress page');
   menuPress({ x: 4, y: 4 }); eq(MENU.page, 'home', 'outside the panel = back'); menuPress({ x: 4, y: 300 }); eq(state, 'play', 'outside on the home page = close');
   openMenu(); menuPress({ x: 90, y: 84 }); eq(state, 'play', '继续 closes'); }
 // every page, every tab, the photo view, many bought pages: render
 setup(STAR4.concat(['maid4']), 500); S.album.vip = { kawa: 2, ozeki: 1 }; S.album.photos = [{ v: 'kawa', d: 3, h: null, p: null }]; S.gifts = ['kawa']; S.combos = { c_ga: 2, s_fish: 4 };
 { openMenu();
-  for (const p of ['home', 'sound', 'book', 'bought', 'inn']) { MENU.page = p; for (let t = 0; t < 4; t++) { MENU.tab = t; tryRender('menu ' + p + ' ' + t); } }
+  for (const p of ['home', 'sound', 'book', 'bought', 'inn', 'dress']) { MENU.page = p; for (let t = 0; t < BOOK_TABS.length; t++) { MENU.tab = t; DRESS.tab = t & 3; tryRender('menu ' + p + ' ' + t); } }
+  MENU.page = 'inn'; MENU.sel = null; menuPress({ x: INN_MAP_BTN[0] + 10, y: INN_MAP_BTN[1] + 8 }); eq(MENU.sel, 'map', 'inn page: the map button'); tryRender('inn map'); menuBack(); eq(MENU.sel, null, 'back from the map');
   MENU.page = 'book'; MENU.tab = 0; menuPress({ x: 46, y: 120 }); eq(MENU.sel, 'kawa', 'tap a VIP seen: its photo'); tryRender('photo'); menuPress({ x: 90, y: 200 }); eq(MENU.sel, null, 'tap again: back to the grid');
   menuPress({ x: 91, y: 120 }); eq(MENU.sel, 'ozeki', 'a VIP seen without a photo: its card'); tryRender('no photo'); MENU.sel = null; menuPress({ x: 136, y: 220 }); eq(MENU.sel, null, 'a VIP not seen: nothing');
   MENU.page = 'bought'; MENU.pg = 0; const n = boughtList().length, pages = Math.ceil(n / 12);
@@ -46,7 +49,7 @@ setup(STAR4.concat(['maid4']), 500); S.album.vip = { kawa: 2, ozeki: 1 }; S.albu
   menuPress({ x: 48, y: 262 }); eq(MENU.pg, pages - 2, 'previous page');
   MENU.page = 'inn'; tryRender('inn'); menuPress({ x: 90, y: 256 }); ok(!!shareEl, 'the photo button makes the share card'); shareEl = null;
   closeMenu(); }
-{ const c = albumCount(); eq(c.m, 36, 'album size (6 VIPs + 6 combos + 9 furs + 3 types + 12 staff: v2.0.1 + the tea runner)'); }
+{ const c = albumCount(); eq(c.m, 69, 'album size (6 VIPs + 6 combos + 9 furs + 3 types + 12 staff: v2.0.1 + the tea runner; v2.1: + 8 rare guests + 8 hats 8 outfits 4 uniforms 5 pets)'); }
 // ---- 7.3 banners: a buy shows "new!" with the info card's line; 0.2 + 2.6 + 0.2 s; at most 3 queued, the one on screen stays
 setup(['room2', 'room3'], 60); at(18, 21);
 { unlock('shoes1'); const b = BANNER_Q[0]; ok(b && b.kind === 'buy' && b.id === 'shoes1', 'buy banner'); const st = bannerParts(b);

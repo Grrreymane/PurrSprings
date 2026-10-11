@@ -5,6 +5,7 @@ const AREA_FADE = [];      // areas just opened: their shade fades out over 0.8 
 let celebrateAt = 0, starPopAt = -9;   // starPopAt: when the HUD's newest star last popped in
 function unlock(id) {
   if (S.unlocked[id]) return;
+  if (UNLOCK[id].repeat) { buyAgain(UNLOCK[id]); return; }   // v2.1 (16.9): the fireworks are bought again and again (plaza.js)
   const u = UNLOCK[id], s0 = star(), xy = padXY(u) || [P.x / TILE | 0, P.y / TILE | 0];
   const over = (S.paid[id] || 0) - u.price; if (over > 0) S.money += over;   // paid in before a price cut: give the rest back
   S.unlocked[id] = true; S.paid[id] = u.price;
@@ -34,9 +35,10 @@ function unlock(id) {
 
   if (u.icon === 'shoes') FX.push({ k: 'speed', t: 0, life: 2 });
   if (u.icon === 'tray') FX.push({ k: 'trayslot', t: 0, life: .5 });
-  lineSay(P, star() > s0 ? 'P04' : u.gate ? 'P03' : u.staff ? 'P02' : u.hat || u.pet ? 'P05' : buyLine(u), !!u.pet);
+  lineSay(P, star() > s0 ? 'P04' : u.gate ? 'P03' : u.staff ? 'P02' : u.hat || u.pet ? 'P05' : u.outfit ? 'P12' : u.uniform ? 'P13' : buyLine(u), !!u.pet);
   addHearts(u.hearts);   // after the purchase's own banner + line: a rank overtake it causes queues behind them (18.2)
-  if (u.hat) lineSay(shopOwner(), 'K04');
+  if (u.hat || u.outfit || u.uniform) lineSay(shopOwner(), 'K04');
+  unlockB(u);   // v2.1 core B (wardrobe.js): wear it, gild the rooms, the shrine's bell, a garden piece's rare guest
   if (u.booth) RUN.shop.push([S.stats.time, id]);
   if (id === 'statue') { banner('statue', id); fxSpark(tcx(u.at) + 8, tcy(u.at) - 8, 10); }
   goldCheck();
@@ -44,7 +46,8 @@ function unlock(id) {
   fxSpark(at[0], at[1], 6); FX.push({ k: 'poof', x: at[0], y: at[1], t: 0, life: .45 });
   if (at[0] !== tcx(xy) || at[1] !== tcy(xy)) fxSpark(tcx(xy), tcy(xy), 4);
   if (!onView(at[0], at[1])) edgeNew(Math.floor(at[0] / TILE), Math.floor(at[1] / TILE), u);   // out of view: a "new" tag points at it (7.3.3)
-  SFX.unlock(); saveNow();
+  if (u.shrine) sfx('bellShrine'); else SFX.unlock();   // v2.1: an offering rings the shrine bell instead (it ducks the music itself)
+  saveNow();
   if (!S.done && innComplete()) celebrateAt = T + 1.4;   // G2: the big panel (+ share) when the whole inn is built, not at star 5
 }
 // the innkeeper's line for an ordinary purchase (8.2): a room, a decor piece, a tool, a garden piece, else P01

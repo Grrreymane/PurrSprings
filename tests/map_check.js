@@ -47,6 +47,9 @@ function points() {
     SEATS.forEach((s, i) => { if (S.unlocked[s.need]) p('seat' + i, s.at); });
   }
   for (const id in STAFF_DEF) if (S.unlocked[STAFF_DEF[id].need]) p('home:' + id, STAFF_DEF[id].home);
+  // v2.1 core B: where a rare guest is led to see its garden piece (a free tile beside it), the stall fronts guests stand on
+  for (const u of UNLOCKS) if (u.gz && S.unlocked[u.id]) { const n = [[0, 1], [-1, 0], [1, 0], [0, -1]].map(([dx, dy]) => [u.at[0] + dx, u.at[1] + dy]).find(([x, y]) => walkable(x, y)); p('beside:' + u.id, n || u.at); }
+  for (const u of UNLOCKS) if (u.stall && S.unlocked[u.id]) p('stallFront:' + u.id, [u.at[0], 31]);
   return P_;
 }
 const inLockedRoom = (x, y) => ROOMS.some(rm => !roomOpen(rm) && x >= rm.box[0] && x <= rm.box[2] && y >= rm.box[1] && y <= rm.box[3]);
@@ -88,6 +91,7 @@ for (const rm of ROOMS) for (const k of ['andon', 'table', 'futon', 'stand', 'pi
 // ---- 2. the SPEC 2.8 states
 const lines = [];
 const ALLV2 = UNLOCKS.filter(u => !u.need5 && u.id !== 'maid4').map(u => u.id);
+const V21_FINAL = [773, 773];   // v2.1 core B: + the shrine approach and the plaza (lawn + path), less what the shrine parts, garden pieces and stalls block
 const SPECSTATES = [
   ['start', [], false, [467, 209]],
   ['onsen', ['room2', 'room3', 'onsen']],
@@ -95,23 +99,24 @@ const SPECSTATES = [
   ['dining', ['room2', 'room3', 'room4', 'room5', 'onsen', 'recep', 'tea', 'shop', 'milk', 'maid1', 'dining']],
   ['west', ['room2', 'room3', 'room4', 'room5', 'room6', 'onsen', 'recep', 'tea', 'shop', 'milk', 'maid1', 'dining', 'w1', 'w2', 'w3', 'waiter1', 'table3']],
   ['garden', ALLV2.filter(id => id !== 'c2' && id !== 'suiteB' && id !== 'roten')],
-  ['v2.0 final', UNLOCKS.map(u => u.id), true, [717, 717]],
+  ['v2.0 final', UNLOCKS.filter(u => !u.v21b).map(u => u.id), true, [717, 717]],
+  ['v2.1 final', UNLOCKS.filter(u => !u.repeat).map(u => u.id), true, [V21_FINAL[0], V21_FINAL[1]]],   // core B: shrine + plaza open, every garden piece / shrine part / stall placed
 ];
 for (const [name, ids, s5, exp] of SPECSTATES) { setState(ids, s5); const r = check(name, exp); lines.push(name.padEnd(11) + ' walkable ' + r.walk + ' reached ' + r.reached + ' points ' + r.pts); }
 // ---- 3. every unlock state along a full buy order (the first buyable item in table order each time)
 setState([], false);
 let n = 0, guard = 0;
 while (guard++ < 200) {
-  const u = UNLOCKS.find(x => padEligible(x));
+  const u = UNLOCKS.find(x => padEligible(x) && !x.repeat);   // v2.1: the fireworks are bought again and again (never "unlocked")
   if (!u) break;
   S.unlocked[u.id] = true; for (const rm of ROOMS) if (rm.open === u.id) S.rooms[rm.id] = 'clean';
   S.peak = Math.max(S.peak, starOf(S)); resetWorld(); n++;
   check('after ' + u.id);
 }
-const left = UNLOCKS.filter(u => !S.unlocked[u.id]).map(u => u.id);
+const left = UNLOCKS.filter(u => !S.unlocked[u.id] && !u.repeat && !u.ok).map(u => u.id);   // v2.1: seasonal outfits / gold decor come by condition
 if (left.length) bad('never buyable along the buy order: ' + left.join(' '));
 // distances the SPEC quotes (2.8), v2.0 final
-setState(UNLOCKS.map(u => u.id), true);
+setState(UNLOCKS.filter(u => !u.v21b).map(u => u.id), true);
 const Dd = reachFrom(DESK_SPOT[0], DESK_SPOT[1]), dd = (x, y) => Dd[y * MW + x];
 const quoted = [['R1 stand', 13, 20, 10], ['R8 stand', 21, 8, 24], ['basket spot', 14, 5, 28], ['tea pick-up', 12, 24, 1], ['stove', 3, 20, 22], ['pass', 3, 22, 20], ['W1 stand', 4, 16, 25], ['W3 stand', 4, 8, 33], ['shop decor pad', 2, 32, 25], ['C1 stand', 28, 21, 22], ['C2 stand', 35, 21, 29], ['roten slot 37', 37, 4, 44], ['exit', 17, 35, 15]];
 for (const [nm, x, y, want] of quoted) if (dd(x, y) !== want) bad('desk -> ' + nm + ' is ' + dd(x, y) + ' tiles (SPEC 2.8: ' + want + ')');

@@ -73,12 +73,13 @@ const UNLOCKS = [
   UN('h_crown', '皇冠', 90000, [], 50, 'hat', 'hat', '戴上：小皇冠', { need5: true, hat: 'crown' }),
   UN('h_gold', '金铃', 150000, [], 50, 'hat', 'hat', '走路带金光', { need5: true, hat: 'goldband' }),
   UN('statue', '金像', 1000000, ['shop'], 100, [13, 33], 'statue', '每位小费+1', { need5: true, at: [11, 33] }),   // + shop: SPEC_v2 10.2 (18.2)
+  ...UNLOCKS_V21B,   // v2.1 core B (data/tables-v21b.js): outfits, uniforms, pets, gold decor, garden pieces, shrine, plaza
 ];
 const UNLOCK = NUL(); UNLOCKS.forEach(u => { UNLOCK[u.id] = u; });
 UNLOCKS.forEach(u => {
   u.dyn = !Array.isArray(u.pad);                                          // decor / hat / pet: placed by padsUpdate()
   u.area = u.dyn ? 'shop' : (areaAt(u.pad[0], u.pad[1]) || {}).id || null; // a pad shows only once its area is open
-  u.booth = !!(u.hat || u.pet) || u.id === 'statue';                      // shop booths + the statue: never the "cheapest pad"
+  u.booth = !!(u.hat || u.pet || u.outfit || u.uniform) || u.id === 'statue';   // shop booths (+ v2.1 outfits / uniforms) + the statue: never the "cheapest pad"
 });
 // v2.0.1 G4: the later tray / basket levels (托盘 2, 竹篮 2) are gone - the staff carry those jobs by then. A save that
 // bought them keeps what they did (trayCap / towelCap still read them); money poured into them is refunded on load.

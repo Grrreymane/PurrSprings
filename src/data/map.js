@@ -57,8 +57,8 @@ const AREAS = [
   { id: 'west',   r: [2, 7, 9, 17],    open: 'w1',     lock: 'door',  dim: true, music: 'lobby',  amb: null },
   { id: 'garden', r: [25, 9, 38, 28],  open: 'garden', lock: 'block', dim: true, music: 'garden', amb: 'garden', sign: [24, 26], n: 4 },
   { id: 'roten',  r: [25, 1, 38, 8],   open: 'roten',  lock: 'block', dim: true, music: 'onsen',  amb: 'falls', sign: [24, 4], n: 5 },
-  { id: 'shrine', r: [1, 1, 9, 5],     open: 'shrine', lock: 'block', dim: false, music: 'garden', amb: null, scenery: 'bamboo' },   // v2.1
-  { id: 'plaza',  r: [25, 30, 38, 34], open: 'plaza',  lock: 'block', dim: false, music: 'lobby',  amb: null },   // v2.1; v2.0.1: the lower garden (A3), lawn left open
+  { id: 'shrine', r: [1, 1, 9, 5],     open: 'shrine', lock: 'block', dim: false, music: 'garden', amb: null, scenery: 'bamboo', v21: true },   // v2.1 (16.8, star 5: gate pad (11,4))
+  { id: 'plaza',  r: [25, 30, 38, 34], open: 'plaza',  lock: 'block', dim: false, music: 'lobby',  amb: null, v21: true },   // v2.1 (16.9, star 5: gate pad (23,32)); v2.0.1: the lower garden (A3)
 ];
 const AREA = NUL(); AREAS.forEach((a, i) => { a.i = i; AREA[a.id] = a; });
 const AREA_AT = new Int8Array(MW * MH).fill(-1);

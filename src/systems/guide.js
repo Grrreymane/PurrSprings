@@ -26,7 +26,7 @@ const T_PILE = id => { const [tx, ty] = PILE_AT[id]; return Object.assign(gT('pi
 const towelWanted = () => S.basket === 0 && GUESTS.some(gu => gu.st === 'towel');
 // the pad under a locked tile (just bought there, you haven't stepped off): not pointed at - it would show your own tile
 const padLocked = u => { const xy = P.padLock && padXY(u); return !!xy && xy[0] === P.padLock[0] && xy[1] === P.padLock[1]; };
-const guidePads = sk => sk && sk.pad ? [] : visiblePads().filter(u => !u.booth && !padLocked(u) && !(sk && sk.decor && u.decor));
+const guidePads = sk => sk && sk.pad ? [] : visiblePads().filter(u => !u.booth && !u.noArrow && !padLocked(u) && !(sk && sk.decor && u.decor));   // v2.1: never the fireworks
 // pick-up points: the tile the arrow / bot goes to and the arrow kind (6)
 const PICK_TILE = { urn1: SPOT.urn1, urn2: SPOT.urn2, milk: MILK_SPOT, pass: [3, 22], stove: [2, 20] };
 const PICK_KIND = { urn1: 'urn', urn2: 'urn', milk: 'milk', pass: 'pass', stove: 'stove' };
@@ -53,7 +53,9 @@ function vipGuide() {
   const k = vipWish(), rm = ROOM[v.suite];
   if (k === 'bath') return T_TAP(rm);
   if (k === 'photo') return T_VIP('photo');
-  if ((k === 'tea' || k === 'kaiseki') && !P.tray.includes(k) && P.tray.length < trayCap()) { const s = sourceOf(k, tileOf(P)); if (s) return Object.assign(T_PICK(s, false, k), { vip: true }); }
+  if (k === 'stay') return T_VIP('stay');   // v2.1 rare guests (rare.js): stand by it / fetch it to show it its piece
+  if (k === 'show') return T_VIP();
+  if ((k === 'tea' || k === 'kaiseki' || k === 'milk' || k === 'rice') && !P.tray.includes(k) && P.tray.length < trayCap()) { const s = sourceOf(k, tileOf(P)); if (s) return Object.assign(T_PICK(s, false, k), { vip: true }); }
   return null;
 }
 // the arrow leads the VIP ahead of the pads (G1): the very first VIP from the carpet to its last wish (the 3-step card is
@@ -120,6 +122,7 @@ function guideTarget(opts) {
     const k = vipWish(), near = dist(P.x, P.y, v.x, v.y) <= VIP_NEAR;
     if (v.st === 'carpet' && near && cleanSuite()) return gAt(1, T_VIP('vip', true));
     if (v.st === 'seated' && k === 'photo' && near) return gAt(1, T_VIP('photo', true));
+    if (v.st === 'seated' && (k === 'stay' || k === 'show') && near) return gAt(1, T_VIP(k === 'stay' ? 'stay' : 'vip', true));   // v2.1 rare guests
     if (v.st === 'seated' && k === 'bath') { const rm = ROOM[v.suite]; if (ptx === rm.tap[0] && pty === rm.tap[1]) return gAt(1, T_TAP(rm, true)); }
   }
   if (slotT && ptx === slotT.at[0] && pty === slotT.at[1]) return gAt(1, T_SLOT(slotT, true));   // standing on the slot the arrow wants filled
@@ -148,6 +151,7 @@ function guideTarget(opts) {
   if (S.stats.time - lastBuyAt >= STALL_T) { const t = rule6() || rule9(); if (t) return t; }
   // 2. the VIP follows you: it fell behind and stopped -> back to it; else -> into a clean empty suite
   if (v && v.st === 'follow') { if (v.halt) return gAt(2, T_VIP()); const rm = cleanSuite(); if (rm) return gAt(2, T_SUITE(rm)); }
+  if (v && v.st === 'show') { const t = rareShowGuide(); if (t) return gAt(t.here ? 1 : 2, t); }   // v2.1: a rare guest follows you to its garden piece
   // 3. something on the tray that someone waits for -> the VIP first (its wish never runs out, G1), else one of them who
   //    can still be reached in time (a Manhattan lower bound x 1.2): the nearest, unless the most urgent one gets tight
   //    (stage 4, 18.2); nobody in time: the tightest one that may still make it; else no arrow for it
@@ -257,6 +261,7 @@ function guideIcon(gt) {
     case 'clean': return broomIcon();
     case 'desk': return bellIcon();
     case 'vip': case 'suite': return starIcon(true, true);
+    case 'showto': return gzIcon(gt.piece);   // v2.1: leading a rare guest to its garden piece
     case 'photo': return menuIcon('camera');
     case 'tap': return bubbleArt('bath', 0, true);   // the VIP's bath wish, as over its head (G1)
     case 'slot': { const sl = DSLOTS.find(s => s.key === gt.slot), id = sl && slotPiece(sl); return id ? decorIcon(id) : padIcon('decor'); }

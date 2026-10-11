@@ -71,8 +71,9 @@ function levelUp(s, lv) {
 const LOOK_TRIM = new Map();
 function staffLook(s) {
   const lv = staffLv(s), trim = TRIM_OUTFITS.has(s.look.outfit) ? (lv >= 5 ? 2 : lv >= 3 ? 1 : 0) : 0;
-  if (!trim) return s.look;
-  const k = s.id + ':' + trim; let l = LOOK_TRIM.get(k); if (!l) { l = Object.assign({}, s.look, { trim }); LOOK_TRIM.set(k, l); }
+  const uni = s.role === 'owner' ? null : staffUniform();   // v2.1 (16.6): the uniform everyone wears (look.uniform)
+  if (!trim && !uni) return s.look;
+  const k = s.id + ':' + trim + ':' + (uni || ''); let l = LOOK_TRIM.get(k); if (!l) { l = Object.assign({}, s.look, { trim }, uni ? { uniform: uni } : {}); LOOK_TRIM.set(k, l); }
   return l;
 }
 // money straight into the wallet (calls; stage 2B: VIP gifts): fish fly from (wx, wy) in the world to the HUD

@@ -41,6 +41,7 @@ const PROPS = [
   { k: 'deckLantern', at: [28, 7], need: 'roten', img: () => deckLanternArt(lampLit()) }, { k: 'deckLantern', at: [36, 7], need: 'roten', img: () => deckLanternArt(lampLit()) },
   // v2.0.1 art scenery (data/map.js SCENERY): the sakura / maple groves (A2), the roten's bamboo lanterns, the lower garden (A3)
   ...SCENERY,
+  ...PROPS_V21B,   // v2.1 core B (data/tables-v21b.js): the shrine by level, the garden pieces, the plaza's stalls
 ];
 const propOn = p => !p.need || (typeof p.need === 'function' ? p.need() : !!S.unlocked[p.need]);
 function buildObjects() {

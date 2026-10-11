@@ -202,6 +202,7 @@ function drawOverlays() {
     else if (fx.k === 'give') { const p = fx.t / fx.life; drawA(itemIcon(fx.it), lerp(fx.x0, fx.x1, p), lerp(fx.y0, fx.y1, p) - Math.sin(p * Math.PI) * 8, 3, 3); }   // handed over: the portion hops across
   }
   for (const u of visiblePads()) { const [tx, ty] = padXY(u); if (VIS(tx * TILE + 8, ty * TILE + 8, 20)) padLabels(u); }
+  manekiPaw(); rareOverlay(); fwClock();   // v2.1 core B: the maneki outfit's wave, rare guests' rings / bubble, the fireworks' clock
   for (const p of POPS) if (!(p.wait > 0)) txt(p.s, p.x - CX, p.y - CY, p.size, p.col, 'center', OUT, Math.min(1, p.life / p.max * 2));
 }
 function drawGuide() {
@@ -236,7 +237,7 @@ function drawGuide() {
     guideTag(ic, clamp(ax + (q === 1 ? kx : q === 3 ? -kx : 0), (ic.width >> 1) + 2, W - (ic.width >> 1) - 2), ay + (q === 0 ? -ky : q === 2 ? ky : 0));
   }
 }
-const GUIDE_BUBBLED = new Set(['deliver', 'vip', 'photo']);
+const GUIDE_BUBBLED = new Set(['deliver', 'vip', 'photo', 'stay']);   // v2.1: + a rare guest's 'stay' wish
 // a dotted ring of radius r round the innkeeper's feet (the net's reach)
 function netRing(r, a) {
   if (a <= 0) return;
@@ -269,7 +270,7 @@ function drawHUD() {
   pill(2, 2, w, 13);
   drawC(fishIcon(), 9, 8 - (hudBump > 0 ? 1 : 0));
   // 4.8: a 2 px bar under the number = fish on you / what the cheapest visible progress pad still needs (gold: enough)
-  let need = 0, nu = null; for (const u of visiblePads()) if (!u.booth && !u.decor) { const k = padNeed(u); if (k > 0 && (!need || k < need)) { need = k; nu = u; } }
+  let need = 0, nu = null; for (const u of visiblePads()) if (!u.booth && !u.decor && !u.goldOf && !u.noArrow) { const k = padNeed(u); if (k > 0 && (!need || k < need)) { need = k; nu = u; } }   // v2.1: not gold decor / the fireworks
   txt(n, 16, need ? 7.5 : 8.5, 8, '#ffe9a8', 'left');
   if (need) {
     const bw = w - 18, f = clamp(S.money / need, 0, 1); g.fillStyle = OUT; g.fillRect(16, 12, bw, 2); g.fillStyle = f >= 1 ? '#ffd23f' : '#7ae07a'; g.fillRect(16, 12, Math.max(1, R(bw * f)), 2);
@@ -312,7 +313,7 @@ function render() {
   padsUpdate();
   drawScene(W, H, state !== 'title');
   if (state === 'title') { drawTitle(); drawC(soundIcon(musicOn || sfxOn), 172, 8); present(); return; }   // the speaker stays on the title (7.1)
-  drawLighting(); if (INFO && state === 'play') drawPreview(INFO); drawOverlays(); drawGuide(); drawJoy();
+  drawLighting(); drawSkyB(); if (INFO && state === 'play') drawPreview(INFO); drawOverlays(); drawGuide(); drawJoy();   // v2.1: fireworks (plaza.js)
   if (LINE) { layerBreak(); drawLine(); }   // the line bubble covers the world's words under it (prices, names)
   layerBreak();
 
