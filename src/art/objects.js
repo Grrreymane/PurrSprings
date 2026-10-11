@@ -488,7 +488,8 @@ function towelArt() {   // 10x4, centre anchor; stack them 2px apart (each one s
 }
 
 function padIcon(kind) {   // 12x12, centre anchor. v2 adds the kinds in _obPAD2 (tea shop net dining waiter chef tray table
-  // west garden cottage suite roten clerk shishi sakura maple koi hat pet statue decor)
+  // west garden cottage suite roten clerk shishi sakura maple koi hat pet statue decor); v2.1: shrine offer plaza stall
+  // firework outfit uniform goldfish takoyaki ice shoot
   const K = ['room', 'onsen', 'recep', 'maid', 'porter', 'shoes', 'basket', 'milk', 'bath', 'sign'];
   if (K.indexOf(kind) < 0 && !_obPAD2[kind]) kind = 'room';
   return art('ob:pad:' + kind, () => { const c = paint(12, 12, G => {
