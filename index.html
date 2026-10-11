@@ -6121,15 +6121,16 @@ const OUTFITS_B = [
 ];
 const OUTFIT_SHIRT = NUL(); OUTFITS_B.forEach(o => { OUTFIT_SHIRT[o[0]] = o[5]; });
 // staff uniforms: one palette map per staff outfit (look.uniform = the id after 'u_')
-const UNIFORMS_B = [['u_sakura', '樱色', 25000, 10, '全员换樱色'], ['u_aizome', '蓝染', 30000, 12, '全员换蓝染'], ['u_sailor', '水手', 40000, 15, '全员换水手服'], ['u_gold', '金边', 150000, 40, '全员换金边']];
+const UNIFORMS_B = [['u_sakura', '樱色', 25000, 10, '全员换樱色', 'sakura'], ['u_aizome', '蓝染', 30000, 12, '全员换蓝染', 'indigo'], ['u_sailor', '水手', 40000, 15, '全员换水手服', 'sailor'], ['u_gold', '金边', 150000, 40, '全员换金边', 'gold']];   // look.uniform = the last (the character art's palette names)
 // gold decor (16.6): the piece it gilds; on sale once a combo with that piece has been found
 const GOLD_B = [['d_maneki_gold', '金猫', 'd_maneki', '金招财'], ['d_daruma_gold', '金达', 'd_daruma', '金达摩'], ['d_tank_gold', '金缸', 'd_tank', '金鱼缸'], ['d_screen_gold', '金屏', 'd_screen', '金屏风']];
 const GOLD_PLUS = .4;   // a combo with a gold piece in it: room fee x(1.6 + 0.4)
-// the garden pieces (16.7): chain pad, price order; at = its own ground (SPEC 2.4: all eight placed, every tile reachable)
+// the garden pieces (16.7): chain pad, price order; at = its own ground (SPEC 2.4's eight spots; the stone lantern (29,24) -> (34,28)
+// and the chime (34,24) -> (35,24): the v2.0.1 sakura grove hid the one, the path lamp crowded the other - 18.2)
 const GZ_PAD = [34, 26];
 const GARDEN_B = [
-  ['gd_chime', '风铃', 8000, [34, 24], 'r_boy', 6], ['gd_zen', '禅石', 10000, [36, 18], 'r_zen', 8], ['gd_mill', '水车', 18000, [38, 15], 'r_fisher', 10],
-  ['gd_lantern', '石灯', 20000, [29, 24], 'r_yuki', 10], ['gd_tower', '爬塔', 30000, [36, 26], 'r_kits', 12], ['gd_wisteria', '紫藤', 35000, [37, 24], 'r_painter', 14],
+  ['gd_chime', '风铃', 8000, [35, 24], 'r_boy', 6], ['gd_zen', '禅石', 10000, [36, 18], 'r_zen', 8], ['gd_mill', '水车', 18000, [38, 15], 'r_fisher', 10],
+  ['gd_lantern', '石灯', 20000, [34, 28], 'r_yuki', 10], ['gd_tower', '爬塔', 30000, [36, 26], 'r_kits', 12], ['gd_wisteria', '紫藤', 35000, [37, 24], 'r_painter', 14],
   ['gd_torii', '鸟居', 60000, [30, 28], 'r_bride', 20], ['gd_teahouse', '茶室', 120000, [38, 28], 'r_master', 30],
 ];
 // the cat shrine (16.8): gate pad in the onsen, the offering pad in front of the hall; ten levels (all fees +1 % each)
@@ -6148,7 +6149,8 @@ const YATAI_P = .5, YATAI_T = 1;   // a festival guest buys at a stall on the wa
 const fwPrice = () => Math.min(FW_MAX, FW_PRICE + FW_STEP * ((S.fw && S.fw.n) | 0));
 // rare guests (16.7): due 2-5 min after their piece is bought, then about every 20 min; at most one every RARE_GAP s
 // (a first visit excepted); they come in the VIP's place (one guest of honour at a time), so there is no extra work
-const RARE_FIRST = [120, 300], RARE_AGAIN = [900, 1500], RARE_GAP = 360, RARE_STAY_T = 3, RARE_SHOW_R = 36, RARE_ADMIRE_T = 1.5;
+// (fun check, 18.2: with 900-1500 s the zen master came 5 times in 2 h - a rare guest has to stay rare)
+const RARE_FIRST = [120, 300], RARE_AGAIN = [1200, 2100], RARE_GAP = 480, RARE_STAY_T = 3, RARE_SHOW_R = 36, RARE_ADMIRE_T = 1.5;
 
 const UNLOCKS_V21B = [];
 {
@@ -6161,7 +6163,7 @@ const UNLOCKS_V21B = [];
   STALLS_B.forEach(([id, name, price, kind, x, card], i) => U(id, name, price, i ? [STALLS_B[i - 1][0]] : [], 6, [x, 31], kind, card, { stall: kind, extra: true, at: [x, 30] }));
   U('fw', '烟花', FW_PRICE, [], 0, FW_PAD, 'firework', '放一场烟花', { repeat: true, noArrow: true, extra: true, ok: () => !fwCooling() });
   OUTFITS_B.forEach(([id, name, price, h, card, , season]) => U(id, name, price, [], h, 'outfit', 'outfit', card, Object.assign({ outfit: id }, season !== undefined ? { season, ok: () => seasonB() === season || (S.paid[id] | 0) > 0 } : {})));
-  UNIFORMS_B.forEach(([id, name, price, h, card]) => U(id, name, price, [], h, 'uniform', 'uniform', card, { uniform: id.slice(2) }));
+  UNIFORMS_B.forEach(([id, name, price, h, card, look]) => U(id, name, price, [], h, 'uniform', 'uniform', card, { uniform: look }));
   U('p_fox', '小狐', 60000, [], 20, 'pet', 'pet', '小狐跟着你', { pet: 'fox' });
   U('p_tanuki', '小狸', 90000, [], 30, 'pet', 'pet', '会变灯笼哦', { pet: 'tanuki' });
   U('p_crane', '白鹤', 150000, [], 40, 'pet', 'pet', '白鹤跟着你', { pet: 'crane' });
@@ -6178,34 +6180,44 @@ const RARES = [
   { id: 'r_fisher', name: '钓鱼爷爷', piece: 'gd_mill', fur: 'tabby', robe: '#4a6a5a', hat: 'straw', acc: 'rod', wishes: ['rice', 'stay', 'photo'], keep: 'gyotaku', keepName: '鱼拓', line: '钓到大鱼啦' },
   { id: 'r_boy', name: '夏日少年', piece: 'gd_chime', fur: 'cream', outfit: 'guest', shirt: '#6ac8e8', hat: 'straw', wishes: ['milk', 'bath', 'photo'], keep: 'chime', keepName: '小风铃', line: '冰牛奶！', when: 1 },
   { id: 'r_yuki', name: '雪女猫', piece: 'gd_lantern', fur: 'white', robe: '#a8d8f0', wishes: ['milk', 'bath', 'photo'], keep: 'snowball', keepName: '雪球', line: '好暖和…', when: 3 },
-  { id: 'r_kits', name: '小猫三兄弟', piece: 'gd_tower', fur: 'orange', kits: ['orange', 'calico', 'gray'], wishes: ['show', 'milk', 'photo'], keep: 'teaser', keepName: '逗猫棒', line: '爬到最高！' },
+  { id: 'r_kits', name: '小猫三兄弟', piece: 'gd_tower', fur: 'calico', kits: ['calico', 'tabby', 'black'], wishes: ['show', 'milk', 'photo'], keep: 'teaser', keepName: '逗猫棒', line: '爬到最高！' },
   { id: 'r_painter', name: '画家猫', piece: 'gd_wisteria', fur: 'gray', robe: '#5a6ab0', hat: 'beret', acc: 'palette', wishes: ['show', 'tea', 'photo'], keep: 'painting', keepName: '风景画', line: '得画下来', when: 0 },
   { id: 'r_bride', name: '狐新娘', piece: 'gd_torii', fur: 'white', robe: '#f8f4ec', hat: 'foxmask', wishes: ['kaiseki', 'bath', 'photo'], keep: 'foxmask', keepName: '狐面', line: '今夜出嫁', when: 'night' },
   { id: 'r_master', name: '茶道宗师', piece: 'gd_teahouse', fur: 'gray', outfit: 'haori', wishes: ['tea', 'tea', 'photo'], keep: 'chawan', keepName: '名茶碗', line: '一期一会' },
 ];
 const RARE = NUL(); RARES.forEach((r, i) => { r.rare = true; r.lineId = 'E11' + 'abcdefgh'[i]; RARE[r.id] = r; });
-const RARE_LOOK = NUL(); RARES.forEach(r => { RARE_LOOK[r.id] = { fur: r.fur, outfit: r.outfit || 'robe', robe: r.robe || null, shirt: r.shirt || null, hat: r.hat || null, acc: r.acc || null }; });
+// their looks: the character art's ready-made LOOKS_V21 when it is there (16.14: zen fisher boy yukionna painter bride tea,
+// .kittens = the brothers' furs), else robe / hat / acc built from the table above
+const RARE_ART = { r_zen: 'zen', r_fisher: 'fisher', r_boy: 'boy', r_yuki: 'yukionna', r_painter: 'painter', r_bride: 'bride', r_master: 'tea' };
+const RARE_LOOK = NUL();
+RARES.forEach(r => {
+  const L = typeof LOOKS_V21 === 'object' && LOOKS_V21 ? LOOKS_V21 : null;
+  if (r.kits && L && Array.isArray(L.kittens) && L.kittens.length >= 3) r.kits = L.kittens.slice(0, 3);
+  if (r.kits) r.fur = r.kits[0];
+  RARE_LOOK[r.id] = L && L[RARE_ART[r.id]] ? L[RARE_ART[r.id]] : { fur: r.fur, outfit: r.outfit || 'robe', robe: r.robe || null, shirt: r.shirt || null, hat: r.hat || null, acc: r.acc || null };
+});
 
 // ---- props (2.4 / pathfinding.js PROPS): the shrine's parts by level, the garden pieces, the stalls, the plaza's
 // lantern string. need: an unlock id or () => bool; prev: the unlock whose info card previews it (drawPreviewB).
 const NO_ART = mk(1, 1);
 const PROPS_V21B = [
-  // the shrine (16.8): the hall grows with the levels; the torii's two posts block, you walk under its beam
-  { k: 'hokora', at: [4, 1], fw: 3, need: 'shrine', uid: 'shrine:hall', img: () => hokoraArt(shrineLv()) },
-  { k: 'torii', at: [4, 3], fw: 3, block: false, need: 'of2', img: () => toriiArt() },
+  // the shrine (16.8; scenery art: hokoraArt(lv 1-10, season) 48 x 44, cumulative): the hall from the first offering on;
+  // the torii's two posts block, you walk under its beam - it fades while you stand behind it (in the 3/4 view it would
+  // hide you and the offering pad), and so do the small torii over the approach while you walk under them
+  { k: 'hokora', at: [4, 1], fw: 3, need: 'of1', uid: 'shrine:hall', img: () => hokoraArt(shrineLv(), seasonB()) },
+  { k: 'torii', at: [4, 3], fw: 3, block: false, need: 'of2', img: () => behindTorii() ? fadeArt(toriiArt(seasonB()), .4) : toriiArt(seasonB()) },
   { k: 'post', at: [4, 3], need: 'of2', img: () => NO_ART }, { k: 'post', at: [6, 3], need: 'of2', img: () => NO_ART },
-  { k: 'slantern', at: [2, 2], need: 'of3', img: () => shrineLanternArt(), light: [14, 2, 'lamp'] },
-  { k: 'slantern', at: [8, 2], need: 'of3', img: () => shrineLanternArt(), light: [14, 2, 'lamp'] },
-  { k: 'komainu', at: [3, 2], need: 'of4', img: () => komainuArt('l') }, { k: 'komainu', at: [7, 2], need: 'of4', img: () => komainuArt('r') },
+  { k: 'slantern', at: [2, 2], need: 'of3', img: () => shrineLanternArt(lampLit(), seasonB()), light: [18, 2, 'lamp'] },
+  { k: 'slantern', at: [8, 2], need: 'of3', img: () => shrineLanternArt(lampLit(), seasonB()), light: [18, 2, 'lamp'] },
+  { k: 'komainu', at: [3, 2], need: 'of4', img: () => komainuArt('l', seasonB()) }, { k: 'komainu', at: [7, 2], need: 'of4', img: () => komainuArt('r', seasonB()) },
   { k: 'tree', at: [1, 3], need: 'of6', block: false, img: () => treeArt('sakura', seasonB(), 1) },
   { k: 'tree', at: [8, 5], need: 'of6', block: false, img: () => flipOf(treeArt('sakura', seasonB(), 2)) },
-  { k: 'senbon', at: [6, 4], need: 'of7', block: false, img: () => senbonArt() }, { k: 'senbon', at: [7, 4], need: 'of7', block: false, img: () => senbonArt() },
-  { k: 'senbon', at: [8, 4], need: 'of7', block: false, img: () => senbonArt() }, { k: 'senbon', at: [9, 4], need: 'of7', block: false, img: () => senbonArt() },
-  { k: 'glow', at: [5, 1], need: 'of10', block: false, ground: true, img: () => NO_ART, light: [28, -6, 'lamp'] },   // the gold cat glows at night
-  // the garden pieces (16.7), each on its own ground
-  ...GARDEN_B.map(([id, , , at]) => ({ k: 'gz', at, need: id, img: () => gardenDecorArt(id, Math.floor(T * 1.5) & 1), light: id === 'gd_lantern' ? [18, 0, 'lamp'] : undefined })),
+  ...[6, 7, 8, 9].map(x => ({ k: 'senbon', at: [x, 4], need: 'of7', block: false, img: () => underSenbon(x) ? fadeArt(senbonArt(), .45) : senbonArt() })),
+  { k: 'glow', at: [5, 0], fw: 1.5, need: 'of10', block: false, ground: true, img: () => NO_ART, light: [28, 8, 'lamp'] },   // the gold cat on the roof glows at night (92, 8)
+  // the garden pieces (16.7), each on its own ground (snow on them in winter)
+  ...GARDEN_B.map(([id, , , at]) => ({ k: 'gz', at, need: id, img: () => snowy(gardenDecorArt(id, Math.floor(T * 1.5) & 1)), light: id === 'gd_lantern' ? [18, 0, 'lamp'] : undefined })),
   // the plaza (16.9): stalls under their cloth, open at a festival / a fireworks show; a lantern string along the hedge
-  ...STALLS_B.map(([id, , , kind, x]) => ({ k: 'stall', at: [x, 30], fw: 2, need: id, img: () => stallArt(kind, stallsOpen(), Math.floor(T * 2) & 1) })),
+  ...STALLS_B.map(([id, , , kind, x]) => ({ k: 'stall', at: [x, 30], fw: 2, need: id, img: () => snowy(stallArt(kind, stallsOpen(), Math.floor(T * 2) & 1)) })),
   { k: 'chochin', at: [26, 29], fw: 13, need: 'plaza', ground: true, block: false, img: () => chochinRow(13) },
   ...[27, 31, 35].map(x => ({ k: 'chochinLamp', at: [x, 29], need: 'plaza', ground: true, block: false, img: () => NO_ART, light: [10, 10, 'lamp'] })),
 ];
@@ -7564,7 +7576,7 @@ function vipWishDone() {
   const used = S.stats.time - (v.greetAt !== null ? v.greetAt : v.t0), f = .6 + .4 * clamp(1 - (used - 90) / 120, 0, 1);
   const pay = R(v.G * .5 * f), first = !S.album.photos.some(p => p.v === v.id);
   v.paid += pay; earn(pay, v.x, v.y - 4); addHearts(10 + (first ? 10 : 0));
-  S.album.photos.push({ v: v.id, d: S.day, h: S.equip.hat, p: S.equip.pet, o: S.equip.outfit }); if (S.album.photos.length > 40) S.album.photos.shift();   // v2.1: + the outfit
+  S.album.photos.push(Object.assign({ v: v.id, d: S.day, h: S.equip.hat, p: S.equip.pet }, S.equip.outfit ? { o: S.equip.outfit } : {})); if (S.album.photos.length > 40) S.album.photos.shift();   // v2.1: + the outfit
   if (v.rare) rarePhoto(v);   // v2.1: a rare guest's visit counts; its keepsake goes to the album, not the gift shelf
   else if (!S.gifts.includes(v.id)) { S.gifts.push(v.id); if (S.gifts.length > 6) S.gifts.shift(); }
   S.stats.vips++; RUN.vipDone++; RUN.vipF.push(f); RUN.vipUsed.push(used); RUN.vipPaid += v.paid;
@@ -8057,7 +8069,7 @@ function vipGuide() {
 }
 // the arrow leads the VIP ahead of the pads (G1): the very first VIP from the carpet to its last wish (the 3-step card is
 // up meanwhile); later ones once the current wish has waited VIP_URGENT s
-const vipLeads = v => !!v && (v.st === 'carpet' || v.st === 'seated') && (!S.stats.vips || (v.st === 'seated' && (v.wt || 0) >= VIP_URGENT));
+const vipLeads = v => !!v && (v.st === 'carpet' || v.st === 'seated') && (!S.stats.vips || (v.rare && !rareSeen(v.id)) || (v.st === 'seated' && (v.wt || 0) >= VIP_URGENT));   // v2.1: a rare guest's first visit too
 const wantTile = w => w.tile || guestTile(w.e);
 const tilesBetween = (a, b) => { const p = findPath(a[0], a[1], b[0], b[1]); return p ? p.length : 1e4; };
 // where a tray item comes from: tea from the nearer urn (the urn the arrow shows stays until the other one is >= 30 %
@@ -8226,11 +8238,14 @@ function guideTarget(opts) {
   { const clerkOn = STAFF.some(s => s.role === 'clerk'), min = Math.max(PILE_MIN, need < 1e9 ? (clerkOn ? .33 : .2) * (need - S.money) : 0), big = piles.filter(id => S.piles[id] >= min && (!clerkOn || id === 'recep'));
     if (big.length) return gStick(15, T_PILE(big[0]), big.map(T_PILE)); }
   // 16. you have fish: the cheapest visible pad (part payment is kept); standing on it = here. With 0 fish, no pad.
-  if (S.money > 0 && gp.length) {
-    let best = null; for (const u of gp) if (!best || padNeed(u) < padNeed(best)) best = u;
+  //     v2.1: not the star-5 sinks (shrine, garden pieces, plaza): the arrow shows one when you can pay it all (rule 6) -
+  //     till then the purse is yours to save up for what you like (an outfit, the next offering)
+  const gp16 = gp.filter(u => !u.v21b);
+  if (S.money > 0 && gp16.length) {
+    let best = null; for (const u of gp16) if (!best || padNeed(u) < padNeed(best)) best = u;
     const [tx, ty] = padXY(best);
     if (ptx === tx && pty === ty) return gAt(1, T_PAD(best, true));
-    return gStick(16, T_PAD(best), gp.filter(u => padNeed(u) <= padNeed(best) * 1.3).map(u => T_PAD(u)));
+    return gStick(16, T_PAD(best), gp16.filter(u => padNeed(u) <= padNeed(best) * 1.3).map(u => T_PAD(u)));
   }
   // 17. a guest waits and every room is taken: stand by the room whose sleeper wakes first (it needs cleaning next)
   if (Q.length && !free) {
@@ -8336,12 +8351,13 @@ function unlockB(u) {
 }
 
 // ---- per frame (gameUpdate): the tanuki's lantern trick, the maneki outfit's wave, gold glints in the rooms
-const PETFX = { lantern: 0, next: 30, idle: 0 };
+// the tanuki sitting still: every ~15 s a puff of smoke (frame 4, 0.3 s), a paper lantern (5, 2 s), a puff, sitting (3)
+const PETFX = { lantern: 0, next: 15, idle: 0 }, TRICK = [.3, 2, .3];
 let maneki = 0, goldGlintT = 0;
 function wardrobeTick(dt) {
-  if (PET && PET.kind === 'tanuki') {   // standing still a while, now and then it turns into a paper lantern for 3 s (16.6)
-    if (PETFX.lantern > 0) { PETFX.lantern -= dt; if (PETFX.lantern <= 0 || PET.moving) { PETFX.lantern = 0; FX.push({ k: 'poof', x: PET.x, y: PET.y - 6, t: 0, life: .45 }); } }
-    else if (!PET.moving && PET.idle > 2) { PETFX.next -= dt; if (PETFX.next <= 0) { PETFX.next = rand(25, 40); PETFX.lantern = 3; FX.push({ k: 'poof', x: PET.x, y: PET.y - 6, t: 0, life: .45 }); sfx('tryon'); } }
+  if (PET && PET.kind === 'tanuki') {
+    if (PETFX.lantern > 0) { PETFX.lantern -= dt; if (PETFX.lantern <= 0 || PET.moving) { PETFX.lantern = 0; if (!petArt21()) FX.push({ k: 'poof', x: PET.x, y: PET.y - 6, t: 0, life: .45 }); } }
+    else if (!PET.moving && PET.idle > 2) { PETFX.next -= dt; if (PETFX.next <= 0) { PETFX.next = rand(12, 18); PETFX.lantern = TRICK[0] + TRICK[1] + TRICK[2]; if (!petArt21()) FX.push({ k: 'poof', x: PET.x, y: PET.y - 6, t: 0, life: .45 }); sfx('tryon'); } }
   } else PETFX.lantern = 0;
   PET && (PET.lantern = PETFX.lantern > 0);
   maneki = outfitOf(S.equip.outfit) === 'o_maneki' && !TRY.outfit && !P.moving ? maneki + dt : 0;   // stands still: beckons
@@ -8359,9 +8375,30 @@ function dressGhostDraws(L) {
   const look = Object.assign({}, STAFF_DEF.recep.look, { uniform: TRY.uniform }), gh = { x: P.x + 13, y: P.y + 1, dir: 'down', moving: false, walkT: 0 };
   L.push({ y: gh.y, f: () => { g.globalAlpha = .55; drawCat(gh, look); g.globalAlpha = 1; } });
 }
-// o_maneki: standing still you raise a paw and beckon (two frames, 2 a second), drawn beside the head
+// the pets (16.14): the character art adds petAnchor(kind) and idle frames - fox 3 / 4, crane 3 / 4 slowly, tanuki 3 sit,
+// 4 smoke, 5 lantern; before it lands the core falls back to the bottom centre and its own lantern
+const petArt21 = () => typeof petAnchor === 'function';
+function petAnchorB(kind, c) {
+  if (petArt21()) { const a = petAnchor(kind); if (Array.isArray(a)) return a; if (a && typeof a === 'object') return [a.x | 0, a.y | 0]; }
+  return [c.width >> 1, c.height - 1];
+}
+function petIdleFrame(e) {
+  if (!(e.idle > 1)) return 0;
+  if (e.kind === 'shiba' || e.kind === 'fox') return 3 + (Math.floor(T * 2) & 1);
+  if (e.kind === 'crane') return 3 + (Math.floor(T * .7) & 1);
+  if (e.kind === 'tanuki') {
+    if (e === PET && PETFX.lantern > 0) { const t = TRICK[0] + TRICK[1] + TRICK[2] - PETFX.lantern; return t < TRICK[0] || t >= TRICK[0] + TRICK[1] ? 4 : 5; }
+    return 3;
+  }
+  return 0;
+}
+// o_maneki: standing still ~1 s you beckon - the character art's frames 3 / 4, every 0.5 s (manekiFrames: the art has them);
+// before it lands, a core-drawn paw beside the head
+let MANEKI_ART = null;
+const manekiFrames = () => { if (MANEKI_ART === null) { const l = lookWith(null, 'o_maneki'); MANEKI_ART = catSprite('down', 3, l) !== catSprite('down', 0, l); } return MANEKI_ART; };
+function playerFrame() { return maneki >= 1 && !P.towels && manekiFrames() ? 3 + (Math.floor(maneki * 2) & 1) : catFrame(P); }
 function manekiPaw() {
-  if (maneki < 1 || P.towels) return;
+  if (maneki < 1 || P.towels || manekiFrames()) return;
   const fur = FURS.orange, up = Math.floor(maneki * 2) & 1, x = R(P.x) + (P.dir === 'left' ? -9 : 6) - CX, y = R(P.y) - 18 - up * 2 - headBob(P) - CY;
   g.fillStyle = OUT; g.fillRect(x - 1, y - 1, 5, 6); g.fillStyle = fur.O; g.fillRect(x, y, 3, 4); g.fillStyle = fur.W; g.fillRect(x, y, 3, 1); g.fillStyle = '#ff9fb0'; g.fillRect(x + 1, y + 2, 1, 1);
 }
@@ -8522,7 +8559,7 @@ function rareOverlay() {
 // (16.14 has no bubble art for them). bubbleArt is wrapped once here, so every caller (the big bubble over its head, the
 // wish board, the arrow's icon, the picture cards) gets them.
 const WISH_ICON = {
-  stay: [['...Y...', '..YCY..', '...C...', '.CCCCC.', 'C.CCC.C', '.CCCCC.', 'BBBBBBB'], { Y: '#ffd23f', C: '#8a6ac8', B: '#c8a878' }],   // a cat sitting still, a halo
+  stay: [['...Y...', '.K...K.', '.KKKKK.', '..KKK..', '.CCCCC.', 'CCCCCCC', '.BBBBB.'], { Y: '#ffd23f', K: '#4a4a5a', C: '#e08a2a', B: '#c8a878' }],   // a cat sitting still (ears, robe, cushion), a halo
   show: [['.P.P...', 'PpPpP..', '.PYP...', 'PpPpP.G', '.P.P.GG', '....G..', '...GG..'], { P: '#f4a8be', p: '#e87898', Y: '#ffd23f', G: '#5a9a3a' }],   // two blossoms on a twig
 };
 {
@@ -8587,15 +8624,28 @@ function senbonArt() {
 // the info card's preview (cards.js drawPreview -> drawPreviewB): an offering that changes the hall shows the next hall
 function shrinePreview(u, gh) {
   if (!u.shrine || !HALL_LV.has(u.shrine)) return;
-  if (VIS(5 * TILE + 8, 2 * TILE, 48)) drawObj(gh(hokoraArt(u.shrine)), 4, 2 * TILE, 3);
+  if (VIS(5 * TILE + 8, 2 * TILE, 48)) drawObj(gh(hokoraArt(u.shrine, seasonB())), 4, 2 * TILE, 3);
 }
+// in the 3/4 view the torii (rows 1.75-3) stands in front of the offering pad (5,2) and of you when you stand at it: it
+// fades while you are behind it; the small torii over the approach fade while you walk under one
+const behindTorii = () => P.y < 4 * TILE && P.y > TILE && Math.abs(P.x - (5 * TILE + 8)) < 2.5 * TILE;
+const underSenbon = x => Math.abs(P.x - (x * TILE + 8)) < 14 && P.y > 3 * TILE + 8 && P.y < 5 * TILE;
+const FADED = new Map();
+function fadeArt(c, a) { const k = c; let m = FADED.get(k); if (!m) { m = mk(c.width, c.height); const x = m.getContext('2d'); x.globalAlpha = a; x.drawImage(c, 0, 0); FADED.set(k, m); } return m; }
+// the camera may go up to CAM_TOP_B px above the map while you are at the shrine: its hall stands in rows 0-2, under the
+// HUD otherwise (update.js updCam; the band above the map is the plain dark-green ground colour)
+const CAM_TOP_B = 30;
+const camTopB = () => { const a = areaAt(Math.floor(P.x / TILE), Math.floor(P.y / TILE)); return a && a.id === 'shrine' ? -CAM_TOP_B : 0; };
+// winter: snow on a prop (the scenery art's snowCapArt, once it is there)
+const snowy = c => seasonB() === 3 && typeof snowCapArt === 'function' ? snowCapArt(c) : c;
 // ==== end source:src/systems/shrine.js ====
 // ==== source:src/systems/plaza.js ====
 // ============================================================ v2.1 the festival plaza (SPEC_v2 16.9), core B
 // The lower garden (v2.0.1 A3: flower beds, the parasol bench, the basin, the sleeping cats) stays as it is; from star 5
 // a gate pad in the front yard (23,32) opens it (its hedge gate (25,29) joins the garden). Four stalls along its north
 // hedge (one pad at a time, under each stall's left tile) stand under a cloth and open during a festival (core A, 16.2)
-// or a fireworks show: then half the guests on their way home stop at one, 1 s, and pay 8 x star into the plaza's pile
+// or a fireworks show - and every night (a night market, 18.2): then half the guests on their way home stop at one, 1 s,
+// and pay 8 x star into the plaza's pile
 // (31,32) (a festival lantern +1 when core A's lanterns are lit). A string of paper lanterns hangs along the hedge (lit
 // at night); at night the plaza plays the festival song.
 // Fireworks (the pad on the lawn (32,33)): 5,000, +500 a show (8,000 at most), then 8 min before the next (the pad shows
@@ -8615,7 +8665,9 @@ const fwCooling = () => S.stats.time < ((S.fw && S.fw.cool) || 0);
 const spawnMulB = () => fwOn() ? FW_SPAWN : 1;
 // core A's festival (16.2), read through a tiny accessor until the two halves are merged
 const festB = () => typeof festivalOn === 'function' ? !!festivalOn() : false;
-const stallsOpen = () => fwOn() || festB();
+// open at a festival, a fireworks show - and every night: the plaza at night is a night market (its song is the festival's;
+// 18.2: under the cloth all day long the stalls were only scenery you had paid 43,000 for)
+const stallsOpen = () => fwOn() || festB() || (!!S.unlocked.plaza && dayLight().night > .5);
 const stallsOwned = () => STALLS_B.filter(s => S.unlocked[s[0]]);
 // a repeat purchase (unlock.js -> buyAgain): the fireworks
 function buyAgain(u) {
@@ -8713,7 +8765,7 @@ function loadStateB(s, raw) {
   const ph = objOr(raw.album).photos;
   if (Array.isArray(ph)) {   // loadState kept the last 40 valid photos in order: give each its outfit back
     const src = ph.slice(-40).filter(p => p && typeof p === 'object' && VIP[p.v]);
-    s.album.photos.forEach((p, i) => { const o2 = src[i] && src[i].o; p.o = UNLOCK[o2] && UNLOCK[o2].outfit && s.unlocked[o2] ? o2 : null; });
+    s.album.photos.forEach((p, i) => { if (!src[i] || src[i].o === undefined) return; const o2 = src[i].o; p.o = UNLOCK[o2] && UNLOCK[o2].outfit && s.unlocked[o2] ? o2 : null; });
   }
 }
 // ==== end source:src/systems/plaza.js ====
@@ -8749,7 +8801,7 @@ function spawnGuests(dt) {
 }
 // camera (2.7): follow the player, clamp to the map; never shakes, never pans by itself
 function updCam(dt, snap) {
-  const tx = clamp(P.x - W / 2, 0, MAPW - W), ty = clamp(P.y - H / 2 - 8, 0, MAPH - H);
+  const tx = clamp(P.x - W / 2, 0, MAPW - W), ty = clamp(P.y - H / 2 - 8, camTopB(), MAPH - H);   // v2.1: at the shrine the view may go above the map (camTopB) so the hall isn't under the HUD
   if (snap) { cam.x = tx; cam.y = ty; return; }
   const k = Math.min(1, dt * 6); cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
 }
@@ -8828,7 +8880,7 @@ function paintDoor(dr) {
 }
 const tubBusy = rm => !!VIPG && VIPG.suite === rm.id && (VIPG.st === 'soak' || (VIPG.st === 'seated' && VIPG.actT > 0 && vipWish() === 'bath'));
 // a VIP's face, 8x8 from its front sprite (photo frames, the polaroid; the album crops its own)
-function vipFace(id) { return art('vipface:' + id, () => { const v = VIP[id], c = mk(8, 8); c.getContext('2d').drawImage(catSprite('down', 0, { fur: v.fur, outfit: 'robe', robe: v.robe, hat: v.hat || null }), 4, 6, 8, 8, 0, 0, 8, 8); return c; }); }
+function vipFace(id) { return art('vipface:' + id, () => { const v = VIP[id], c = mk(8, 8); c.getContext('2d').drawImage(catSprite('down', 0, RARE_LOOK[id] || { fur: v.fur, outfit: 'robe', robe: v.robe, hat: v.hat || null }), 4, 6, 8, 8, 0, 0, 8, 8); return c; }); }   // v2.1: a rare guest's own look
 function rebuildWorld() {
   buildObjects(); buildBlock(); padsUpdate(); buildLights();
   for (const o of OBJS) if (o.light && areaOpen(areaAt(o.tx, o.ty))) {   // scenery lamps (map.js SCENERY); a locked area stays dark (the lower garden until v2.1)
@@ -8865,7 +8917,7 @@ const VIS = (wx, wy, m) => wx - CX > -m && wx - CX < W + m && wy - CY > -m && wy
 const catFrame = e => e.moving ? 1 + (Math.floor(e.walkT * 6) & 1) : 0, headBob = e => catFrame(e) === 2 ? 1 : 0;
 function drawCat(e, look, ox) {
   const view = e.dir === 'left' || e.dir === 'right' ? 'side' : e.dir;
-  const fr = catFrame(e);
+  const fr = e === P ? playerFrame() : catFrame(e);   // v2.1: the maneki outfit beckons (frames 3 / 4, wardrobe.js)
   let c = catSprite(view, fr, look); if (e.dir === 'left') c = flipOf(c);
   g.drawImage(c, R(e.x) + (ox || 0) - CX - 8, R(e.y) - CY - 23);
 }
@@ -8901,7 +8953,8 @@ function padLayout(u) {
   const side = vis(0, 1) ? 'right' : vis(1, 0) ? 'over' : head ? 'right' : 'under';
   const on = Math.floor(P.x / TILE) === ux && Math.floor(P.y / TILE) === uy;   // standing on it: the name would cover your head
   // the info card (7.2) already names the pad you are nearest to: no second name floating over it (it would cover your head)
-  return { side, over: side === 'over', named: !on && u !== INFO && dist(P.x, P.y, ux * TILE + 8, uy * TILE + 8) <= 2 * TILE };
+  // v2.1: the boutique's six pads (booths, decor, gold decor) never float a name - the info card names the nearest one
+  return { side, over: side === 'over', named: !on && u !== INFO && !u.booth && !u.decor && !u.goldOf && dist(P.x, P.y, ux * TILE + 8, uy * TILE + 8) <= 2 * TILE };
 }
 function padLabels(u) {
   if (popScale(POPA['pad:' + u.id]) < 1) return;
@@ -8948,10 +9001,11 @@ function drawMate(m) {
 // a pet (4.11): duck 10x10 anchored (5,9), shiba 16x16 anchored (8,15); a shiba sitting still wags (frames 3 / 4)
 function drawPet(e, ghost) {
   const view = e.dir === 'left' || e.dir === 'right' ? 'side' : e.dir;
-  const fr = e.moving ? 1 + (Math.floor(e.walkT * 7) & 1) : e.kind === 'shiba' && e.idle > 1 ? 3 + (Math.floor(T * 2) & 1) : 0;
-  let c = e.lantern ? petLanternArt() : petSprite(e.kind, view, fr); if (e.dir === 'left' && !e.lantern) c = flipOf(c);   // v2.1: the tanuki's lantern trick
+  const fr = e.moving ? 1 + (Math.floor(e.walkT * 7) & 1) : petIdleFrame(e);   // v2.1 (wardrobe.js): fox / crane idle, the tanuki's lantern trick
+  const lan = fr === 5 && e.kind === 'tanuki' && !petArt21();   // before the character art: a core-drawn lantern
+  let c = lan ? petLanternArt() : petSprite(e.kind, view, fr); if (e.dir === 'left' && !lan) c = flipOf(c);
   if (ghost) g.globalAlpha = .5;
-  drawA(c, R(e.x), R(e.y), c.width >> 1, c.height - 1);   // anchor = bottom centre (duck (5,9), shiba (8,15); v2.1 fox / tanuki / crane)
+  const [ax, ay] = petAnchorB(e.kind, c); drawA(c, R(e.x), R(e.y), ax, ay);   // duck (5,9), shiba / fox / tanuki (8,15), crane (8,19)
   g.globalAlpha = 1;
 }
 // a cat sitting on a seat cushion, side-on to its table (catSit faces right; eating = frames 1 / 3, bowl up / down, so the
@@ -10040,13 +10094,13 @@ function drawMiniMap(x0, y0) {
 const PADB_ROWS = {
   outfit: [['..WW..WW..', '.BBWWWWBB.', 'BBBBWWBBBB', 'BBBBWWBBBB', '.BBBRRBBB.', '..BBRRBB..', '..BBBBBB..', '..BBBBBB..', '..BBBBBB..', '..BBBBBB..'], { B: '#5a8ad8', W: '#f4ecd8', R: '#d84a3a' }],
   uniform: [['...WWWW...', '..PWWWWP..', '.PPPWWPPP.', 'PPPPWWPPPP', 'PP.PWWP.PP', '...PWWP...', '...WWWW...', '...WWWW...', '...PPPP...', '...P..P...'], { P: '#f4a8be', W: '#fbfaf4' }],
-  shrine: [['RRRRRRRRRR', '.RRRRRRRR.', '..R....R..', '.RRRRRRRR.', '..R....R..', '..R....R..', '..R....R..', '..R....R..', '.GG....GG.'], { R: '#d8442e', G: '#6a6a6a' }],
+  shrine: [['RRRRRRRRRR', '.RRRRRRRR.', '..R....R..', '.RRRRRRRR.', '..R....R..', '..R....R..', '..R....R..', '..R....R..', '..R....R..', '.GG....GG.'], { R: '#d8442e', G: '#6a6a6a' }],
   offer: [['....YY....', '...YYYY...', '...YYYY...', '..YYYYYY..', '....BB....', '.WWWWWWWW.', '.WKKKKKKW.', '.WWWWWWWW.', '.WWWWWWWW.', '.WW....WW.'], { Y: '#ffd23f', B: '#3a2a20', W: '#b8844e', K: '#3a2a20' }],
   plaza: [['...KKKK...', '..RRRRRR..', '.RRWWWWRR.', 'RRRRRRRRRR', 'RRWWWWWWRR', 'RRRRRRRRRR', '.RRWWWWRR.', '..RRRRRR..', '...KKKK...', '....K.....'], { R: '#e8503a', W: '#ffd890', K: '#3a2a20' }],
-  stall: [['RWRWRWRWRW', 'RWRWRWRWRW', 'RWRWRWRWRW', '.B......B.', '.B......B.', '.BYYYYYYB.', '.BBBBBBBB.', '.B......B.', '.B......B.'], { R: '#e8503a', W: '#fbfaf4', B: '#8a5a34', Y: '#ffd890' }],
+  stall: [['RWRWRWRWRW', 'RWRWRWRWRW', 'RWRWRWRWRW', '.B......B.', '.B......B.', '.BYYYYYYB.', '.BBBBBBBB.', '.BBBBBBBB.', '.B......B.', '.B......B.'], { R: '#e8503a', W: '#fbfaf4', B: '#8a5a34', Y: '#ffd890' }],
   firework: [['....P.....', '.Y..P..Y..', '..Y.P.Y...', '...YPY....', 'PPPP.PPPP.', '...YPY....', '..Y.P.Y...', '.Y..P..Y..', '....P.....', '....S.....'], { P: '#ff9ab8', Y: '#ffd27a', S: '#c8a878' }],
   dress: [['....WW....', '...W..W...', '......W...', '.....W....', '..WWWWWW..', '.WWPPPPWW.', 'WWWPPPPWWW', '...PPPP...', '...PPPP...', '...PPPP...'], { W: '#ffffff', P: '#ffd8e8' }],
-  map: [['WWWWWWWWWW', 'WGGWWWBBWW', 'WGGGWWBBWW', 'WWGGWWWWWW', 'WWWWWRWWWW', 'WBBWWWWGGW', 'WBBWWWGGGW', 'WWWWWWWWWW'], { W: '#fff3d0', G: '#7ac05a', B: '#5ab0e0', R: '#e04a3a' }],
+  map: [['WWWWWWWWWW', 'WGGWWWBBWW', 'WGGGWWBBWW', 'WWGGWWWWWW', 'WWWWWRWWWW', 'WWWWRRRWWW', 'WBBWWRWGGW', 'WBBWWWGGGW', 'WBBWWWWGGW', 'WWWWWWWWWW'], { W: '#fff3d0', G: '#7ac05a', B: '#5ab0e0', R: '#e04a3a' }],
   none: [['..KKKKKK..', '.K......K.', 'K......K.K', 'K.....K..K', 'K....K...K', 'K...K....K', 'K..K.....K', 'K.K......K', '.K......K.', '..KKKKKK..'], { K: '#a89a88' }],
 };
 const padIconB = k => art('core:padB:' + k, () => { const [rs, pal] = PADB_ROWS[k]; return rows(rs, pal); });
@@ -10109,7 +10163,7 @@ function bannerPartsB(b) {
   return null;
 }
 // ---- first-time picture cards (7.4) for the two new wishes; the lines (16.12 E11 + the innkeeper's three new ones)
-FIRST_CARD.stay = () => [{ img: bubbleArt('stay', 0, true) }, { img: ARROW_R }, { img: faceOf(PLAYER_LOOK) }, { img: PAWS }, '站着别动'];
+FIRST_CARD.stay = () => [{ img: bubbleArt('stay', 0, true) }, { img: ARROW_R }, { img: faceOf(PLAYER_LOOK) }, '站着别动'];
 FIRST_CARD.show = () => [{ img: bubbleArt('show', 0, true) }, { img: ARROW_R }, { img: PAWS }, { img: gzIcon((RARE[VIPG && VIPG.id] || RARES[4]).piece) }, '带去看看'];
 RARES.forEach(r => { LINES[r.lineId] = { id: r.lineId, who: 'v', text: r.line, p: 1, ev: true }; });
 [['P12', '新衣服！'], ['P13', '换新制服！'], ['P14', '放烟花啦！']].forEach(([id, text]) => { LINES[id] = { id, who: 'p', text, p: 1, ev: true }; });
@@ -10238,6 +10292,7 @@ function drawInnMapPage() {
   }
 }
 BOOK_TABS.push(...BOOK_TABS_B);
+RARES.forEach(r => { VIP_LOOK[r.id] = RARE_LOOK[r.id]; });   // a rare guest's photo (menu.js photoCanvas) in its own look
 // ==== end source:src/ui/menu-v21b.js ====
 
 // ==== source:src/ui/title.js ====

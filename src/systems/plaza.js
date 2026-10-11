@@ -2,7 +2,8 @@
 // The lower garden (v2.0.1 A3: flower beds, the parasol bench, the basin, the sleeping cats) stays as it is; from star 5
 // a gate pad in the front yard (23,32) opens it (its hedge gate (25,29) joins the garden). Four stalls along its north
 // hedge (one pad at a time, under each stall's left tile) stand under a cloth and open during a festival (core A, 16.2)
-// or a fireworks show: then half the guests on their way home stop at one, 1 s, and pay 8 x star into the plaza's pile
+// or a fireworks show - and every night (a night market, 18.2): then half the guests on their way home stop at one, 1 s,
+// and pay 8 x star into the plaza's pile
 // (31,32) (a festival lantern +1 when core A's lanterns are lit). A string of paper lanterns hangs along the hedge (lit
 // at night); at night the plaza plays the festival song.
 // Fireworks (the pad on the lawn (32,33)): 5,000, +500 a show (8,000 at most), then 8 min before the next (the pad shows
@@ -22,7 +23,9 @@ const fwCooling = () => S.stats.time < ((S.fw && S.fw.cool) || 0);
 const spawnMulB = () => fwOn() ? FW_SPAWN : 1;
 // core A's festival (16.2), read through a tiny accessor until the two halves are merged
 const festB = () => typeof festivalOn === 'function' ? !!festivalOn() : false;
-const stallsOpen = () => fwOn() || festB();
+// open at a festival, a fireworks show - and every night: the plaza at night is a night market (its song is the festival's;
+// 18.2: under the cloth all day long the stalls were only scenery you had paid 43,000 for)
+const stallsOpen = () => fwOn() || festB() || (!!S.unlocked.plaza && dayLight().night > .5);
 const stallsOwned = () => STALLS_B.filter(s => S.unlocked[s[0]]);
 // a repeat purchase (unlock.js -> buyAgain): the fireworks
 function buyAgain(u) {
@@ -120,6 +123,6 @@ function loadStateB(s, raw) {
   const ph = objOr(raw.album).photos;
   if (Array.isArray(ph)) {   // loadState kept the last 40 valid photos in order: give each its outfit back
     const src = ph.slice(-40).filter(p => p && typeof p === 'object' && VIP[p.v]);
-    s.album.photos.forEach((p, i) => { const o2 = src[i] && src[i].o; p.o = UNLOCK[o2] && UNLOCK[o2].outfit && s.unlocked[o2] ? o2 : null; });
+    s.album.photos.forEach((p, i) => { if (!src[i] || src[i].o === undefined) return; const o2 = src[i].o; p.o = UNLOCK[o2] && UNLOCK[o2].outfit && s.unlocked[o2] ? o2 : null; });
   }
 }

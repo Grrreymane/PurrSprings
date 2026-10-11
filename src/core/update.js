@@ -28,7 +28,7 @@ function spawnGuests(dt) {
 }
 // camera (2.7): follow the player, clamp to the map; never shakes, never pans by itself
 function updCam(dt, snap) {
-  const tx = clamp(P.x - W / 2, 0, MAPW - W), ty = clamp(P.y - H / 2 - 8, 0, MAPH - H);
+  const tx = clamp(P.x - W / 2, 0, MAPW - W), ty = clamp(P.y - H / 2 - 8, camTopB(), MAPH - H);   // v2.1: at the shrine the view may go above the map (camTopB) so the hall isn't under the HUD
   if (snap) { cam.x = tx; cam.y = ty; return; }
   const k = Math.min(1, dt * 6); cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
 }

@@ -23,15 +23,16 @@ const OUTFITS_B = [
 ];
 const OUTFIT_SHIRT = NUL(); OUTFITS_B.forEach(o => { OUTFIT_SHIRT[o[0]] = o[5]; });
 // staff uniforms: one palette map per staff outfit (look.uniform = the id after 'u_')
-const UNIFORMS_B = [['u_sakura', '樱色', 25000, 10, '全员换樱色'], ['u_aizome', '蓝染', 30000, 12, '全员换蓝染'], ['u_sailor', '水手', 40000, 15, '全员换水手服'], ['u_gold', '金边', 150000, 40, '全员换金边']];
+const UNIFORMS_B = [['u_sakura', '樱色', 25000, 10, '全员换樱色', 'sakura'], ['u_aizome', '蓝染', 30000, 12, '全员换蓝染', 'indigo'], ['u_sailor', '水手', 40000, 15, '全员换水手服', 'sailor'], ['u_gold', '金边', 150000, 40, '全员换金边', 'gold']];   // look.uniform = the last (the character art's palette names)
 // gold decor (16.6): the piece it gilds; on sale once a combo with that piece has been found
 const GOLD_B = [['d_maneki_gold', '金猫', 'd_maneki', '金招财'], ['d_daruma_gold', '金达', 'd_daruma', '金达摩'], ['d_tank_gold', '金缸', 'd_tank', '金鱼缸'], ['d_screen_gold', '金屏', 'd_screen', '金屏风']];
 const GOLD_PLUS = .4;   // a combo with a gold piece in it: room fee x(1.6 + 0.4)
-// the garden pieces (16.7): chain pad, price order; at = its own ground (SPEC 2.4: all eight placed, every tile reachable)
+// the garden pieces (16.7): chain pad, price order; at = its own ground (SPEC 2.4's eight spots; the stone lantern (29,24) -> (34,28)
+// and the chime (34,24) -> (35,24): the v2.0.1 sakura grove hid the one, the path lamp crowded the other - 18.2)
 const GZ_PAD = [34, 26];
 const GARDEN_B = [
-  ['gd_chime', '风铃', 8000, [34, 24], 'r_boy', 6], ['gd_zen', '禅石', 10000, [36, 18], 'r_zen', 8], ['gd_mill', '水车', 18000, [38, 15], 'r_fisher', 10],
-  ['gd_lantern', '石灯', 20000, [29, 24], 'r_yuki', 10], ['gd_tower', '爬塔', 30000, [36, 26], 'r_kits', 12], ['gd_wisteria', '紫藤', 35000, [37, 24], 'r_painter', 14],
+  ['gd_chime', '风铃', 8000, [35, 24], 'r_boy', 6], ['gd_zen', '禅石', 10000, [36, 18], 'r_zen', 8], ['gd_mill', '水车', 18000, [38, 15], 'r_fisher', 10],
+  ['gd_lantern', '石灯', 20000, [34, 28], 'r_yuki', 10], ['gd_tower', '爬塔', 30000, [36, 26], 'r_kits', 12], ['gd_wisteria', '紫藤', 35000, [37, 24], 'r_painter', 14],
   ['gd_torii', '鸟居', 60000, [30, 28], 'r_bride', 20], ['gd_teahouse', '茶室', 120000, [38, 28], 'r_master', 30],
 ];
 // the cat shrine (16.8): gate pad in the onsen, the offering pad in front of the hall; ten levels (all fees +1 % each)
@@ -50,7 +51,8 @@ const YATAI_P = .5, YATAI_T = 1;   // a festival guest buys at a stall on the wa
 const fwPrice = () => Math.min(FW_MAX, FW_PRICE + FW_STEP * ((S.fw && S.fw.n) | 0));
 // rare guests (16.7): due 2-5 min after their piece is bought, then about every 20 min; at most one every RARE_GAP s
 // (a first visit excepted); they come in the VIP's place (one guest of honour at a time), so there is no extra work
-const RARE_FIRST = [120, 300], RARE_AGAIN = [900, 1500], RARE_GAP = 360, RARE_STAY_T = 3, RARE_SHOW_R = 36, RARE_ADMIRE_T = 1.5;
+// (fun check, 18.2: with 900-1500 s the zen master came 5 times in 2 h - a rare guest has to stay rare)
+const RARE_FIRST = [120, 300], RARE_AGAIN = [1200, 2100], RARE_GAP = 480, RARE_STAY_T = 3, RARE_SHOW_R = 36, RARE_ADMIRE_T = 1.5;
 
 const UNLOCKS_V21B = [];
 {
@@ -63,7 +65,7 @@ const UNLOCKS_V21B = [];
   STALLS_B.forEach(([id, name, price, kind, x, card], i) => U(id, name, price, i ? [STALLS_B[i - 1][0]] : [], 6, [x, 31], kind, card, { stall: kind, extra: true, at: [x, 30] }));
   U('fw', '烟花', FW_PRICE, [], 0, FW_PAD, 'firework', '放一场烟花', { repeat: true, noArrow: true, extra: true, ok: () => !fwCooling() });
   OUTFITS_B.forEach(([id, name, price, h, card, , season]) => U(id, name, price, [], h, 'outfit', 'outfit', card, Object.assign({ outfit: id }, season !== undefined ? { season, ok: () => seasonB() === season || (S.paid[id] | 0) > 0 } : {})));
-  UNIFORMS_B.forEach(([id, name, price, h, card]) => U(id, name, price, [], h, 'uniform', 'uniform', card, { uniform: id.slice(2) }));
+  UNIFORMS_B.forEach(([id, name, price, h, card, look]) => U(id, name, price, [], h, 'uniform', 'uniform', card, { uniform: look }));
   U('p_fox', '小狐', 60000, [], 20, 'pet', 'pet', '小狐跟着你', { pet: 'fox' });
   U('p_tanuki', '小狸', 90000, [], 30, 'pet', 'pet', '会变灯笼哦', { pet: 'tanuki' });
   U('p_crane', '白鹤', 150000, [], 40, 'pet', 'pet', '白鹤跟着你', { pet: 'crane' });
@@ -80,34 +82,44 @@ const RARES = [
   { id: 'r_fisher', name: '钓鱼爷爷', piece: 'gd_mill', fur: 'tabby', robe: '#4a6a5a', hat: 'straw', acc: 'rod', wishes: ['rice', 'stay', 'photo'], keep: 'gyotaku', keepName: '鱼拓', line: '钓到大鱼啦' },
   { id: 'r_boy', name: '夏日少年', piece: 'gd_chime', fur: 'cream', outfit: 'guest', shirt: '#6ac8e8', hat: 'straw', wishes: ['milk', 'bath', 'photo'], keep: 'chime', keepName: '小风铃', line: '冰牛奶！', when: 1 },
   { id: 'r_yuki', name: '雪女猫', piece: 'gd_lantern', fur: 'white', robe: '#a8d8f0', wishes: ['milk', 'bath', 'photo'], keep: 'snowball', keepName: '雪球', line: '好暖和…', when: 3 },
-  { id: 'r_kits', name: '小猫三兄弟', piece: 'gd_tower', fur: 'orange', kits: ['orange', 'calico', 'gray'], wishes: ['show', 'milk', 'photo'], keep: 'teaser', keepName: '逗猫棒', line: '爬到最高！' },
+  { id: 'r_kits', name: '小猫三兄弟', piece: 'gd_tower', fur: 'calico', kits: ['calico', 'tabby', 'black'], wishes: ['show', 'milk', 'photo'], keep: 'teaser', keepName: '逗猫棒', line: '爬到最高！' },
   { id: 'r_painter', name: '画家猫', piece: 'gd_wisteria', fur: 'gray', robe: '#5a6ab0', hat: 'beret', acc: 'palette', wishes: ['show', 'tea', 'photo'], keep: 'painting', keepName: '风景画', line: '得画下来', when: 0 },
   { id: 'r_bride', name: '狐新娘', piece: 'gd_torii', fur: 'white', robe: '#f8f4ec', hat: 'foxmask', wishes: ['kaiseki', 'bath', 'photo'], keep: 'foxmask', keepName: '狐面', line: '今夜出嫁', when: 'night' },
   { id: 'r_master', name: '茶道宗师', piece: 'gd_teahouse', fur: 'gray', outfit: 'haori', wishes: ['tea', 'tea', 'photo'], keep: 'chawan', keepName: '名茶碗', line: '一期一会' },
 ];
 const RARE = NUL(); RARES.forEach((r, i) => { r.rare = true; r.lineId = 'E11' + 'abcdefgh'[i]; RARE[r.id] = r; });
-const RARE_LOOK = NUL(); RARES.forEach(r => { RARE_LOOK[r.id] = { fur: r.fur, outfit: r.outfit || 'robe', robe: r.robe || null, shirt: r.shirt || null, hat: r.hat || null, acc: r.acc || null }; });
+// their looks: the character art's ready-made LOOKS_V21 when it is there (16.14: zen fisher boy yukionna painter bride tea,
+// .kittens = the brothers' furs), else robe / hat / acc built from the table above
+const RARE_ART = { r_zen: 'zen', r_fisher: 'fisher', r_boy: 'boy', r_yuki: 'yukionna', r_painter: 'painter', r_bride: 'bride', r_master: 'tea' };
+const RARE_LOOK = NUL();
+RARES.forEach(r => {
+  const L = typeof LOOKS_V21 === 'object' && LOOKS_V21 ? LOOKS_V21 : null;
+  if (r.kits && L && Array.isArray(L.kittens) && L.kittens.length >= 3) r.kits = L.kittens.slice(0, 3);
+  if (r.kits) r.fur = r.kits[0];
+  RARE_LOOK[r.id] = L && L[RARE_ART[r.id]] ? L[RARE_ART[r.id]] : { fur: r.fur, outfit: r.outfit || 'robe', robe: r.robe || null, shirt: r.shirt || null, hat: r.hat || null, acc: r.acc || null };
+});
 
 // ---- props (2.4 / pathfinding.js PROPS): the shrine's parts by level, the garden pieces, the stalls, the plaza's
 // lantern string. need: an unlock id or () => bool; prev: the unlock whose info card previews it (drawPreviewB).
 const NO_ART = mk(1, 1);
 const PROPS_V21B = [
-  // the shrine (16.8): the hall grows with the levels; the torii's two posts block, you walk under its beam
-  { k: 'hokora', at: [4, 1], fw: 3, need: 'shrine', uid: 'shrine:hall', img: () => hokoraArt(shrineLv()) },
-  { k: 'torii', at: [4, 3], fw: 3, block: false, need: 'of2', img: () => toriiArt() },
+  // the shrine (16.8; scenery art: hokoraArt(lv 1-10, season) 48 x 44, cumulative): the hall from the first offering on;
+  // the torii's two posts block, you walk under its beam - it fades while you stand behind it (in the 3/4 view it would
+  // hide you and the offering pad), and so do the small torii over the approach while you walk under them
+  { k: 'hokora', at: [4, 1], fw: 3, need: 'of1', uid: 'shrine:hall', img: () => hokoraArt(shrineLv(), seasonB()) },
+  { k: 'torii', at: [4, 3], fw: 3, block: false, need: 'of2', img: () => behindTorii() ? fadeArt(toriiArt(seasonB()), .4) : toriiArt(seasonB()) },
   { k: 'post', at: [4, 3], need: 'of2', img: () => NO_ART }, { k: 'post', at: [6, 3], need: 'of2', img: () => NO_ART },
-  { k: 'slantern', at: [2, 2], need: 'of3', img: () => shrineLanternArt(), light: [14, 2, 'lamp'] },
-  { k: 'slantern', at: [8, 2], need: 'of3', img: () => shrineLanternArt(), light: [14, 2, 'lamp'] },
-  { k: 'komainu', at: [3, 2], need: 'of4', img: () => komainuArt('l') }, { k: 'komainu', at: [7, 2], need: 'of4', img: () => komainuArt('r') },
+  { k: 'slantern', at: [2, 2], need: 'of3', img: () => shrineLanternArt(lampLit(), seasonB()), light: [18, 2, 'lamp'] },
+  { k: 'slantern', at: [8, 2], need: 'of3', img: () => shrineLanternArt(lampLit(), seasonB()), light: [18, 2, 'lamp'] },
+  { k: 'komainu', at: [3, 2], need: 'of4', img: () => komainuArt('l', seasonB()) }, { k: 'komainu', at: [7, 2], need: 'of4', img: () => komainuArt('r', seasonB()) },
   { k: 'tree', at: [1, 3], need: 'of6', block: false, img: () => treeArt('sakura', seasonB(), 1) },
   { k: 'tree', at: [8, 5], need: 'of6', block: false, img: () => flipOf(treeArt('sakura', seasonB(), 2)) },
-  { k: 'senbon', at: [6, 4], need: 'of7', block: false, img: () => senbonArt() }, { k: 'senbon', at: [7, 4], need: 'of7', block: false, img: () => senbonArt() },
-  { k: 'senbon', at: [8, 4], need: 'of7', block: false, img: () => senbonArt() }, { k: 'senbon', at: [9, 4], need: 'of7', block: false, img: () => senbonArt() },
-  { k: 'glow', at: [5, 1], need: 'of10', block: false, ground: true, img: () => NO_ART, light: [28, -6, 'lamp'] },   // the gold cat glows at night
-  // the garden pieces (16.7), each on its own ground
-  ...GARDEN_B.map(([id, , , at]) => ({ k: 'gz', at, need: id, img: () => gardenDecorArt(id, Math.floor(T * 1.5) & 1), light: id === 'gd_lantern' ? [18, 0, 'lamp'] : undefined })),
+  ...[6, 7, 8, 9].map(x => ({ k: 'senbon', at: [x, 4], need: 'of7', block: false, img: () => underSenbon(x) ? fadeArt(senbonArt(), .45) : senbonArt() })),
+  { k: 'glow', at: [5, 0], fw: 1.5, need: 'of10', block: false, ground: true, img: () => NO_ART, light: [28, 8, 'lamp'] },   // the gold cat on the roof glows at night (92, 8)
+  // the garden pieces (16.7), each on its own ground (snow on them in winter)
+  ...GARDEN_B.map(([id, , , at]) => ({ k: 'gz', at, need: id, img: () => snowy(gardenDecorArt(id, Math.floor(T * 1.5) & 1)), light: id === 'gd_lantern' ? [18, 0, 'lamp'] : undefined })),
   // the plaza (16.9): stalls under their cloth, open at a festival / a fireworks show; a lantern string along the hedge
-  ...STALLS_B.map(([id, , , kind, x]) => ({ k: 'stall', at: [x, 30], fw: 2, need: id, img: () => stallArt(kind, stallsOpen(), Math.floor(T * 2) & 1) })),
+  ...STALLS_B.map(([id, , , kind, x]) => ({ k: 'stall', at: [x, 30], fw: 2, need: id, img: () => snowy(stallArt(kind, stallsOpen(), Math.floor(T * 2) & 1)) })),
   { k: 'chochin', at: [26, 29], fw: 13, need: 'plaza', ground: true, block: false, img: () => chochinRow(13) },
   ...[27, 31, 35].map(x => ({ k: 'chochinLamp', at: [x, 29], need: 'plaza', ground: true, block: false, img: () => NO_ART, light: [10, 10, 'lamp'] })),
 ];

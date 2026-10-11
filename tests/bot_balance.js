@@ -41,6 +41,7 @@ const PROF = PROFS[PROFILE];
 const MAXMIN = +ARGS[1] > 0 ? +ARGS[1] : PROF.max, JSONOUT = ARGS.includes('json');
 const POST = ARG('post') !== null ? +ARG('post') : PROFILE === 'shopper' && +ARGS[2] > 0 ? +ARGS[2] : PROF.post;
 const TRACE = ARG('trace') ? ARG('trace').split('-').map(Number) : null, LOGF = ARG('log');
+const SNAP = ARG('snap'), SNAP_EVERY = 900; let bSnapN = 0;   // snap=dir: S saved as dir/snap_<min after star 5>.json every 15 min
 // ---------------------------------------------------------------- overrides (stage 4)
 const __C = { patience: PATIENCE, patienceEarly: PATIENCE_EARLY, bathT: BATH_T, sleepT: SLEEP_T, cleanT: CLEAN_T, maidCleanT: MAID_CLEAN_T,
   checkinT: CHECKIN_T, gSpeed: G_SPEED, spawnSlack: 3, porterCarry: 6 };
@@ -91,8 +92,8 @@ const mmss = t => t === null || t === undefined || !Number.isFinite(t) ? '--' : 
 const t0 = () => S.stats.time;
 newGame();
 // ---------------------------------------------------------------- driver
-const KNOWN = new Set(['desk', 'clean', 'basket', 'shelf', 'pad', 'pile', 'deliver', 'urn', 'milk', 'pass', 'stove', 'slot', 'vip', 'suite', 'tap', 'photo']);
-const MOVING = new Set(['deliver', 'vip', 'photo']);
+const KNOWN = new Set(['desk', 'clean', 'basket', 'shelf', 'pad', 'pile', 'deliver', 'urn', 'milk', 'pass', 'stove', 'slot', 'vip', 'suite', 'tap', 'photo', 'stay', 'showto']);   // v2.1: a rare guest's wishes
+const MOVING = new Set(['deliver', 'vip', 'photo', 'stay']);
 const START = { kind: 'start', tx: 17, ty: 24, key: 'start', here: false };   // before the first steps: walk up into the lobby (the hand hint)
 const bUnreachAt = [];
 let bPath = [], bKey = '', bThink = 0, bMode = 'follow', bEpisode = 0, bStuckT = 0, bLast = [P.x, P.y], bStuckN = 0, bRand = false, bCur = null, bTrack = 0, bUnreach = 0;
@@ -115,6 +116,22 @@ function bAdopt(g, force) {
   if (!bCur || bCur.key !== g.key) arrNew(g);
   bCur = g;
 }
+// v2.1 core B: the shopper after star 5 also shops by itself, like a player with money in the purse would - a booth piece
+// (outfit / uniform / hat / pet) once it holds 1.5x its price, a fireworks show once it holds 3x the show's price and the
+// pad is there (the arrow points at a booth piece only once and never at the fireworks)
+let bWantT = 0, bWantG = null;
+function bWant() {
+  if (PROFILE !== 'shopper' || fin === null || bMode !== 'follow') return null;
+  if (bWantG && PADPOS.has(bWantG.id) && S.money >= padNeed(UNLOCK[bWantG.id])) return bWantG;
+  bWantG = null; if (t0() < bWantT) return null; bWantT = t0() + 20;
+  let best = null;
+  for (const [id] of PADPOS) { const u = UNLOCK[id]; if (!(u.hat || u.pet || u.outfit || u.uniform || u.id === 'fw')) continue; const k = u.id === 'fw' ? 3 : 1.5;
+    if (u.id === 'fw' && fwOn()) continue; if (S.money >= k * padNeed(u) && (!best || padNeed(u) < padNeed(best))) best = u; }
+  if (best) bWantG = T_PAD(best);
+  return bWantG;
+}
+const bRareT = [];   // rare guests' arrivals [time, id]
+{ const r0 = rareArrive; rareArrive = function () { const r = r0(); if (r) bRareT.push([t0(), VIPG.id]); return r; }; }
 function drive(dt) {
   if (PROF.hold && afkFrom === null && S.unlocked.recep && S.unlocked.maid1) { afkFrom = t0(); afkTo = afkFrom + PROF.hold; }
   if (PROF.afk) {
@@ -129,7 +146,7 @@ function drive(dt) {
     if (bMode !== was) { bPath = []; bKey = ''; bThink = 0; bRand = false; bCur = null; if (bMode === 'wander') bPath = bRandomPath(); }
   }
   bThink -= dt;
-  const g = S.tut.moved ? GUIDE : START;
+  const g = S.tut.moved ? bWant() || GUIDE : START;
   if (bThink <= 0 && bMode === 'follow') {
     bThink = PROF.react;
     // novice: 30 % of its decisions (one per reaction time) head somewhere random instead of where the arrow points
@@ -154,7 +171,7 @@ function drive(dt) {
 // without you are left out (staff filling the counter, the net sweeping up some other pile while you stand there), so a
 // target that moves nothing really fails. (A target done on the way - a pile the net picks up, a hand-over within reach -
 // moves the arrow on first and is not an arrival.)
-const VIPK = new Set(['vip', 'suite', 'tap', 'photo']);
+const VIPK = new Set(['vip', 'suite', 'tap', 'photo', 'stay', 'showto']);
 function progSig(g) {
   let paid = 0; for (const k in S.paid) paid += S.paid[k];
   let cl = ''; for (const rm of ROOMS) if (inCleanZone(rm)) cl += rm.id + (RT[rm.id].cleanP || 0).toFixed(2) + S.rooms[rm.id];
@@ -261,11 +278,11 @@ function checkSecond() {
   if (S.hearts < lastHearts) flag('hearts-drop', mmss(t) + ' ' + lastHearts + ' -> ' + S.hearts); lastHearts = S.hearts;
   for (const k in S.piles) if (!Number.isFinite(S.piles[k]) || S.piles[k] < 0 || S.piles[k] !== Math.floor(S.piles[k])) flag('pile', k + ' ' + S.piles[k]);
   if (star() < S.peak) flag('star<peak', mmss(t));
-  const prog = [...PADPOS.keys()].filter(id => !UNLOCK[id].decor && !UNLOCK[id].booth).length;
+  const prog = [...PADPOS.keys()].filter(id => !UNLOCK[id].decor && !UNLOCK[id].booth && !UNLOCK[id].goldOf && !UNLOCK[id].extra).length;   // v2.1: the shrine / garden / plaza pads are extras, one in each place
   if (prog > PAD_MAX) flag('pads>4', mmss(t) + ' ' + [...PADPOS.keys()].join(','));
   // H1 (3.5.5): price pads fully on screen <= 4, the shop's own ones counted apart
   { let n = 0, ns = 0; for (const [id, xy] of PADPOS) { const x = xy[0] * TILE - cam.x, y = xy[1] * TILE - cam.y; if (x >= 0 && x + TILE <= W && y >= 0 && y + TILE <= H) { if (UNLOCK[id].area === 'shop' || UNLOCK[id].booth || UNLOCK[id].decor) ns++; else n++; } }
-    padsMax = Math.max(padsMax, n); shopPadsMax = Math.max(shopPadsMax, ns); if (n > 4) flag('pads-on-screen>4', mmss(t) + ' ' + n); if (ns > 4) flag('shop-pads-on-screen>4', mmss(t) + ' ' + ns); }
+    padsMax = Math.max(padsMax, n); shopPadsMax = Math.max(shopPadsMax, ns); if (n > 4) flag('pads-on-screen>4', mmss(t) + ' ' + n); if (ns > 6) flag('shop-pads-on-screen>6', mmss(t) + ' ' + ns); }   // v2.1: the boutique has six (hat, pet, outfit, uniform, two decor), no names floating
   for (const [id, xy] of PADPOS) if (!findPath(DESK_SPOT[0], DESK_SPOT[1], xy[0], xy[1])) flag('pad-unreachable', mmss(t) + ' ' + id);
   if (fin !== null && !PADPOS.size) { noBuyS++; flag('nothing-to-buy', mmss(t)); }   // G4: after star 5 there is always something (the statue)
   for (const e of GUESTS.concat(STAFF)) {
@@ -322,6 +339,7 @@ for (let i = 0; i < steps * 10; i++) {
   }
   if (star() >= 5 && fin === null) { fin = t; goldAt5 = goldStars(); comboRooms5 = GUEST_ROOMS.filter(rm => roomOpen(rm) && roomCombo(rm)).length; if (!POST) break; }
   if (fin !== null) { const gs = goldStars(); if (gs > lastGold) { for (let k = lastGold + 1; k <= gs; k++) goldT[k] = t; lastGold = gs; } if (t - fin >= POST * 60) break; }
+  if (SNAP && fin !== null && t - fin >= bSnapN * SNAP_EVERY) { require('fs').writeFileSync(SNAP + '/snap_' + bSnapN * SNAP_EVERY / 60 + '.json', JSON.stringify(Object.assign({}, S, { _P: [R(P.x), R(P.y)] }))); bSnapN++; }   // v2.1: the save every 15 min after star 5 (screenshot timelines)
   if (fin === null && t >= MAXMIN * 60) break;
 }
 if (LOGF) require('fs').writeFileSync(LOGF, recs.map(r => JSON.stringify(r)).join('\n') + '\n');
@@ -331,7 +349,7 @@ const pct = (a, p) => { const b = a.filter(Number.isFinite).sort((x, y) => x - y
 const r2 = x => x === null || x === undefined || !Number.isFinite(x) ? null : Math.round(x * 100) / 100;
 const end = fin !== null ? fin : t0();
 const pre = recs.filter(r => r.t <= end), between = (a, b) => pre.filter(r => r.t >= a && r.t < b);
-const ACTIVE = new Set(['deliver', 'urn', 'milk', 'pass', 'stove', 'vip', 'suite', 'tap', 'photo', 'slot']);
+const ACTIVE = new Set(['deliver', 'urn', 'milk', 'pass', 'stove', 'vip', 'suite', 'tap', 'photo', 'slot', 'stay', 'showto']);
 const share = (rs, f) => rs.length ? rs.filter(f).length / rs.length : null;
 // the arrow's mix (C1-C4) counts the seconds the bot follows it (stage 4): not the afk minutes, and not the casual / novice
 // seconds spent idle, wandering or on a random walk - the arrow keeps showing its target then, which only measured the bot
@@ -390,10 +408,23 @@ const M = {
   F1: r2(RUN.lineLog.filter(l => l[0] <= end).length / Math.max(1, end / 60)),
   F2: { ok: r2(F2.n ? F2.ok / F2.n : null), n: F2.n, fail: F2.fail, failAt: F2.failAt, jumps: swJumps, many: swMany, manyAt: swManyAt, flip: swFlip, flips: swPairs, unreach: bUnreach, unreachAt: bUnreachAt },
   G: fin !== null && POST >= 60 ? { firstHat: firstHat ? R(firstHat[0]) : null, hour: hour.length, gapMed: R(med(shopGaps) || 0), gapMax: shopGaps.length ? R(Math.max(...shopGaps)) : null,
-    gold: Object.fromEntries(Object.entries(goldT).map(([k, t]) => [k, R(t - fin)])), goldAt5 } : null,
+    gold: Object.fromEntries(Object.entries(goldT).map(([k, t]) => [k, R(t - fin)])), goldAt5, v21: bV21() } : null,
   G4: fin !== null ? noBuyS : null,
   H1: { max: padsMax, shop: shopPadsMax },
 };
+// v2.1 core B (14.2 G5-G8): every endless purchase after star 5 (boutique + shrine / garden / plaza / wardrobe + fireworks)
+function bV21() {
+  const post = POST * 60, endless = Object.entries(unlockT).filter(([id, t]) => t > fin && (UNLOCK[id].booth || UNLOCK[id].v21b)).map(([id, t]) => [t - fin, id]);
+  const fwT = RUN.news.filter(n => n[1] === 'fw' && n[0] > fin).map(n => [n[0] - fin, 'fw']);
+  const all = endless.concat(fwT).sort((a, b) => a[0] - b[0]), ts = all.map(a => a[0]);
+  const gaps = []; let p = 0; for (const t of ts) { gaps.push(t - p); p = t; } gaps.push(Math.min(post, t0() - fin) - p);   // the tail: since the last purchase
+  const inH = (a, b) => all.filter(x => x[0] > a && x[0] <= b).length, incH = (a, b) => tot(incOf(recs.filter(r => r.t > fin + a && r.t <= fin + b))) / ((b - a) / 60);
+  const gz = endless.filter(([, id]) => UNLOCK[id].gz).map(e => e[0]), rr = bRareT.filter(([t]) => t > fin);
+  return { h1: inH(0, 3600), h2: inH(3600, 7200), gapMed: R(med(gaps) || 0), gapMax: R(Math.max(...gaps)), n: all.length,
+    firstGz: gz.length ? R(gz[0]) : null, firstRare: rr.length && gz.length ? R(rr[0][0] - fin - gz[0]) : null, rares: rr.length, rareKinds: Object.keys(S.rare).length, rareIds: Object.keys(S.rare),
+    shrine: shrineLv(), plaza: unlockT.plaza !== undefined ? R(unlockT.plaza - fin) : null, fw: (S.fw && S.fw.n) | 0, stall: RUN.stall | 0,
+    inc1: R(incH(0, 3600)), inc2: R(incH(3600, 7200)), money: S.money, order: all.map(([t, id]) => mmss(t) + ' ' + id) };
+}
 const out = { profile: PROFILE, cfg: CFGNAME, set: ARG('set') || '', fin, end: R(t0()), post: POST, unlockT, inc: INC, incPre: preInc, inc30,
   afk: afkFrom !== null ? { from: R(afkFrom), to: R(afkTo), inc: tot(incOf(recs.filter(r => r.t >= afkFrom && r.t < afkTo))) } : null,
   M, inv, stuckN: bStuckN, maxActive: R(bMaxActive), guests: S.stats.guests, angry: S.stats.angry, menus, hearts: S.hearts };
@@ -409,6 +440,7 @@ else {
   console.log(`  E1 calls ${M.E1.made} made, ${M.E1.served} served (${M.E1.fast} fast), ${M.E1.missed} missed = ${M.E1.done} | E2 hungry no-chef ${M.E2.noChef} 2-waiters ${M.E2.twoWaiters} | E3 VIP ${M.E3.came} came ${M.E3.done} done ${M.E3.left} left, med ${M.E3.used}s f ${M.E3.f}, ${M.E3.share} of income | E4 first combo ${mmss(firstCombo)}, combo rooms at ★5 ${comboRooms5}`);
   console.log(`  F1 lines/min ${M.F1} | F2 arrivals ${M.F2.n} ok ${M.F2.ok} fail ${JSON.stringify(M.F2.fail)} ${M.F2.failAt.join(' / ')} | jumps ${swJumps}: >3 in 5 s ${swMany} ${swManyAt.join(' / ')}, A-B-A ${swFlip} ${JSON.stringify(swPairs)} | unreachable ${bUnreach} ${bUnreachAt.join(' / ')} | H1 pads on screen ${padsMax} (shop ${shopPadsMax})`);
   if (afkFrom !== null) console.log(`  afk ${mmss(afkFrom)}-${mmss(afkTo)}: income ${out.afk.inc}`);
+  if (M.G && M.G.v21) { const v = M.G.v21; console.log(`  v2.1: ${v.n} endless buys (hour 1 ${v.h1}, hour 2 ${v.h2}), gap med ${mmss(v.gapMed)} max ${mmss(v.gapMax)} | first garden piece ${mmss(v.firstGz)}, its guest ${mmss(v.firstRare)} later, rare guests ${v.rares} (${v.rareKinds} kinds: ${v.rareIds.join(' ')}) | shrine ${v.shrine} | plaza ${mmss(v.plaza)}, fireworks ${v.fw}, stalls ${v.stall} | income/min h1 ${v.inc1} h2 ${v.inc2} | left ${v.money}`); console.log('  ' + v.order.join(', ')); }
   if (M.G) console.log(`  shopper: first hat ${mmss(M.G.firstHat)} | 1st hour ${M.G.hour} pieces, gap med ${mmss(M.G.gapMed)} max ${mmss(M.G.gapMax)} | gold after ★5 ${Object.entries(M.G.gold).map(([k, t]) => k + '@' + mmss(t)).join(' ') || '-'} (at ★5 ${goldAt5}) | G4 ${noBuyS}s with nothing to buy`);
   const kinds = {}; for (const r of arrowRecs(pre)) { const k = r.k ? r.k + (r.h ? '*' : '') : '-'; kinds[k] = (kinds[k] || 0) + 1; }
   console.log('  arrow: ' + Object.entries(kinds).sort((a, b) => b[1] - a[1]).map(([k, n]) => k + ' ' + n).join(', '));

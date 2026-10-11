@@ -80,8 +80,14 @@ const missed = [];   // targets not met (profile: target)
     tgt.push(ok(med(M(m => m.F1)) >= 4 && med(M(m => m.F1)) <= 8, 'F1 4-8/min'), ok(mn(M(m => m.F2.ok)) >= .95, 'F2 >=95%'), ok(mx(M(m => m.H1.max)) <= 4, 'H1'));
     if (p === 'shopper') {
       console.log(`  G1 first hat med ${mmss(med(M(m => m.G && m.G.firstHat)))} max ${mmss(mx(M(m => m.G && m.G.firstHat)))} | G2 1st hour ${med(M(m => m.G && m.G.hour))} pieces (min ${mn(M(m => m.G && m.G.hour))}), gap med ${mmss(med(M(m => m.G && m.G.gapMed)))} max ${mmss(mx(M(m => m.G && m.G.gapMax)))} | G3 gold★1 ${mmss(med(M(m => m.G && m.G.gold[1])))} gold★3 ${mmss(med(M(m => m.G && m.G.gold[3])))} | G4 seconds with nothing to buy ${rs.reduce((a, r) => a + (r.M.G4 || 0), 0)}`);
-      tgt.push(ok(mx(M(m => m.G && m.G.firstHat)) <= 180, 'G1 <=3m'), ok(mn(M(m => m.G && m.G.hour)) >= 7 && med(M(m => m.G && m.G.gapMed)) <= 480 && mx(M(m => m.G && m.G.gapMax)) <= 900, 'G2'),
-        ok(med(M(m => m.G && m.G.gold[1])) <= 900 && med(M(m => m.G && m.G.gold[3])) <= 6000, 'G3'), ok(rs.every(r => !r.M.G4), 'G4'));
+      // v2.1 core B (SPEC_v2 18.2): G2 counts every star-5 purchase - the boutique and the shrine / garden / plaza / wardrobe
+      // sinks + fireworks shows (the boutique alone, above, is printed only: it now shares the purse with them); G5-G7 new
+      const V = k => M(m => m.G && m.G.v21 ? m.G.v21[k] : null);
+      console.log(`  v2.1 G2 every star-5 buy: hour 1 ${med(V('h1'))} (min ${mn(V('h1'))}), hour 2 ${med(V('h2'))}, gap med ${mmss(med(V('gapMed')))} max ${mmss(mx(V('gapMax')))} | G5 first garden piece med ${mmss(med(V('firstGz')))} max ${mmss(mx(V('firstGz')))}, its guest ${mmss(med(V('firstRare')))} later | G6 rare guests ${med(V('rares'))} visits, kinds med ${med(V('rareKinds'))} min ${mn(V('rareKinds'))}; shrine level med ${med(V('shrine'))} min ${mn(V('shrine'))}; plaza at ${mmss(med(V('plaza')))} (max ${mmss(mx(V('plaza')))}); fireworks ${med(V('fw'))}; stalls ${med(V('stall'))} | G7 income/min h1 ${R(med(V('inc1')))} h2 ${R(med(V('inc2')))}`);
+      tgt.push(ok(mx(M(m => m.G && m.G.firstHat)) <= 180, 'G1 <=3m'), ok(mn(V('h1')) >= 7 && med(V('gapMed')) <= 480 && mx(V('gapMax')) <= 900, 'G2 (every star-5 buy)'),
+        ok(med(M(m => m.G && m.G.gold[1])) <= 900 && med(M(m => m.G && m.G.gold[3])) <= 6000, 'G3'), ok(rs.every(r => !r.M.G4), 'G4'),
+        ok(mx(V('firstGz')) <= 600 && med(V('firstRare')) <= 480, 'G5 garden + rare <=10m / <=8m'), ok(mn(V('rareKinds')) >= 3 && mn(V('shrine')) >= 2 && rs.every(r => r.M.G && r.M.G.v21 && r.M.G.v21.plaza !== null), 'G6 2h: >=3 rare kinds, shrine >=2, plaza'),
+        ok(med(V('inc2')) >= med(V('inc1')), 'G7 income grows'));
     }
     // A4: the afk bot's income in its 10 hands-off minutes ÷ afkref's in the same minutes (same seed: the two are the same
     // run up to that moment; afkref plays on and buys nothing, so both have the same inn). A4lit = ÷ eager, whose inn

@@ -148,7 +148,7 @@ function rareOverlay() {
 // (16.14 has no bubble art for them). bubbleArt is wrapped once here, so every caller (the big bubble over its head, the
 // wish board, the arrow's icon, the picture cards) gets them.
 const WISH_ICON = {
-  stay: [['...Y...', '..YCY..', '...C...', '.CCCCC.', 'C.CCC.C', '.CCCCC.', 'BBBBBBB'], { Y: '#ffd23f', C: '#8a6ac8', B: '#c8a878' }],   // a cat sitting still, a halo
+  stay: [['...Y...', '.K...K.', '.KKKKK.', '..KKK..', '.CCCCC.', 'CCCCCCC', '.BBBBB.'], { Y: '#ffd23f', K: '#4a4a5a', C: '#e08a2a', B: '#c8a878' }],   // a cat sitting still (ears, robe, cushion), a halo
   show: [['.P.P...', 'PpPpP..', '.PYP...', 'PpPpP.G', '.P.P.GG', '....G..', '...GG..'], { P: '#f4a8be', p: '#e87898', Y: '#ffd23f', G: '#5a9a3a' }],   // two blossoms on a twig
 };
 {

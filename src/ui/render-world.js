@@ -17,7 +17,7 @@ function paintDoor(dr) {
 }
 const tubBusy = rm => !!VIPG && VIPG.suite === rm.id && (VIPG.st === 'soak' || (VIPG.st === 'seated' && VIPG.actT > 0 && vipWish() === 'bath'));
 // a VIP's face, 8x8 from its front sprite (photo frames, the polaroid; the album crops its own)
-function vipFace(id) { return art('vipface:' + id, () => { const v = VIP[id], c = mk(8, 8); c.getContext('2d').drawImage(catSprite('down', 0, { fur: v.fur, outfit: 'robe', robe: v.robe, hat: v.hat || null }), 4, 6, 8, 8, 0, 0, 8, 8); return c; }); }
+function vipFace(id) { return art('vipface:' + id, () => { const v = VIP[id], c = mk(8, 8); c.getContext('2d').drawImage(catSprite('down', 0, RARE_LOOK[id] || { fur: v.fur, outfit: 'robe', robe: v.robe, hat: v.hat || null }), 4, 6, 8, 8, 0, 0, 8, 8); return c; }); }   // v2.1: a rare guest's own look
 function rebuildWorld() {
   buildObjects(); buildBlock(); padsUpdate(); buildLights();
   for (const o of OBJS) if (o.light && areaOpen(areaAt(o.tx, o.ty))) {   // scenery lamps (map.js SCENERY); a locked area stays dark (the lower garden until v2.1)
@@ -54,7 +54,7 @@ const VIS = (wx, wy, m) => wx - CX > -m && wx - CX < W + m && wy - CY > -m && wy
 const catFrame = e => e.moving ? 1 + (Math.floor(e.walkT * 6) & 1) : 0, headBob = e => catFrame(e) === 2 ? 1 : 0;
 function drawCat(e, look, ox) {
   const view = e.dir === 'left' || e.dir === 'right' ? 'side' : e.dir;
-  const fr = catFrame(e);
+  const fr = e === P ? playerFrame() : catFrame(e);   // v2.1: the maneki outfit beckons (frames 3 / 4, wardrobe.js)
   let c = catSprite(view, fr, look); if (e.dir === 'left') c = flipOf(c);
   g.drawImage(c, R(e.x) + (ox || 0) - CX - 8, R(e.y) - CY - 23);
 }
@@ -90,7 +90,8 @@ function padLayout(u) {
   const side = vis(0, 1) ? 'right' : vis(1, 0) ? 'over' : head ? 'right' : 'under';
   const on = Math.floor(P.x / TILE) === ux && Math.floor(P.y / TILE) === uy;   // standing on it: the name would cover your head
   // the info card (7.2) already names the pad you are nearest to: no second name floating over it (it would cover your head)
-  return { side, over: side === 'over', named: !on && u !== INFO && dist(P.x, P.y, ux * TILE + 8, uy * TILE + 8) <= 2 * TILE };
+  // v2.1: the boutique's six pads (booths, decor, gold decor) never float a name - the info card names the nearest one
+  return { side, over: side === 'over', named: !on && u !== INFO && !u.booth && !u.decor && !u.goldOf && dist(P.x, P.y, ux * TILE + 8, uy * TILE + 8) <= 2 * TILE };
 }
 function padLabels(u) {
   if (popScale(POPA['pad:' + u.id]) < 1) return;
@@ -137,10 +138,11 @@ function drawMate(m) {
 // a pet (4.11): duck 10x10 anchored (5,9), shiba 16x16 anchored (8,15); a shiba sitting still wags (frames 3 / 4)
 function drawPet(e, ghost) {
   const view = e.dir === 'left' || e.dir === 'right' ? 'side' : e.dir;
-  const fr = e.moving ? 1 + (Math.floor(e.walkT * 7) & 1) : e.kind === 'shiba' && e.idle > 1 ? 3 + (Math.floor(T * 2) & 1) : 0;
-  let c = e.lantern ? petLanternArt() : petSprite(e.kind, view, fr); if (e.dir === 'left' && !e.lantern) c = flipOf(c);   // v2.1: the tanuki's lantern trick
+  const fr = e.moving ? 1 + (Math.floor(e.walkT * 7) & 1) : petIdleFrame(e);   // v2.1 (wardrobe.js): fox / crane idle, the tanuki's lantern trick
+  const lan = fr === 5 && e.kind === 'tanuki' && !petArt21();   // before the character art: a core-drawn lantern
+  let c = lan ? petLanternArt() : petSprite(e.kind, view, fr); if (e.dir === 'left' && !lan) c = flipOf(c);
   if (ghost) g.globalAlpha = .5;
-  drawA(c, R(e.x), R(e.y), c.width >> 1, c.height - 1);   // anchor = bottom centre (duck (5,9), shiba (8,15); v2.1 fox / tanuki / crane)
+  const [ax, ay] = petAnchorB(e.kind, c); drawA(c, R(e.x), R(e.y), ax, ay);   // duck (5,9), shiba / fox / tanuki (8,15), crane (8,19)
   g.globalAlpha = 1;
 }
 // a cat sitting on a seat cushion, side-on to its table (catSit faces right; eating = frames 1 / 3, bowl up / down, so the

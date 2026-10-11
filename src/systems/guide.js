@@ -60,7 +60,7 @@ function vipGuide() {
 }
 // the arrow leads the VIP ahead of the pads (G1): the very first VIP from the carpet to its last wish (the 3-step card is
 // up meanwhile); later ones once the current wish has waited VIP_URGENT s
-const vipLeads = v => !!v && (v.st === 'carpet' || v.st === 'seated') && (!S.stats.vips || (v.st === 'seated' && (v.wt || 0) >= VIP_URGENT));
+const vipLeads = v => !!v && (v.st === 'carpet' || v.st === 'seated') && (!S.stats.vips || (v.rare && !rareSeen(v.id)) || (v.st === 'seated' && (v.wt || 0) >= VIP_URGENT));   // v2.1: a rare guest's first visit too
 const wantTile = w => w.tile || guestTile(w.e);
 const tilesBetween = (a, b) => { const p = findPath(a[0], a[1], b[0], b[1]); return p ? p.length : 1e4; };
 // where a tray item comes from: tea from the nearer urn (the urn the arrow shows stays until the other one is >= 30 %
@@ -229,11 +229,14 @@ function guideTarget(opts) {
   { const clerkOn = STAFF.some(s => s.role === 'clerk'), min = Math.max(PILE_MIN, need < 1e9 ? (clerkOn ? .33 : .2) * (need - S.money) : 0), big = piles.filter(id => S.piles[id] >= min && (!clerkOn || id === 'recep'));
     if (big.length) return gStick(15, T_PILE(big[0]), big.map(T_PILE)); }
   // 16. you have fish: the cheapest visible pad (part payment is kept); standing on it = here. With 0 fish, no pad.
-  if (S.money > 0 && gp.length) {
-    let best = null; for (const u of gp) if (!best || padNeed(u) < padNeed(best)) best = u;
+  //     v2.1: not the star-5 sinks (shrine, garden pieces, plaza): the arrow shows one when you can pay it all (rule 6) -
+  //     till then the purse is yours to save up for what you like (an outfit, the next offering)
+  const gp16 = gp.filter(u => !u.v21b);
+  if (S.money > 0 && gp16.length) {
+    let best = null; for (const u of gp16) if (!best || padNeed(u) < padNeed(best)) best = u;
     const [tx, ty] = padXY(best);
     if (ptx === tx && pty === ty) return gAt(1, T_PAD(best, true));
-    return gStick(16, T_PAD(best), gp.filter(u => padNeed(u) <= padNeed(best) * 1.3).map(u => T_PAD(u)));
+    return gStick(16, T_PAD(best), gp16.filter(u => padNeed(u) <= padNeed(best) * 1.3).map(u => T_PAD(u)));
   }
   // 17. a guest waits and every room is taken: stand by the room whose sleeper wakes first (it needs cleaning next)
   if (Q.length && !free) {

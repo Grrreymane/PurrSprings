@@ -27,5 +27,17 @@ function senbonArt() {
 // the info card's preview (cards.js drawPreview -> drawPreviewB): an offering that changes the hall shows the next hall
 function shrinePreview(u, gh) {
   if (!u.shrine || !HALL_LV.has(u.shrine)) return;
-  if (VIS(5 * TILE + 8, 2 * TILE, 48)) drawObj(gh(hokoraArt(u.shrine)), 4, 2 * TILE, 3);
+  if (VIS(5 * TILE + 8, 2 * TILE, 48)) drawObj(gh(hokoraArt(u.shrine, seasonB())), 4, 2 * TILE, 3);
 }
+// in the 3/4 view the torii (rows 1.75-3) stands in front of the offering pad (5,2) and of you when you stand at it: it
+// fades while you are behind it; the small torii over the approach fade while you walk under one
+const behindTorii = () => P.y < 4 * TILE && P.y > TILE && Math.abs(P.x - (5 * TILE + 8)) < 2.5 * TILE;
+const underSenbon = x => Math.abs(P.x - (x * TILE + 8)) < 14 && P.y > 3 * TILE + 8 && P.y < 5 * TILE;
+const FADED = new Map();
+function fadeArt(c, a) { const k = c; let m = FADED.get(k); if (!m) { m = mk(c.width, c.height); const x = m.getContext('2d'); x.globalAlpha = a; x.drawImage(c, 0, 0); FADED.set(k, m); } return m; }
+// the camera may go up to CAM_TOP_B px above the map while you are at the shrine: its hall stands in rows 0-2, under the
+// HUD otherwise (update.js updCam; the band above the map is the plain dark-green ground colour)
+const CAM_TOP_B = 30;
+const camTopB = () => { const a = areaAt(Math.floor(P.x / TILE), Math.floor(P.y / TILE)); return a && a.id === 'shrine' ? -CAM_TOP_B : 0; };
+// winter: snow on a prop (the scenery art's snowCapArt, once it is there)
+const snowy = c => seasonB() === 3 && typeof snowCapArt === 'function' ? snowCapArt(c) : c;

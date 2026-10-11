@@ -109,7 +109,7 @@ setup(true);
   ok(RUN.shop.some(x => x[1] === 'statue'), 'counted'); }
 setup(true);
 { let pointed = 0; for (const m of [0, 5e5, 2e6]) { S.money = m; for (let i = 0; i < 40; i++) { update(DT); if (GUIDE && GUIDE.id === 'statue') pointed++; } } eq(pointed, 0, 'the arrow never points at the statue while a hat or pet is unbought'); }
-setup(true, UNLOCKS.filter(u => u.hat || u.pet || u.id === 'maid4').map(u => u.id));
+setup(true, UNLOCKS.filter(u => u.hat || u.pet || u.id === 'maid4' || (u.v21b && !u.repeat && !u.ok)).map(u => u.id));   // v2.1: + every core B piece (outfits, uniforms, shrine, plaza, garden)
 { S.money = 60000; at(17, 27); guideClock = 0; update(DT); ok(GUIDE && GUIDE.id === 'statue', 'everything else bought, 60,000 on hand: the arrow points at the statue (' + (GUIDE && GUIDE.key) + ')');
   S.money = 40000; guideClock = 0; update(DT); ok(!(GUIDE && GUIDE.id === 'statue'), 'under 50,000: not');
   S.money = 60000; walkTo(13, 33); run(.5); ok(S.money === 0 && S.paid.statue === 60000, 'poured in: money ' + S.money + ', paid ' + S.paid.statue);

@@ -60,7 +60,7 @@ function vipWishDone() {
   const used = S.stats.time - (v.greetAt !== null ? v.greetAt : v.t0), f = .6 + .4 * clamp(1 - (used - 90) / 120, 0, 1);
   const pay = R(v.G * .5 * f), first = !S.album.photos.some(p => p.v === v.id);
   v.paid += pay; earn(pay, v.x, v.y - 4); addHearts(10 + (first ? 10 : 0));
-  S.album.photos.push({ v: v.id, d: S.day, h: S.equip.hat, p: S.equip.pet, o: S.equip.outfit }); if (S.album.photos.length > 40) S.album.photos.shift();   // v2.1: + the outfit
+  S.album.photos.push(Object.assign({ v: v.id, d: S.day, h: S.equip.hat, p: S.equip.pet }, S.equip.outfit ? { o: S.equip.outfit } : {})); if (S.album.photos.length > 40) S.album.photos.shift();   // v2.1: + the outfit
   if (v.rare) rarePhoto(v);   // v2.1: a rare guest's visit counts; its keepsake goes to the album, not the gift shelf
   else if (!S.gifts.includes(v.id)) { S.gifts.push(v.id); if (S.gifts.length > 6) S.gifts.shift(); }
   S.stats.vips++; RUN.vipDone++; RUN.vipF.push(f); RUN.vipUsed.push(used); RUN.vipPaid += v.paid;

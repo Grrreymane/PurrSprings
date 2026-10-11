@@ -39,12 +39,13 @@ function unlockB(u) {
 }
 
 // ---- per frame (gameUpdate): the tanuki's lantern trick, the maneki outfit's wave, gold glints in the rooms
-const PETFX = { lantern: 0, next: 30, idle: 0 };
+// the tanuki sitting still: every ~15 s a puff of smoke (frame 4, 0.3 s), a paper lantern (5, 2 s), a puff, sitting (3)
+const PETFX = { lantern: 0, next: 15, idle: 0 }, TRICK = [.3, 2, .3];
 let maneki = 0, goldGlintT = 0;
 function wardrobeTick(dt) {
-  if (PET && PET.kind === 'tanuki') {   // standing still a while, now and then it turns into a paper lantern for 3 s (16.6)
-    if (PETFX.lantern > 0) { PETFX.lantern -= dt; if (PETFX.lantern <= 0 || PET.moving) { PETFX.lantern = 0; FX.push({ k: 'poof', x: PET.x, y: PET.y - 6, t: 0, life: .45 }); } }
-    else if (!PET.moving && PET.idle > 2) { PETFX.next -= dt; if (PETFX.next <= 0) { PETFX.next = rand(25, 40); PETFX.lantern = 3; FX.push({ k: 'poof', x: PET.x, y: PET.y - 6, t: 0, life: .45 }); sfx('tryon'); } }
+  if (PET && PET.kind === 'tanuki') {
+    if (PETFX.lantern > 0) { PETFX.lantern -= dt; if (PETFX.lantern <= 0 || PET.moving) { PETFX.lantern = 0; if (!petArt21()) FX.push({ k: 'poof', x: PET.x, y: PET.y - 6, t: 0, life: .45 }); } }
+    else if (!PET.moving && PET.idle > 2) { PETFX.next -= dt; if (PETFX.next <= 0) { PETFX.next = rand(12, 18); PETFX.lantern = TRICK[0] + TRICK[1] + TRICK[2]; if (!petArt21()) FX.push({ k: 'poof', x: PET.x, y: PET.y - 6, t: 0, life: .45 }); sfx('tryon'); } }
   } else PETFX.lantern = 0;
   PET && (PET.lantern = PETFX.lantern > 0);
   maneki = outfitOf(S.equip.outfit) === 'o_maneki' && !TRY.outfit && !P.moving ? maneki + dt : 0;   // stands still: beckons
@@ -62,9 +63,30 @@ function dressGhostDraws(L) {
   const look = Object.assign({}, STAFF_DEF.recep.look, { uniform: TRY.uniform }), gh = { x: P.x + 13, y: P.y + 1, dir: 'down', moving: false, walkT: 0 };
   L.push({ y: gh.y, f: () => { g.globalAlpha = .55; drawCat(gh, look); g.globalAlpha = 1; } });
 }
-// o_maneki: standing still you raise a paw and beckon (two frames, 2 a second), drawn beside the head
+// the pets (16.14): the character art adds petAnchor(kind) and idle frames - fox 3 / 4, crane 3 / 4 slowly, tanuki 3 sit,
+// 4 smoke, 5 lantern; before it lands the core falls back to the bottom centre and its own lantern
+const petArt21 = () => typeof petAnchor === 'function';
+function petAnchorB(kind, c) {
+  if (petArt21()) { const a = petAnchor(kind); if (Array.isArray(a)) return a; if (a && typeof a === 'object') return [a.x | 0, a.y | 0]; }
+  return [c.width >> 1, c.height - 1];
+}
+function petIdleFrame(e) {
+  if (!(e.idle > 1)) return 0;
+  if (e.kind === 'shiba' || e.kind === 'fox') return 3 + (Math.floor(T * 2) & 1);
+  if (e.kind === 'crane') return 3 + (Math.floor(T * .7) & 1);
+  if (e.kind === 'tanuki') {
+    if (e === PET && PETFX.lantern > 0) { const t = TRICK[0] + TRICK[1] + TRICK[2] - PETFX.lantern; return t < TRICK[0] || t >= TRICK[0] + TRICK[1] ? 4 : 5; }
+    return 3;
+  }
+  return 0;
+}
+// o_maneki: standing still ~1 s you beckon - the character art's frames 3 / 4, every 0.5 s (manekiFrames: the art has them);
+// before it lands, a core-drawn paw beside the head
+let MANEKI_ART = null;
+const manekiFrames = () => { if (MANEKI_ART === null) { const l = lookWith(null, 'o_maneki'); MANEKI_ART = catSprite('down', 3, l) !== catSprite('down', 0, l); } return MANEKI_ART; };
+function playerFrame() { return maneki >= 1 && !P.towels && manekiFrames() ? 3 + (Math.floor(maneki * 2) & 1) : catFrame(P); }
 function manekiPaw() {
-  if (maneki < 1 || P.towels) return;
+  if (maneki < 1 || P.towels || manekiFrames()) return;
   const fur = FURS.orange, up = Math.floor(maneki * 2) & 1, x = R(P.x) + (P.dir === 'left' ? -9 : 6) - CX, y = R(P.y) - 18 - up * 2 - headBob(P) - CY;
   g.fillStyle = OUT; g.fillRect(x - 1, y - 1, 5, 6); g.fillStyle = fur.O; g.fillRect(x, y, 3, 4); g.fillStyle = fur.W; g.fillRect(x, y, 3, 1); g.fillStyle = '#ff9fb0'; g.fillRect(x + 1, y + 2, 1, 1);
 }

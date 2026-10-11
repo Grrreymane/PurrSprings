@@ -13,6 +13,8 @@ for (let i = 1; i <= 4; i++) IDS.push('K0' + i);
 for (let i = 1; i <= 12; i++) IDS.push('V' + String(i).padStart(2, '0'));
 for (let i = 1; i <= 11; i++) IDS.push('P' + String(i).padStart(2, '0'));
 IDS.push('A01', 'A02');
+IDS.push('P12', 'P13', 'P14');                                  // v2.1 core B: a new outfit, a new uniform, fireworks
+RARES.forEach(r => IDS.push(r.lineId));                         // v2.1 core B: E11a-h, each rare guest's greeting (16.12 E11)
 for (const id of IDS) ok(!!LINES[id], 'line ' + id + ' missing');
 ok(Object.keys(LINES).length === IDS.length, 'table has ' + Object.keys(LINES).length + ' lines (want ' + IDS.length + ')');
 const texts = [];
@@ -30,7 +32,8 @@ for (const id in LINES) {
     if (/^function buyLine\(/.test(line)) inBuy = true; else if (inBuy && /^}/.test(line)) inBuy = false;
     if (inBuy || /lineSay\(|[^.\w]say\(|ARRIVE_LINE = |banner\(.*line: '[A-Z]\d\d'/.test(line)) for (const m of line.matchAll(/'([A-Z]\d\d(?:\|[A-Z]\d\d)*)'/g)) m[1].split('|').forEach(k => used.add(k));
   }
-  for (let i = 1; i <= 6; i++) if (/lineSay\(VIPG, 'V0' \+/.test(src)) used.add('V0' + i);
+  for (let i = 1; i <= 6; i++) if (/lineSay\(VIPG, .*'V0' \+/.test(src)) used.add('V0' + i);
+  if (/lineSay\(VIPG, v\.rare \? RARE\[v\.id\]\.lineId/.test(src)) RARES.forEach(r => used.add(r.lineId));   // v2.1: the rare guest's greeting
   for (const id of IDS) ok(used.has(id), 'line ' + id + ' is never said (no call site)'); }
 // ---- played: an eager bot follows the arrow; every line that shows is checked as it comes
 S = defaults(); newGame(); S.tut.moved = true;

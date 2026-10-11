@@ -5,13 +5,13 @@
 const PADB_ROWS = {
   outfit: [['..WW..WW..', '.BBWWWWBB.', 'BBBBWWBBBB', 'BBBBWWBBBB', '.BBBRRBBB.', '..BBRRBB..', '..BBBBBB..', '..BBBBBB..', '..BBBBBB..', '..BBBBBB..'], { B: '#5a8ad8', W: '#f4ecd8', R: '#d84a3a' }],
   uniform: [['...WWWW...', '..PWWWWP..', '.PPPWWPPP.', 'PPPPWWPPPP', 'PP.PWWP.PP', '...PWWP...', '...WWWW...', '...WWWW...', '...PPPP...', '...P..P...'], { P: '#f4a8be', W: '#fbfaf4' }],
-  shrine: [['RRRRRRRRRR', '.RRRRRRRR.', '..R....R..', '.RRRRRRRR.', '..R....R..', '..R....R..', '..R....R..', '..R....R..', '.GG....GG.'], { R: '#d8442e', G: '#6a6a6a' }],
+  shrine: [['RRRRRRRRRR', '.RRRRRRRR.', '..R....R..', '.RRRRRRRR.', '..R....R..', '..R....R..', '..R....R..', '..R....R..', '..R....R..', '.GG....GG.'], { R: '#d8442e', G: '#6a6a6a' }],
   offer: [['....YY....', '...YYYY...', '...YYYY...', '..YYYYYY..', '....BB....', '.WWWWWWWW.', '.WKKKKKKW.', '.WWWWWWWW.', '.WWWWWWWW.', '.WW....WW.'], { Y: '#ffd23f', B: '#3a2a20', W: '#b8844e', K: '#3a2a20' }],
   plaza: [['...KKKK...', '..RRRRRR..', '.RRWWWWRR.', 'RRRRRRRRRR', 'RRWWWWWWRR', 'RRRRRRRRRR', '.RRWWWWRR.', '..RRRRRR..', '...KKKK...', '....K.....'], { R: '#e8503a', W: '#ffd890', K: '#3a2a20' }],
-  stall: [['RWRWRWRWRW', 'RWRWRWRWRW', 'RWRWRWRWRW', '.B......B.', '.B......B.', '.BYYYYYYB.', '.BBBBBBBB.', '.B......B.', '.B......B.'], { R: '#e8503a', W: '#fbfaf4', B: '#8a5a34', Y: '#ffd890' }],
+  stall: [['RWRWRWRWRW', 'RWRWRWRWRW', 'RWRWRWRWRW', '.B......B.', '.B......B.', '.BYYYYYYB.', '.BBBBBBBB.', '.BBBBBBBB.', '.B......B.', '.B......B.'], { R: '#e8503a', W: '#fbfaf4', B: '#8a5a34', Y: '#ffd890' }],
   firework: [['....P.....', '.Y..P..Y..', '..Y.P.Y...', '...YPY....', 'PPPP.PPPP.', '...YPY....', '..Y.P.Y...', '.Y..P..Y..', '....P.....', '....S.....'], { P: '#ff9ab8', Y: '#ffd27a', S: '#c8a878' }],
   dress: [['....WW....', '...W..W...', '......W...', '.....W....', '..WWWWWW..', '.WWPPPPWW.', 'WWWPPPPWWW', '...PPPP...', '...PPPP...', '...PPPP...'], { W: '#ffffff', P: '#ffd8e8' }],
-  map: [['WWWWWWWWWW', 'WGGWWWBBWW', 'WGGGWWBBWW', 'WWGGWWWWWW', 'WWWWWRWWWW', 'WBBWWWWGGW', 'WBBWWWGGGW', 'WWWWWWWWWW'], { W: '#fff3d0', G: '#7ac05a', B: '#5ab0e0', R: '#e04a3a' }],
+  map: [['WWWWWWWWWW', 'WGGWWWBBWW', 'WGGGWWBBWW', 'WWGGWWWWWW', 'WWWWWRWWWW', 'WWWWRRRWWW', 'WBBWWRWGGW', 'WBBWWWGGGW', 'WBBWWWWGGW', 'WWWWWWWWWW'], { W: '#fff3d0', G: '#7ac05a', B: '#5ab0e0', R: '#e04a3a' }],
   none: [['..KKKKKK..', '.K......K.', 'K......K.K', 'K.....K..K', 'K....K...K', 'K...K....K', 'K..K.....K', 'K.K......K', '.K......K.', '..KKKKKK..'], { K: '#a89a88' }],
 };
 const padIconB = k => art('core:padB:' + k, () => { const [rs, pal] = PADB_ROWS[k]; return rows(rs, pal); });
@@ -74,7 +74,7 @@ function bannerPartsB(b) {
   return null;
 }
 // ---- first-time picture cards (7.4) for the two new wishes; the lines (16.12 E11 + the innkeeper's three new ones)
-FIRST_CARD.stay = () => [{ img: bubbleArt('stay', 0, true) }, { img: ARROW_R }, { img: faceOf(PLAYER_LOOK) }, { img: PAWS }, '站着别动'];
+FIRST_CARD.stay = () => [{ img: bubbleArt('stay', 0, true) }, { img: ARROW_R }, { img: faceOf(PLAYER_LOOK) }, '站着别动'];
 FIRST_CARD.show = () => [{ img: bubbleArt('show', 0, true) }, { img: ARROW_R }, { img: PAWS }, { img: gzIcon((RARE[VIPG && VIPG.id] || RARES[4]).piece) }, '带去看看'];
 RARES.forEach(r => { LINES[r.lineId] = { id: r.lineId, who: 'v', text: r.line, p: 1, ev: true }; });
 [['P12', '新衣服！'], ['P13', '换新制服！'], ['P14', '放烟花啦！']].forEach(([id, text]) => { LINES[id] = { id, who: 'p', text, p: 1, ev: true }; });
@@ -203,3 +203,4 @@ function drawInnMapPage() {
   }
 }
 BOOK_TABS.push(...BOOK_TABS_B);
+RARES.forEach(r => { VIP_LOOK[r.id] = RARE_LOOK[r.id]; });   // a rare guest's photo (menu.js photoCanvas) in its own look
