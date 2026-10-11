@@ -20,6 +20,11 @@
 //   ropeArt(dir)                              16x16, tile top-left; dir 'v' (or 'h').
 //   glowArt(r, col)                           2r x 2r, anchor (r,r); draw with 'lighter'.
 //   plazaDecor(tx, ty)                        16x16, tile top-left, transparent overlay for 'q' tiles.
+// v2.1 API (SPEC_v2 16.14; details next to each function in env-api.js):
+//   tileArt(..., season) four outdoor palettes | pondArt / waterfallArt / bambooGroveArt / doorArt take a season too
+//   treeArt(kind, season, size) | wallDecorArt trophy / cover / family | hokoraArt(lv, season) 48x44 |
+//   toriiArt(season) 48x36 | komainuArt(side, season) 14x18 | shrineLanternArt(lit, season) 12x22 |
+//   chochinString(lit) 32x10 | snowCapArt(c) | seasonWarm(season, budget)
 // Floor-type tiles are painted as a function of WORLD pixels (tx*16+x, ty*16+y), so plank joints, paving stones,
 // grass patches, rocks, bushes and ripples run on across tile borders. Variation is hashed from coordinates.
 // Light comes from the top-left; transitions are dithered (4x4 Bayer); private names start with _en.
@@ -70,16 +75,9 @@ function _enM(a, b, t) {   // memoised mixHex (t quantised so the cache stays sm
   t = Math.round(t * 40) / 40; if (t <= 0) return a; if (t >= 1) return b;
   const k = a + b + t; let v = _EN_MX.get(k); if (v === undefined) _EN_MX.set(k, v = mixHex(a, b, t)); return v;
 }
-function _enCanvas(G) {   // Grid -> canvas, one fillRect per horizontal run of equal colour
-  const c = mk(G.w, G.h), x = c.getContext('2d');
-  for (let j = 0; j < G.h; j++) for (let i = 0; i < G.w;) {
-    const col = G.d[j * G.w + i]; let k = i + 1;
-    while (k < G.w && G.d[j * G.w + k] === col) k++;
-    if (col) { x.fillStyle = col; x.fillRect(i, j, k - i, 1); }
-    i = k;
-  }
-  return c;
-}
+// Grid -> canvas. v2.1: one putImageData like Grid.canvas (CRP-1: fillRect-painted canvases cost the renderer far more
+// memory, and four seasons of outdoor tiles end up in the ART cache); same pixels as the old fillRect runs
+function _enCanvas(G) { return G.canvas(); }
 function _enMake(w, h, fn) { const G = new Grid(w, h); fn(G); return _enCanvas(G); }
 // ambient occlusion along walls: walls / doors / fences above or to the left cast a soft shadow onto the floor
 function _enAO(G, nb, dark, k) {
@@ -96,12 +94,78 @@ function _enAO(G, nb, dark, k) {
   });
 }
 
+// ------------------------------------------------------------ v2.1 seasons (SPEC_v2 16.1 / 16.14)
+// season 0 spring = the v2.0 look + fallen sakura petals; 1 summer = deep lush green, hydrangeas in the bushes;
+// 2 autumn = golden lawn, red / orange bushes, fallen leaves; 3 winter = snow on lawns, bushes, rocks, walks, fences,
+// the outer walls' tops and eaves. Only outdoor chars change; rooms, corridors, the lobby, kitchen and dining never do.
+const _EN_SEA = [
+  { gr: '#6aa84a', grD: '#5a9640', grH: '#84c060', tuft: '#4a8636', ao: '#24402a' },
+  { gr: '#589e40', grD: '#478a35', grH: '#73b650', tuft: '#36742c', ao: '#1c3622' },
+  { gr: '#94a84a', grD: '#7c8e3e', grH: '#b0bc5c', tuft: '#627030', ao: '#363a20' },
+  { gr: '#e3eaf3', grD: '#ccd6e5', grH: '#f2f6fb', tuft: '#6a7e5a', ao: '#5a6888' },
+];
+const _EN_SN = { w: '#ffffff', h: '#f2f6fb', b: '#e3eaf3', s: '#ccd6e5', d: '#aebbd0', e: '#8d9bb5', ice: '#c4e2ee', iceH: '#eaf8fc' };
+const _enSP = s => _EN_SEA[(s | 0) & 3];
+// a snow-field pixel at world (wx, wy): soft drifts, lit and shaded patches dithered (no blur)
+function _enSnowAt(wx, wy, x, y) {
+  const n = _enVN(wx / 12, wy / 9, 501), d = _enBay(x, y);
+  if (n > .7 && d < (n - .7) * 3.2) return _EN_SN.w;
+  if (n > .55 && d < (n - .55) * 2.6) return _EN_SN.h;
+  if (n < .33 && d < (.33 - n) * 3.2) return _EN_SN.s;
+  return _EN_SN.b;
+}
+// snow lying on part of a tile: cover(x, y) (tile px, may be asked for -1..16 so the edges match the neighbours) says
+// where. A lit top rim, the drift's thickness on its lower edge and a soft shadow on the ground just under it.
+function _enSnowOver(G, tx, ty, cover) {
+  const M = new Uint8Array(18 * 18), at = (x, y) => M[(y + 1) * 18 + x + 1];   // the cover asked once per pixel (-1..16)
+  for (let y = -1; y <= 16; y++) for (let x = -1; x <= 16; x++) M[(y + 1) * 18 + x + 1] = cover(x, y) ? 1 : 0;
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    if (at(x, y)) {
+      let c = _enSnowAt(tx * 16 + x, ty * 16 + y, x, y);
+      if (!at(x, y + 1)) c = _EN_SN.s; else if (!at(x, y - 1) || !at(x - 1, y)) c = c === _EN_SN.s ? _EN_SN.b : _EN_SN.w;
+      G.set(x, y, c);
+    } else if (at(x, y - 1) && G.get(x, y)) G.set(x, y, _enM(G.get(x, y), '#2a3450', .3));
+  }
+}
+// where a drift piles up against a tile's edges: fully along sides whose neighbour is in `against`, ragged (2..5 px)
+function _enDrift(tx, ty, nb, against, depth) {
+  const on = c => against.indexOf(c == null ? 'b' : c) >= 0, U = on(nb.u), D = on(nb.d), L = on(nb.l), Rr = on(nb.r);
+  depth = depth || 4;
+  const f = s => 1 + Math.floor(_enVN(s / 4, tx * 3 + ty, 511) * depth), A = k => Array.from({ length: 18 }, (_, i) => f(i - 1 + k));
+  const fU = A(tx * 16), fL = A(ty * 16 + 40), fR = A(ty * 16 + 80), fD = A(tx * 16 + 120);
+  return (x, y) => (U && y < fU[x + 1]) || (L && x < fL[y + 1]) || (Rr && 15 - x < fR[y + 1] - 1) || (D && 15 - y < fD[x + 1] - 1);
+}
+// fallen petals (spring) / leaves (autumn): hashed, a few per tile, more near the sakura grove / the maples (map.js
+// SCENERY) and under the shrine's trees; ok(x, y) keeps them off what they must not cover (stones, the pond rim)
+const _EN_GROVE = [[29.5 * 16, 25.5 * 16, 6 * 16], null, [35 * 16, 16.5 * 16, 5 * 16]];
+const _EN_LEAF = [['#d8442a', '#f07a4a', '#9a2a1e'], ['#e0702a', '#f8a050', '#a8461a'], ['#e8b030', '#fcd868', '#a87818'], ['#b86a34', '#d8904c', '#7a4220']];
+function _enScatter(G, tx, ty, season, base, ok) {
+  if (season !== 0 && season !== 2) return;
+  const gv = _EN_GROVE[season], near = clamp(1 - Math.hypot(tx * 16 + 8 - gv[0], ty * 16 + 8 - gv[1]) / gv[2], 0, 1);
+  const n = Math.floor(_enH(tx, ty, 601 + season) * (base + near * 3.6) + near * .8);
+  const put = (x, y, c) => { if (x >= 0 && y >= 0 && x < 16 && y < 16 && (!ok || ok(x, y))) G.set(x, y, c); };
+  for (let i = 0; i < n; i++) {
+    const x = 1 + Math.floor(_enH(tx, ty, 610 + i) * 13), y = 1 + Math.floor(_enH(ty, tx, 620 + i) * 13), h = _enH(tx + i, ty, 630);
+    if (ok && !ok(x, y)) continue;
+    const sh = (px, py) => { if (px < 16 && py < 16 && G.get(px, py) && (!ok || ok(px, py))) G.set(px, py, _enM(G.get(px, py), '#2a2430', .22)); };
+    if (season === 0) {   // a sakura petal: two or three pink pixels, lit on the left
+      put(x, y, '#fde2ea'); put(x + 1, y, '#f4b0c4');
+      if (h < .4) put(x + 1, y + 1, '#e898b0'); else if (h > .8) put(x - 1, y + 1, '#f8c8d8');
+      sh(x + 1, y + (h < .4 ? 2 : 1));
+    } else {              // an autumn leaf: a little maple star (red / orange) or a ginkgo / oak leaf (yellow / brown)
+      const L = _EN_LEAF[Math.floor(h * 4)];
+      if (h < .5) { sh(x + 1, y + 2); sh(x + 2, y + 1); put(x, y - 1, L[1]); put(x - 1, y, L[1]); put(x, y, L[0]); put(x + 1, y, L[0]); put(x, y + 1, L[2]); }
+      else { sh(x + 1, y + 1); sh(x + 2, y + 1); put(x, y, L[1]); put(x + 1, y, L[0]); put(x + 1, y - 1, L[0]); if (h > .75) put(x + 2, y, L[2]); }
+    }
+  }
+}
+
 // ------------------------------------------------------------ walls
 function _enCap(G, under) {   // top 5 rows of every wall face: rim + wall-top cap, then the beam (nageshi)
   G.rect(0, 0, 16, 1, under ? _EN.top : '#8a7470'); G.rect(0, 1, 16, 1, _EN.topD);
   G.rect(0, 2, 16, 1, _EN.dwH); G.rect(0, 3, 16, 1, _EN.dw); G.rect(0, 4, 16, 1, _EN.dwD);
 }
-function _enWallFace(G, tx, ty, nb) {
+function _enWallFace(G, tx, ty, nb, season) {
   const lintel = nb.d === 'D', facade = _EN_FACADE.has(nb.d);
   if (facade) {   // outside: a little tiled eave (kawara) over plaster and dark cedar boards
     for (let x = 0; x < 16; x++) {
@@ -158,8 +222,20 @@ function _enWallFace(G, tx, ty, nb) {
   };
   if ((tx & 1) || nb.l !== '#') post(0, true);
   if (nb.r !== '#') post(14, false);
+  if (season === 3 && facade) {   // winter: snow on the tiled eave, a few short icicles under it
+    for (let x = 0; x < 16; x++) {
+      const wx = tx * 16 + x, k = wx % 4, lip = 2 + (_enH(wx >> 1, ty, 521) < .35 ? 1 : 0);
+      for (let y = 0; y < lip; y++) G.set(x, y, y === 0 ? (nb.u === '#' ? _EN_SN.s : _EN_SN.w) : y === lip - 1 ? _EN_SN.s : _enSnowAt(wx, ty * 16 + y, x, y));
+      if (k === 1 && lip === 2) G.set(x, 2, _EN_SN.d);
+      const ic = _enH(wx, ty, 522);
+      if (ic < .16 && x > 1 && x < 14) { G.set(x, 6, _EN_SN.iceH); G.set(x, 7, _EN_SN.ice); if (ic < .07) G.set(x, 8, _EN_SN.ice); }
+    }
+  }
 }
-function _enWallTop(G, tx, ty, nb) {
+// v2.1: is this wall-top tile on the outside of a building (snow lies on it in winter)? Inside walls stay as they are.
+const _EN_OUTCH = new Set(['g', 'f', 'b', 'r', 'p', 'z', 'x', 'q', 's', 'o', '~', 'E']);
+function _enExposed(nb) { return [nb.u, nb.d, nb.l, nb.r].some(c => c == null || _EN_OUTCH.has(c)); }
+function _enWallTop(G, tx, ty, nb, season) {
   const open = c => c !== '#' && c != null;
   const vert = nb.u === '#' || nb.d === '#';
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
@@ -172,6 +248,28 @@ function _enWallTop(G, tx, ty, nb) {
   if (open(nb.l)) for (let y = 0; y < 16; y++) { G.set(0, y, '#9a8480'); G.set(1, y, '#5e4c4c'); }
   if (open(nb.r)) for (let y = 0; y < 16; y++) { G.set(15, y, '#76625e'); G.set(14, y, _EN.topD); }
   if (open(nb.u)) for (let x = 0; x < 16; x++) { G.set(x, 0, '#9a8480'); G.set(x, 1, '#5e4c4c'); }
+  if (season === 3 && _enExposed(nb)) {   // winter: a band of snow along each side of the wall top that faces the outside
+    const out = c => c == null || _EN_OUTCH.has(c);
+    const band = (k, s0) => Array.from({ length: 18 }, (_, i) => 3 + Math.floor(_enVN((s0 + i - 1) / 5, k, 523) * 3));   // ragged inner edge, 3..5 px
+    const bU = band(1, tx * 16), bL = band(2, ty * 16), bR = band(3, ty * 16), bD = band(4, tx * 16);
+    const oU = out(nb.u), oL = out(nb.l), oR = out(nb.r), oD = nb.d == null;
+    const cov = (x, y) => x >= -1 && x <= 16 && y >= -1 && y <= 16 && ((oU && y >= 0 && y < bU[x + 1] - 1) || (oL && x >= 2 && x < 2 + bL[y + 1]) ||
+      (oR && x <= 13 && x > 13 - bR[y + 1]) || (oD && y <= 13 && y > 13 - bD[x + 1]));
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      if (!cov(x, y)) { if (cov(x - 1, y) || cov(x, y - 1)) G.set(x, y, _enM(G.get(x, y), '#1a1422', .35)); continue; }
+      let c = _enSnowAt(tx * 16 + x, ty * 16 + y, x, y);
+      if (!cov(x + 1, y) || !cov(x, y + 1)) c = _EN_SN.s; else if (!cov(x - 1, y) || (y > 0 && !cov(x, y - 1))) c = _EN_SN.w;
+      G.set(x, y, c);
+    }
+  }
+}
+// winter, a wall face with the outside right above it: a line of snow on the wall's top edge (rows 0-1, the cap)
+function _enCapSnow(G, tx) {
+  for (let x = 0; x < 16; x++) {
+    const wx = tx * 16 + x;
+    G.set(x, 0, _EN_SN.w); G.set(x, 1, _enH(wx, 1, 524) < .6 ? _EN_SN.b : _EN_SN.s);
+    if (_enH(wx >> 1, 2, 525) < .25) G.set(x, 2, _EN_SN.s);
+  }
 }
 
 // ------------------------------------------------------------ floors
@@ -223,7 +321,8 @@ function _enLobby(G, tx, ty, nb) {
   }
   _enAO(G, nb, OUT);
 }
-function _enSlate(G, tx, ty, nb) {
+function _enSlate(G, tx, ty, nb, season) {
+  season = (season | 0) & 3;
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
     const wx = tx * 16 + x, wy = ty * 16 + y, row = Math.floor(wy / 8), py = wy - row * 8;
     const L = 14 + Math.floor(_enH(row, 0, 51) * 8), sx = wx + Math.floor(_enH(row, 1, 52) * L), seg = Math.floor(sx / L), jx = sx - seg * L;
@@ -244,6 +343,8 @@ function _enSlate(G, tx, ty, nb) {
     }
   }
   const soft = { u: nb.u === 'r' || nb.u === '#' || nb.u === 'D' ? '#' : null, l: nb.l === 'f' || nb.l === 'r' ? '#' : null, r: nb.r === 'f' || nb.r === 'r' ? '#' : null };
+  if (season === 3) _enSnowOver(G, tx, ty, _enDrift(tx, ty, nb, 'frbg', 4));   // winter: snow banked against the bushes and rocks; the warm wet stone stays clear
+  else _enScatter(G, tx, ty, season, 1.15, (x, y) => !(nb.u === '~' && y < 5));
   _enAO(G, soft, OUT, .8);
 }
 function _enGenkan(G, tx, ty, nb) {   // entrance stone (genkan): shaded doorway at the top, big slabs, a light sill at the bottom
@@ -257,31 +358,60 @@ function _enGenkan(G, tx, ty, nb) {   // entrance stone (genkan): shaded doorway
   for (let x = 0; x < 16; x++) { G.set(x, 14, '#d0ccc0'); G.set(x, 15, _EN.slD); }
   if (nb.l === '#') for (let y = 0; y < 14; y++) G.set(0, y, _enM(G.get(0, y), OUT, .3));
 }
-function _enGrass(G, tx, ty, nb) {
+function _enGrass(G, tx, ty, nb, season) {
+  season = (season | 0) & 3;
+  if (season === 3) { _enSnowLawn(G, tx, ty, nb); return; }
+  const P = _EN_SEA[season];
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
     const wx = tx * 16 + x, wy = ty * 16 + y, n = _enVN(wx / 11, wy / 9, 71), d = _enBay(x, y);
-    let c = _EN.gr;
-    if (n > .64 && d < (n - .64) * 4) c = _EN.grH; else if (n < .34 && d < (.34 - n) * 4) c = _EN.grD;
+    let c = P.gr;
+    if (n > .64 && d < (n - .64) * 4) c = P.grH; else if (n < .34 && d < (.34 - n) * 4) c = P.grD;
+    if (season === 2 && _enVN(wx / 7, wy / 6, 541) > .7 && d < .5) c = _enM(c, '#c8a85a', .45);   // autumn: dry straw-coloured patches
     G.set(x, y, c);
   }
   const tuft = (x, y) => {   // a little three-blade tuft, lit on the left blade
-    [[0, 0, '#4a8636'], [-1, 0, _EN.grD], [1, 0, _EN.grD], [-1, -1, _EN.grH], [1, -1, '#4a8636'], [0, -1, _EN.grD], [-2, -2, _EN.grH], [2, -2, _EN.grD], [0, -2, _EN.grH]]
+    [[0, 0, P.tuft], [-1, 0, P.grD], [1, 0, P.grD], [-1, -1, P.grH], [1, -1, P.tuft], [0, -1, P.grD], [-2, -2, P.grH], [2, -2, P.grD], [0, -2, P.grH]]
       .forEach(([dx, dy, c]) => G.set(x + dx, y + dy, c));
+    if (season === 1 && _enH(x, y + tx, 542) < .5) { G.set(x, y - 3, P.grH); G.set(x + 1, y - 3, P.grD); }   // summer: taller blades
   };
-  const n = Math.floor(_enH(tx, ty, 72) * 2.6);
+  const n = Math.floor(_enH(tx, ty, 72) * (season === 1 ? 3.6 : 2.6));
   for (let i = 0; i < n; i++) tuft(3 + Math.floor(_enH(tx, ty, 73 + i) * 10), 4 + Math.floor(_enH(ty, tx, 75 + i) * 10));
   const f = _enH(tx, ty, 77);
-  if (f < .32) {   // a pair of tiny flowers
+  if (season === 0 && f < .32) {   // spring: a pair of tiny flowers
     const cols = [['#ffffff', '#ffe27a'], ['#ff9ab8', '#fff0f4'], ['#ffe066', '#ffffff']][Math.floor(_enH(tx, ty, 78) * 3)];
     const fx = 3 + Math.floor(_enH(tx, ty, 79) * 10), fy = 3 + Math.floor(_enH(ty, tx, 80) * 10);
     const flower = (x, y) => { G.set(x, y + 1, '#4a8636'); G.set(x - 1, y, cols[0]); G.set(x + 1, y, cols[0]); G.set(x, y - 1, cols[0]); G.set(x, y, cols[1]); };
     flower(fx, fy); if (f < .16) flower(fx + (fx > 8 ? -3 : 3), fy + 2);
+  } else if (season === 1 && f < .2) {   // summer: white clover heads in the long grass
+    const fx = 3 + Math.floor(_enH(tx, ty, 79) * 10), fy = 3 + Math.floor(_enH(ty, tx, 80) * 10);
+    G.set(fx, fy + 1, P.tuft); G.set(fx, fy, '#f4f4ec'); G.set(fx + 1, fy, '#ffffff'); G.set(fx, fy - 1, '#ffffff'); G.set(fx + 1, fy + 1, '#d8dcd0');
+    if (f < .07) { G.set(fx + 4, fy + 3, '#ffe066'); G.set(fx + 4, fy + 4, P.tuft); }
   }
-  _enAO(G, nb, '#24402a', .9);
+  _enScatter(G, tx, ty, season, season === 0 ? 1.8 : 2.2);
+  _enAO(G, nb, P.ao, .9);
 }
-function _enPath(G, tx, ty, nb) {   // fitted-stone walk (nobedan) in the middle, raked gravel with a grass fringe at the sides
-  if (!(ty >= 30 && tx >= 15 && tx <= 19)) { _enGardenPath(G, tx, ty, nb); return; }   // only the front approach is the v1 wide walk
-  const edgeL = nb.l === 'g' || nb.l === 'b', edgeR = nb.r === 'g' || nb.r === 'b';
+// winter lawn: deep snow with soft drifts, a few dry blades poking through, now and then a line of cat paw prints
+function _enSnowLawn(G, tx, ty, nb) {
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) G.set(x, y, _enSnowAt(tx * 16 + x, ty * 16 + y, x, y));
+  const n = Math.floor(_enH(tx, ty, 72) * 2.2);
+  for (let i = 0; i < n; i++) {   // dry grass poking through, its little blue hollow in the snow
+    const x = 3 + Math.floor(_enH(tx, ty, 73 + i) * 10), y = 4 + Math.floor(_enH(ty, tx, 75 + i) * 10);
+    G.set(x - 1, y + 1, _EN_SN.s); G.set(x, y + 1, _EN_SN.s); G.set(x + 1, y + 1, _EN_SN.s);
+    G.set(x, y, '#7a8a5a'); G.set(x - 1, y - 1, '#9aa070'); G.set(x + 1, y - 1, '#6a7a4e'); if (i & 1) G.set(x, y - 2, '#b0a878');
+  }
+  if (_enH(tx, ty, 543) < .14) {   // paw prints crossing the tile
+    const dir = _enH(ty, tx, 544) < .5 ? 1 : -1, y0 = 3 + Math.floor(_enH(tx, ty, 545) * 6);
+    for (let k = 0; k < 4; k++) {
+      const px = 2 + k * 4, py = y0 + (dir > 0 ? k : 3 - k) + ((k & 1) ? 2 : 0);
+      G.set(px, py, _EN_SN.d); G.set(px + 1, py, _EN_SN.s); G.set(px, py + 1, _EN_SN.s);
+    }
+  }
+  _enAO(G, nb, _EN_SEA[3].ao, .7);
+}
+function _enPath(G, tx, ty, nb, season) {   // fitted-stone walk (nobedan) in the middle, raked gravel with a grass fringe at the sides
+  season = (season | 0) & 3;
+  if (!(ty >= 30 && tx >= 15 && tx <= 19)) { _enGardenPath(G, tx, ty, nb, season); return; }   // only the front approach is the v1 wide walk
+  const P = _EN_SEA[season], snow = season === 3, edgeL = nb.l === 'g' || nb.l === 'b', edgeR = nb.r === 'g' || nb.r === 'b';
   const STONES = ['#bcb6a8', '#c6c0b2', '#b0aa9c', '#c0b8a4', '#b8b4aa'];
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
     const wx = tx * 16 + x, wy = ty * 16 + y;
@@ -292,8 +422,12 @@ function _enPath(G, tx, ty, nb) {   // fitted-stone walk (nobedan) in the middle
       const inner = edgeL ? 15 - x : x;    // distance from the stone walk
       if (inner === 0) c = '#8a8478'; else if (inner === 1) c = '#d6d2c6'; else if (inner === 2) c = '#a8a294';
       const outer = edgeL ? x : 15 - x, fr = 1 + Math.floor(_enVN(wy / 3, tx, 83) * 4);
-      if (outer < fr) c = (outer === fr - 1) ? _EN.grD : (_enH(wx, wy, 84) < .3 ? _EN.grH : _EN.gr);
+      if (outer < fr) c = (outer === fr - 1) ? P.grD : (_enH(wx, wy, 84) < .3 ? P.grH : P.gr);
       else if (outer === fr) c = _enM(c, '#5a5040', .3);
+      if (snow) {   // winter: the gravel strips are banked with snow up to the kerb; the kerb's top still shows
+        const bank = 2 + Math.floor(_enVN(wy / 4, tx, 551) * 2);
+        c = inner === 0 ? '#8a8478' : inner < bank ? (inner === bank - 1 ? _EN_SN.s : _EN_SN.d) : inner === bank ? _EN_SN.w : _enSnowAt(wx, wy, x, y);
+      }
     } else {
       // Voronoi stones on a jittered 9px lattice
       const S = 9, ci = Math.floor(wx / S), cj = Math.floor(wy / S);
@@ -303,17 +437,21 @@ function _enPath(G, tx, ty, nb) {   // fitted-stone walk (nobedan) in the middle
         if (d < d1) { d2 = d1; d1 = d; bx = px; by = py; bi = i; bj = j; } else if (d < d2) d2 = d;
       }
       const e = d2 - d1, base = STONES[Math.floor(_enH(bi, bj, 87) * STONES.length)];
-      if (e < 1.1) c = _enH(wx, wy, 88) < .15 ? '#6e8a4a' : '#7e786c';   // mortar, a little moss
+      if (e < 1.1) c = snow ? (((wx + wy) & 1) ? _EN_SN.b : _EN_SN.s) : _enH(wx, wy, 88) < .15 ? '#6e8a4a' : '#7e786c';   // mortar, a little moss (winter: snow in the joints)
       else if (e < 2.4) c = (wx + .5 - bx) + (wy + .5 - by) < 0 ? _enM(base, '#ffffff', .3) : _enM(base, '#5a5040', .22);
       else c = _enH(wx, wy, 89) < .06 ? _enM(base, '#5a5040', .15) : base;
+      if (snow && e >= 1.1) c = _enM(c, '#dfe6f0', .14);
     }
     G.set(x, y, c);
   }
-  _enAO(G, nb, '#3a3428', .8);
+  _enScatter(G, tx, ty, season, 1.3);
+  _enAO(G, nb, snow ? _EN_SEA[3].ao : '#3a3428', .8);
 }
 // v2: narrow garden walks (1 tile wide, junctions, the hedge gap): fine gravel, a grass fringe where grass meets it,
-// flat stepping stones (tobi-ishi) laid along every arm of the walk.
-function _enGardenPath(G, tx, ty, nb) {
+// flat stepping stones (tobi-ishi) laid along every arm of the walk. v2.1 winter: snow over the gravel, the stones swept.
+function _enGardenPath(G, tx, ty, nb, season) {
+  season = (season | 0) & 3;
+  const P = _EN_SEA[season], snow = season === 3;
   const arm = c => c === 'p' || c === 'D' || c === 'E';
   const green = c => c === 'g' || c === 'f' || c === 'o' || c === 'z';
   const aU = arm(nb.u), aD = arm(nb.d), aL = arm(nb.l), aR = arm(nb.r);
@@ -325,9 +463,10 @@ function _enGardenPath(G, tx, ty, nb) {
     for (const [on, o, s] of sides) {
       if (!on) continue;
       const f = fr(s);
-      if (o < f) c = o === f - 1 ? _EN.grD : (_enH(wx, wy, 224) < .3 ? _EN.grH : _EN.gr);
+      if (o < f) c = o === f - 1 ? P.grD : (_enH(wx, wy, 224) < .3 ? P.grH : P.gr);
       else if (o === f) c = _enM(c, '#5a5040', .28);
     }
+    if (snow) c = _enSnowAt(wx, wy, x, y);
     G.set(x, y, c);
   }
   // stepping stones: centre stone + one per arm, staggered a little by hash
@@ -342,15 +481,17 @@ function _enGardenPath(G, tx, ty, nb) {
       if (x < 0 || y < 0 || x > 15 || y > 15) continue;
       const nx = (x + .5 - cx) / rx, ny = (y + .5 - cy) / ry, r2 = nx * nx + ny * ny;
       const sh = ((x + .5 - cx - .8) / rx) ** 2 + ((y + .5 - cy - 1.3) / ry) ** 2;
-      if (r2 > 1) { if (sh <= 1) G.set(x, y, _enM(G.get(x, y), '#3a3428', .32)); continue; }   // contact shadow, down-right
+      if (r2 > 1) { if (sh <= 1) G.set(x, y, snow ? _EN_SN.d : _enM(G.get(x, y), '#3a3428', .32)); continue; }   // contact shadow, down-right
       let c = base;
       if (r2 > .62 && nx + ny > .35) c = _enM(base, '#5a5040', .3);
       else if (r2 > .5 && nx + ny < -.45) c = _enM(base, '#ffffff', .32);
       else if (_enH(x + tx * 16, y + ty * 16, 230) < .07) c = _enM(base, '#5a5040', .18);
+      if (snow) c = r2 > .72 && nx + ny < -.3 ? _EN_SN.h : _enM(c, '#dfe6f0', .14);   // swept; a rim of snow left on its upper edge
       G.set(x, y, c);
     }
   }
-  _enAO(G, nb, '#3a3428', .8);
+  _enScatter(G, tx, ty, season, 1.3);
+  _enAO(G, nb, snow ? _EN_SEA[3].ao : '#3a3428', .8);
 }
 
 // ------------------------------------------------------------ v2 floors
@@ -387,7 +528,9 @@ function _enDining(G, tx, ty, nb) {   // wide dark boards; a straw-mat (goza) ru
   }
   _enAO(G, nb, OUT);
 }
-function _enSand(G, tx, ty, nb) {   // raked white gravel (karesansui): wavy rake lines, rings round the stones, a dark kerb
+function _enSand(G, tx, ty, nb, season) {   // raked white gravel (karesansui): wavy rake lines, rings round the stones, a dark kerb
+  season = (season | 0) & 3;
+  const snow = season === 3;   // winter: the raked pattern still shows through the snow as soft blue furrows
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
     const wx = tx * 16 + x, wy = ty * 16 + y;
     let ph = wy + Math.sin(wx / 8 + _enVN(wx / 30, wy / 30, 151) * 3) * 1.3, ring = false;
@@ -399,18 +542,23 @@ function _enSand(G, tx, ty, nb) {   // raked white gravel (karesansui): wavy rak
     let c = m === 0 ? _EN.sandS : m === 1 ? _EN.sandH : _EN.sand;
     if (!ring && m === 3 && _enBay(x, y) < .25) c = _enM(_EN.sand, _EN.sandS, .3);
     if (_enH(wx, wy, 152) < .045) c = _enM(c, '#9a9282', .35);
+    if (snow) c = m === 0 ? (_enBay(x, y) < .6 ? _EN_SN.s : _EN_SN.b) : m === 1 ? _EN_SN.w : _enSnowAt(wx, wy, x, y);
     G.set(x, y, c);
   }
   const out = c => c !== 'z';
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
     const wx = tx * 16 + x, wy = ty * 16 + y;
     const dk = Math.min(out(nb.u) ? y : 9, out(nb.d) ? 15 - y : 9, out(nb.l) ? x : 9, out(nb.r) ? 15 - x : 9);
-    if (dk < 2) G.set(x, y, dk === 0 ? (_enH(wx >> 1, wy >> 1, 153) < .5 ? '#6e6a62' : '#7e7a70') : (_enH(wx >> 1, wy >> 1, 154) < .5 ? '#8e8a80' : '#9e998e'));
-    else if (dk === 2 && ((out(nb.u) && y === 2) || (out(nb.l) && x === 2))) G.set(x, y, _enM(G.get(x, y), '#8a8272', .35));   // kerb shadow
+    if (dk < 2) {
+      if (snow) G.set(x, y, dk === 0 ? (_enH(wx >> 1, wy >> 1, 153) < .5 ? '#7e8698' : '#8e96a6') : _enH(wx >> 1, wy >> 1, 154) < .6 ? _EN_SN.w : _EN_SN.h);   // kerb stones, capped
+      else G.set(x, y, dk === 0 ? (_enH(wx >> 1, wy >> 1, 153) < .5 ? '#6e6a62' : '#7e7a70') : (_enH(wx >> 1, wy >> 1, 154) < .5 ? '#8e8a80' : '#9e998e'));
+    } else if (dk === 2 && ((out(nb.u) && y === 2) || (out(nb.l) && x === 2))) G.set(x, y, _enM(G.get(x, y), snow ? '#5a6888' : '#8a8272', .35));   // kerb shadow
   }
-  _enAO(G, nb, '#3a3428', .6);
+  _enScatter(G, tx, ty, season, 1.4, (x, y) => Math.min(x, y, 15 - x, 15 - y) > 1 || !(out(nb.u) || out(nb.d) || out(nb.l) || out(nb.r)));
+  _enAO(G, nb, snow ? _EN_SEA[3].ao : '#3a3428', .6);
 }
-function _enDeck(G, tx, ty, nb) {   // open-air deck: 6px cedar boards running north-south, staggered butt joints, nail heads
+function _enDeck(G, tx, ty, nb, season) {   // open-air deck: 6px cedar boards running north-south, staggered butt joints, nail heads
+  season = (season | 0) & 3;
   const out = c => c !== 'x';
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
     const wx = tx * 16 + x, wy = ty * 16 + y, bd = Math.floor(wx / 6), bx = wx - bd * 6;
@@ -433,6 +581,18 @@ function _enDeck(G, tx, ty, nb) {   // open-air deck: 6px cedar boards running n
   }
   if (out(nb.l)) for (let y = 0; y < 16; y++) G.set(0, y, _EN.deckS);
   if (out(nb.r)) for (let y = 0; y < 16; y++) G.set(15, y, _enM(_EN.deckS, OUT, .2));
+  if (season === 3) {   // winter: frost in the board gaps, snow drifted along the deck's outer edges (the walk to the bath swept)
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) if ((tx * 16 + x) % 6 === 0 && G.get(x, y) === _enM(_EN.deckS, _EN.deckD, .3) && _enBay(x, y) < .55) G.set(x, y, _EN_SN.s);
+    const side = c => c === 'f' || c === 'g' || c === 'b' || c === '#' || c == null;
+    const f = s => 1 + Math.floor(_enVN(s / 4, tx * 3 + ty, 561) * 4);
+    _enSnowOver(G, tx, ty, (x, y) => {
+      const wx = tx * 16 + x, wy = ty * 16 + y;
+      if (side(nb.l) && x < f(wy)) return true;
+      if (side(nb.r) && 15 - x < f(wy + 40) && x <= 15) return true;
+      if (out(nb.d) && side(nb.d)) return y <= 11 && y >= 12 - f(wx + 80) - 1 && y >= 0;   // along the front edge, above the fascia
+      return false;
+    });
+  } else _enScatter(G, tx, ty, season, 1.25);
   _enAO(G, nb, OUT, .8);
 }
 // paving stones (shop / plaza): uneven course heights (6..9 px), slab lengths 12..22 in running bond, soft joints
@@ -443,22 +603,31 @@ function _enQCell(wx, wy) {
   const L = 12 + Math.floor(_enH(row, 0, 171) * 11), sx = wx + Math.floor(_enH(row, 1, 172) * L), seg = Math.floor(sx / L), jx = sx - seg * L;
   return { row, py, ph, seg, jx, L };
 }
-function _enStoneQ(G, tx, ty, nb) {
-  const TONES = ['#b8b2a4', '#aea898', '#a09a8c', '#bdb7a9', '#b3ad9f'];
+function _enStoneQ(G, tx, ty, nb, season) {
+  season = (season | 0) & 3;
+  const TONES = ['#b8b2a4', '#aea898', '#a09a8c', '#bdb7a9', '#b3ad9f'], snow = season === 3;
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
     const wx = tx * 16 + x, wy = ty * 16 + y, q = _enQCell(wx, wy);
     const base = TONES[Math.floor(_enH(q.row, q.seg, 173) * TONES.length)];
     let c = base;
     const jt = q.py === 0 || q.jx === 0;
-    if (jt) c = _enH(wx, wy, 174) < .1 ? '#8a9468' : '#8c8678';   // joints, a little moss
+    if (jt) c = snow ? _EN_SN.s : _enH(wx, wy, 174) < .1 ? '#8a9468' : '#8c8678';   // joints, a little moss (winter: snow)
     else if ((q.py === 1 && q.jx === 1)) c = base;                  // rounded corner
     else if (q.py === 1 || q.jx === 1) c = _enM(base, _EN.qsH, .38);
     else if (q.py === q.ph - 1 || q.jx === q.L - 1) c = _enM(base, _EN.qsJ, .22);
     else if (_enH(wx, wy, 175) < .06) c = _enM(base, _EN.qsJ, .3);
     else if (_enVN(wx / 5, wy / 5, 178) > .78 && _enBay(x, y) < .4) c = _enM(base, '#ffffff', .12);   // worn patches
+    if (snow && !jt) c = _enM(c, '#dfe6f0', .12);
     G.set(x, y, c);
   }
-  _enAO(G, nb, '#3a3428', .8);
+  if (snow) {   // winter: packed snow lying in patches, deeper along the edges
+    const op = c => c !== 'q' && c !== 'D' && c !== 'p';
+    _enSnowOver(G, tx, ty, (x, y) => {
+      const wx = tx * 16 + x, wy = ty * 16 + y, e = Math.min(op(nb.u) ? y : 9, op(nb.d) ? 15 - y : 9, op(nb.l) ? x : 9, op(nb.r) ? 15 - x : 9);
+      return _enVN(wx / 10, wy / 7, 562) + (e < 4 ? (4 - e) * .09 : 0) > .6;
+    });
+  } else _enScatter(G, tx, ty, season, 1.3);
+  _enAO(G, nb, snow ? _EN_SEA[3].ao : '#3a3428', .8);
 }
 // koi pond: deep teal water inside a rim of natural stones on every side that is not pond
 const _EN_PONDNB = new Map();
@@ -468,8 +637,9 @@ function _enPondNb(tx, ty) {
   const isP = (x, y) => x >= 27 && x <= 30 && y >= 15 && y <= 17;   // SPEC_v2 2.1 pond, used before tileArt('o') has run
   return { u: isP(tx, ty - 1) ? 'o' : 'g', d: isP(tx, ty + 1) ? 'o' : 'g', l: isP(tx - 1, ty) ? 'o' : 'g', r: isP(tx + 1, ty) ? 'o' : 'g' };
 }
-function _enPond(G, frame, tx, ty, nb) {
-  const eU = nb.u !== 'o', eD = nb.d !== 'o', eL = nb.l !== 'o', eR = nb.r !== 'o';
+function _enPond(G, frame, tx, ty, nb, season) {
+  season = (season | 0) & 3;
+  const eU = nb.u !== 'o', eD = nb.d !== 'o', eL = nb.l !== 'o', eR = nb.r !== 'o', snow = season === 3;
   const rimW = (on, s, base) => on ? base + Math.floor(_enVN(s / 5, 0, 181) * 2.2) : 0;
   const RIM = ['#8a8a84', '#9c988e', '#7a7a76', '#aaa69c', '#86827a'];
   const stone = (wx, wy) => {   // Voronoi cobbles, lit top-left
@@ -480,11 +650,17 @@ function _enPond(G, frame, tx, ty, nb) {
       if (d < d1) { d2 = d1; d1 = d; bx = px; by = py; bi = i; bj = j; } else if (d < d2) d2 = d;
     }
     const base = RIM[Math.floor(_enH(bi, bj, 184) * RIM.length)];
-    if (d2 - d1 < 1) return '#4e4c48';
+    if (d2 - d1 < 1) return snow ? _EN_SN.d : '#4e4c48';
+    if (snow) {   // winter: every cobble wears a cap of snow on its upper side
+      const t = (wx + .5 - bx) + (wy + .5 - by) * 1.3;
+      return t < -1.6 ? _EN_SN.w : t < -.2 ? _EN_SN.b : t < .8 ? _EN_SN.s : _enM(base, '#4a5470', .25);
+    }
     if ((wx + .5 - bx) + (wy + .5 - by) < -1.2) return _enM(base, '#ffffff', .25);
     if ((wx + .5 - bx) + (wy + .5 - by) > 1.4) return _enM(base, '#3a3836', .25);
+    if (season === 2 && _enH(bi, bj, 185) < .3 && wy + .5 < by) return _enM(base, '#9a8a42', .45);   // autumn: the moss turns ochre
     return _enH(bi, bj, 185) < .3 && wy + .5 < by ? _enM(base, '#6a8a4a', .45) : base;
   };
+  const iceW = (s, k) => 2 + Math.floor(_enVN(s / 6, k, 571) * 3);   // winter: a thin skin of ice along the rim
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
     const wx = tx * 16 + x, wy = ty * 16 + y;
     const u = rimW(eU, wx, 4), d = rimW(eD, wx + 40, 3), l = rimW(eL, wy, 4), r = rimW(eR, wy + 40, 3);
@@ -494,6 +670,12 @@ function _enPond(G, frame, tx, ty, nb) {
     let c = n < .4 && b < (.4 - n) * 2.4 ? _EN.pondD : n > .72 && b < (n - .72) * 2 ? _enM(_EN.pond, _EN.pondH, .35) : _EN.pond;
     if (inside === 0) c = (eU && y - u === 0) || (eL && x - l === 0) ? '#1a4a52' : _enM(_EN.pondD, '#1a4a52', .5);   // shade under the rim
     else if (inside === 1 && ((eU && y - u === 1) || (eL && x - l === 1)) && b < .5) c = _EN.pondD;
+    if (snow) {
+      const ice = Math.min(eU ? y - u - iceW(wx, 1) : 99, eD ? 15 - y - d - iceW(wx, 2) : 99, eL ? x - l - iceW(wy, 3) : 99, eR ? 15 - x - r - iceW(wy, 4) : 99);
+      if (ice < 0) c = ice === -1 ? _EN_SN.iceH : (wx + wy * 2) % 9 === 0 ? _EN_SN.iceH : _EN_SN.ice;   // a bright edge where the ice ends, faint streaks
+      else if (ice === 0) c = '#16424a';
+      else c = _enM(c, '#1a3a4a', .25);   // the open water looks colder
+    }
     G.set(x, y, c);
   }
   // slow glints, 4 stages each with its own phase (like the onsen water, but fewer and dimmer)
@@ -511,8 +693,9 @@ function _enPond(G, frame, tx, ty, nb) {
       }
     }
   }
-  // lily pads (static), kept off the rim
-  const n = Math.floor(_enH(tx, ty, 191) * 2.4);
+  // lily pads (static), kept off the rim; none in winter, yellowing in autumn, in flower in summer
+  const n = snow ? 0 : Math.floor(_enH(tx, ty, 191) * 2.4);
+  const PAD = season === 2 ? ['#8a7a2a', '#c8b04a', '#d8c060', '#aa9636'] : ['#3e7a34', '#6aac52', '#7cbc5a', '#5a9a46'];
   for (let i = 0; i < n; i++) {
     const lo = 3 + (eL ? 4 : 0), hi = 12 - (eR ? 4 : 0), lo2 = 3 + (eU ? 4 : 0), hi2 = 12 - (eD ? 3 : 0);
     if (hi < lo || hi2 < lo2) break;
@@ -524,17 +707,46 @@ function _enPond(G, frame, tx, ty, nb) {
       if (d > rr) { if (Math.hypot(dx - .9, dy - .9) <= rr) G.set(x, y, '#1c5258'); continue; }   // pad shadow on the water
       const q = [dx > 0 && dy < 0, dx > 0 && dy > 0, dx < 0 && dy > 0, dx < 0 && dy < 0][notch];
       if (q && Math.abs(Math.abs(dx) - Math.abs(dy)) < .9 && d > .6) continue;   // the little wedge cut into a lily pad
-      G.set(x, y, d > rr - .9 ? (dx + dy > 0 ? '#3e7a34' : '#6aac52') : (dx + dy < -1 ? '#7cbc5a' : '#5a9a46'));
+      G.set(x, y, d > rr - .9 ? (dx + dy > 0 ? PAD[0] : PAD[1]) : (dx + dy < -1 ? PAD[2] : PAD[3]));
     }
-    if (_enH(tx, ty + i, 198) < .45) {   // a water-lily flower on some pads
+    if (season === 1 && _enH(tx, ty + i, 198) < .45) {   // summer: a water-lily flower on some pads
       const fx = Math.round(cx - .5), fy = Math.round(cy - 1.5);
       G.set(fx, fy, '#f8c8d8'); G.set(fx - 1, fy + 1, '#f0a8c0'); G.set(fx + 1, fy + 1, '#e890a8'); G.set(fx, fy + 1, '#fff2a0');
     }
   }
+  if (season === 0 || season === 2) {   // spring: petals afloat in little rafts (hanaikada); autumn: a few floating leaves
+    const lo = eL ? 6 : 1, hi = eR ? 10 : 14, lo2 = eU ? 6 : 1, hi2 = eD ? 10 : 14;
+    _enScatter(G, tx, ty, season, season ? 1.6 : 2.4, (x, y) => x >= lo && x <= hi && y >= lo2 && y <= hi2);
+  }
 }
 
 // ------------------------------------------------------------ nature
-function _enFence(G, tx, ty, nb) {   // bamboo privacy fence (kenninji-gaki)
+function _enFence(G, tx, ty, nb, season) {   // bamboo privacy fence (kenninji-gaki); v2.1 winter: snow on the top and rails
+  const snow = ((season | 0) & 3) === 3;
+  if (snow) { _enFenceDry(G, tx, ty, nb); _enFenceSnow(G, tx, ty, nb); return; }
+  _enFenceDry(G, tx, ty, nb);
+}
+// winter on a fence tile painted by _enFenceDry: the leaves of the grove outside hold snow, the capped top rail and the
+// cross rails carry a white line, the strip of gravel beside a mid fence is snowed over
+function _enFenceSnow(G, tx, ty, nb) {
+  const run = nb.l === 'b' || nb.r === 'b', LEAF = { '#4e8a3e': _EN_SN.w }, RAIL = { '#a8da6c': _EN_SN.w, '#7cb84a': _EN_SN.b, '#5a9a3a': _EN_SN.s, '#d8f0a0': _EN_SN.w, '#4a8a32': _EN_SN.s, '#b4e070': _EN_SN.w };
+  if (run) {
+    for (let x = 0; x < 16; x++) {
+      const wx = tx * 16 + x;
+      G.set(x, 0, _EN_SN.h); G.set(x, 1, _EN_SN.b); G.set(x, 2, _enH(wx >> 1, 2, 581) < .4 ? _EN_SN.s : _EN_SN.w);
+      if (_enH(wx, 3, 582) < .3) G.set(x, 3, _EN_SN.s);
+      for (const by of [7, 12]) if (wx % 8 !== 3) G.set(x, by, _EN_SN.w);
+    }
+    return;
+  }
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const c = G.get(x, y), wx = tx * 16 + x, wy = ty * 16 + y;
+    if (LEAF[c]) G.set(x, y, _enVN(wx / 3, (wy + 1) / 3, 94) > .74 ? _EN_SN.w : _EN_SN.s);   // snow on the lit leaf clumps, shaded along their lower edge
+    else if (RAIL[c]) G.set(x, y, RAIL[c]);
+    else if (c === '#7e786c' || c === '#9a9486' || c === '#b4ae9e') G.set(x, y, _enSnowAt(wx, wy, x, y));
+  }
+}
+function _enFenceDry(G, tx, ty, nb) {
   const run = nb.l === 'b' || nb.r === 'b';
   if (run) {   // seen from the front
     for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
@@ -610,8 +822,17 @@ function _enFenceMid(G, tx, ty, nb) {
   if (nb.u !== 'b') for (let i = 0; i < 5; i++) { G.set(s + i, 0, C[0]); G.set(s + i, 1, i === 0 || i === 4 ? C[0] : '#d8f0a0'); G.set(s + i, 2, i === 0 || i === 4 ? C[0] : '#5a9a3a'); }
   if (nb.d !== 'b' && nb.d !== '#') for (let i = 0; i < 5; i++) { G.set(s + i, 14, i === 0 || i === 4 ? C[0] : '#3e6a2c'); G.set(s + i, 15, C[0]); }
 }
-function _enBush(G, tx, ty, nb) {   // round clipped azalea bushes (tsutsuji), some in flower
-  const PAL = ['#1f4a2a', '#2c6a30', '#3f8a38', '#56a040', '#74b84e', '#9ed062'];
+// v2.1 bush colours by season: spring = v2.0 (azaleas in flower), summer deep green with hydrangea heads, autumn every
+// bush its own red / orange / russet (dodan-tsutsuji), winter a dark evergreen under caps of snow
+const _EN_BUSHP = [
+  [['#1f4a2a', '#2c6a30', '#3f8a38', '#56a040', '#74b84e', '#9ed062']],
+  [['#183e26', '#22562a', '#2f7432', '#43903a', '#5eaa46', '#86c45a']],
+  [['#4a1812', '#76241a', '#a0361e', '#c44e26', '#de7030', '#f0a248'], ['#4e2410', '#7e3a14', '#a8561a', '#cc7424', '#e69a34', '#f6c458'], ['#2e3a1e', '#4a4a22', '#6e5826', '#946a2a', '#b88430', '#d8a844']],
+  [['#16301f', '#1e4228', '#2a5430', '#36663a', '#447444', '#56864e']],
+];
+function _enBush(G, tx, ty, nb, season) {   // round clipped azalea bushes (tsutsuji), some in flower
+  season = (season | 0) & 3;
+  const PS = _EN_BUSHP[season], PAL = PS[0];
   const bushes = [];
   const add = (cx, cy) => bushes.push({ x: cx * 16 + 8 + (_enH(cx, cy, 101) - .5) * 2, y: cy * 16 + 8.5, rx: 8.4 + _enH(cx, cy, 102) * .8, ry: 8.6, cx, cy });
   add(tx, ty);
@@ -619,15 +840,16 @@ function _enBush(G, tx, ty, nb) {   // round clipped azalea bushes (tsutsuji), s
   const own = (wx, wy) => { let best = null; for (const b of bushes) { const nx = (wx + .5 - b.x) / b.rx, ny = (wy + .5 - b.y) / b.ry; if (nx * nx + ny * ny <= 1 && (!best || b.y > best.y)) best = b; } return best; };
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
     const wx = tx * 16 + x, wy = ty * 16 + y, b = own(wx, wy);
-    if (!b) {   // mossy soil between bushes, darker right under a bush
+    if (!b) {   // mossy soil between bushes, darker right under a bush (winter: snow)
       const under = own(wx, wy - 2);
-      G.set(x, y, under ? '#2e3e24' : (_enH(wx, wy, 103) < .2 ? '#56683a' : '#4a5c34'));
+      if (season === 3) G.set(x, y, under ? _EN_SN.d : _enSnowAt(wx, wy, x, y));
+      else G.set(x, y, under ? '#2e3e24' : (_enH(wx, wy, 103) < .2 ? (season === 2 ? '#7a6a3a' : '#56683a') : (season === 2 ? '#62583a' : '#4a5c34')));
       continue;
     }
     const o1 = own(wx - 1, wy), o2 = own(wx + 1, wy), o3 = own(wx, wy - 1), o4 = own(wx, wy + 1);
     if (o1 !== b || o2 !== b || o3 !== b || o4 !== b) {
       const behind = [o1, o2, o3, o4].every(o => !o || o === b || o.y < b.y);
-      if (behind) { G.set(x, y, '#183a22'); continue; }
+      if (behind) { G.set(x, y, season === 2 ? '#2e1a14' : '#183a22'); continue; }
     }
     const lx = (wx + .5 - b.x) / b.rx, ly = (wy + .5 - b.y) / b.ry, light = -(lx * .55 + ly * .85);
     const S = 4, ci = Math.floor(wx / S), cj = Math.floor(wy / S);
@@ -637,11 +859,28 @@ function _enBush(G, tx, ty, nb) {   // round clipped azalea bushes (tsutsuji), s
       if (d < best) { best = d; ox = wx - fx; oy = wy - fy; }
     }
     const v = light * 1.25 - (ox + oy) / S * .42 - best / S * .3 + .25 + (_enBay(x, y) - .5) * .25;
-    G.set(x, y, PAL[clamp(Math.round(2.6 + v * 2.2), 0, PAL.length - 1)]);
+    const pal = season === 2 ? PS[Math.floor(_enH(b.cx, b.cy, 591) * PS.length)] : PAL;
+    let c = pal[clamp(Math.round(2.6 + v * 2.2), 0, pal.length - 1)];
+    if (season === 3) {   // winter: a cap of snow on the upper side of each dome, ragged at its lower edge
+      const cap = ly + _enVN(wx / 3, wy / 2.5, 592) * .5 - .25 < -.18;
+      if (cap) c = v > .55 ? _EN_SN.w : v > .1 ? _EN_SN.h : v > -.3 ? _EN_SN.b : _EN_SN.s;
+      else if (ly + _enVN(wx / 3, (wy - 1) / 2.5, 592) * .5 - .25 < -.18) c = _enM(c, '#0e1a14', .3);   // the cap's shadow on the leaves
+    }
+    G.set(x, y, c);
   }
-  // blossoms on the lit upper half of this tile's own bush
+  // blossoms on the lit upper half of this tile's own bush (spring); hydrangea heads in summer
   const me = bushes[0], fl = _enH(tx, ty, 106);
-  if (fl > .35) {
+  if (season === 1 && fl > .45) {
+    const HY = [['#4a5ac8', '#7a8ae8', '#b4c0ff'], ['#8a4ab8', '#b07ae0', '#dcc0ff'], ['#5a7ad8', '#94b0f0', '#e0e8ff']][Math.floor(_enH(tx, ty, 593) * 3)];
+    for (let i = 0; i < 2; i++) {
+      const a = -2.4 + _enH(tx, ty, 594 + i) * 2, r = 2.5 + _enH(ty, tx, 596 + i) * 3;
+      const fx = Math.round(me.x + Math.cos(a) * r) - tx * 16, fy = Math.round(me.y - 1 + Math.sin(a) * r * .8) - ty * 16;
+      if (fx < 2 || fx > 13 || fy < 2 || fy > 13) continue;
+      [[-1, -1], [0, -1], [1, -1], [-1, 0], [0, 0], [1, 0], [2, 0], [0, 1], [1, 1]].forEach(([dx, dy]) => G.set(fx + dx, fy + dy, dx + dy < -1 ? HY[2] : dx + dy > 0 ? HY[0] : HY[1]));
+      G.set(fx - 1, fy - 1, '#ffffff'); G.set(fx + 1, fy + 2, '#183e26'); G.set(fx + 2, fy + 1, '#183e26');
+    }
+  }
+  if (season === 0 && fl > .35) {
     const P = fl > .78 ? ['#ffffff', '#f0e8f4'] : ['#ff8ab0', '#ffc4dc'];
     for (let i = 0; i < 4; i++) {
       const a = -2.6 + _enH(tx, ty, 107 + i) * 2.4, r = 2 + _enH(ty, tx, 111 + i) * 4;
@@ -651,7 +890,8 @@ function _enBush(G, tx, ty, nb) {   // round clipped azalea bushes (tsutsuji), s
     }
   }
 }
-function _enRock(G, tx, ty, nb) {   // onsen boulders; the side facing the water is wet and dark
+function _enRock(G, tx, ty, nb, season) {   // onsen boulders; the side facing the water is wet and dark
+  season = (season | 0) & 3;
   const RAMP = ['#46464c', '#5e5e60', '#7a7a78', '#94928c', '#b0aea6'];
   const list = [];
   const add = (cx, cy) => {
@@ -667,23 +907,27 @@ function _enRock(G, tx, ty, nb) {   // onsen boulders; the side facing the water
     const wx = tx * 16 + x, wy = ty * 16 + y, b = own(wx, wy), wd = wetD(x, y);
     if (!b) {
       if (wd < 6) G.set(x, y, wd < 2 ? '#2a8c7c' : _enBay(x, y) < .5 ? '#2a8c7c' : '#2a665c');
-      else G.set(x, y, _enH(wx, wy, 124) < .25 ? '#46553a' : '#3a4234');
+      else G.set(x, y, season === 3 ? (own(wx, wy - 2) ? _EN_SN.d : _enSnowAt(wx, wy, x, y)) : _enH(wx, wy, 124) < .25 ? '#46553a' : '#3a4234');
       continue;
     }
     const ns = [own(wx - 1, wy), own(wx + 1, wy), own(wx, wy - 1), own(wx, wy + 1)];
-    let c;
+    let c, snowy = false;
     if (ns.some(o => o !== b && (!o || o.y + o.ry > b.y + b.ry))) c = '#34343c';
     else {
       const nx = (wx + .5 - b.x) / b.rx, ny = (wy + .5 - b.y) / b.ry, r2 = nx * nx + ny * ny;
       const v = -(nx * .6 + ny * .8) * .95 + (1 - r2) * .6 + (_enBay(x, y) - .5) * .35;
       c = RAMP[clamp(Math.round(1.6 + v * 2), 0, 4)];
       if (b.warm) c = _enM(c, '#8a7058', .14);
-      if (b.moss && ny < -.2 && _enVN(wx / 3, wy / 3, 125) > .5) c = ny < -.55 ? '#7a9a52' : '#5e7e44';
+      if (b.moss && ny < -.2 && _enVN(wx / 3, wy / 3, 125) > .5) c = ny < -.55 ? (season === 2 ? '#a8944a' : '#7a9a52') : (season === 2 ? '#8a7a3e' : '#5e7e44');
+      // winter: snow lies on each boulder's upper side; the warm steam keeps the faces by the water bare
+      if (season === 3 && wd >= 4 && ny + _enVN(wx / 3, wy / 2, 601) * .45 - .2 < -.3) { snowy = true; c = v > .7 ? _EN_SN.w : v > .25 ? _EN_SN.h : v > -.15 ? _EN_SN.b : _EN_SN.s; }
+      else if (season === 3 && wd >= 4 && ny + _enVN(wx / 3, (wy - 1) / 2, 601) * .45 - .2 < -.3) c = _enM(c, '#1a2030', .3);
     }
     const lit = c === RAMP[3] || c === RAMP[4];
-    if (wd < 5) { c = _enM(c, '#1e463e', (5 - wd) / 5 * .55); if (wd > 0 && wd < 4 && lit && _enH(wx, wy, 126) < .3) c = '#c2e8d8'; }
+    if (wd < 5 && !snowy) { c = _enM(c, '#1e463e', (5 - wd) / 5 * .55); if (wd > 0 && wd < 4 && lit && _enH(wx, wy, 126) < .3) c = '#c2e8d8'; }
     G.set(x, y, c);
   }
+  if (season === 0) _enScatter(G, tx, ty, 0, 1.1, (x, y) => wetD(x, y) > 4);
 }
 function _enWaterPx(G, frame, tx, ty) {
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
@@ -709,7 +953,7 @@ function _enWaterPx(G, frame, tx, ty) {
 }
 
 const _EN_TILE = {
-  '#': (G, tx, ty, nb) => (nb.d !== '#' && nb.d != null) ? _enWallFace(G, tx, ty, nb) : _enWallTop(G, tx, ty, nb),
+  '#': (G, tx, ty, nb, s) => (nb.d !== '#' && nb.d != null) ? _enWallFace(G, tx, ty, nb, s) : _enWallTop(G, tx, ty, nb, s),
   't': _enTatami, '.': _enCorridor, 'l': _enLobby, 's': _enSlate, 'E': _enGenkan, 'g': _enGrass, 'p': _enPath,
   'b': _enFence, 'f': _enBush, 'r': _enRock,
   'k': _enKitchen, 'm': _enDining, 'z': _enSand, 'x': _enDeck, 'q': _enStoneQ,
@@ -1003,7 +1247,7 @@ function _enHall(G, tx, ty, nb) {
 }
 
 // ------------------------------------------------------------ the star-view bath (roten): hinoki everywhere, milky water
-function _enSunoko(G, tx, ty, nb, inRoom) {   // hinoki duckboard: 3 px slats east-west, 1 px gaps, staggered joints
+function _enSunoko(G, tx, ty, nb, inRoom, season) {   // hinoki duckboard: 3 px slats east-west, 1 px gaps, staggered joints
   const H = _EN_HIN;
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
     const wx = tx * 16 + x, wy = ty * 16 + y, row = wy >> 2, py = wy & 3, sx = wx + Math.floor(_enH(row, 0, 341) * 30), seg = Math.floor(sx / 30), jx = sx - seg * 30;
@@ -1013,10 +1257,11 @@ function _enSunoko(G, tx, ty, nb, inRoom) {   // hinoki duckboard: 3 px slats ea
     if ((jx === 2 || jx === 27) && py === 1) c = '#8a6040';   // nails
     G.set(x, y, c);
   }
+  if (!inRoom && season === 3) _enSnowOver(G, tx, ty, _enDrift(tx, ty, { u: nb.u, l: nb.l === 'f' ? 'f' : null, r: nb.r === 'f' ? 'f' : null }, 'fr', 3));   // winter: a little drift under the rocks
   _enAO(G, inRoom ? nb : { u: nb.u === 'r' || nb.u === '#' ? '#' : null, l: nb.l === 'D' || nb.l === '#' ? '#' : null, r: null }, OUT, .7);
 }
 // bath corners (the 'r' tiles at each end of the roten pool): deck, stacked buckets, a bamboo lantern
-function _enRotenSide(G, tx, ty, nb) {
+function _enRotenSide(G, tx, ty, nb, season) {
   const H = _EN_HIN;
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {   // north-south boards
     const wx = tx * 16 + x, b = Math.floor(wx / 4), bx = wx & 3, t = _enH(b, ty, 343);
@@ -1037,10 +1282,12 @@ function _enRotenSide(G, tx, ty, nb) {
       G.set(bx + 3, by, H.hinD);
     };
     bucket(cx, 6); bucket(cx - 1, 1);
+    if (season === 3) for (let x = cx - 4; x <= cx + 1; x++) { G.set(x, 0, _EN_SN.w); G.set(x, 1, x < cx - 2 ? _EN_SN.h : _EN_SN.b); }   // winter: snow on the top bucket
   } else {   // the bamboo lantern (a prop, map.js SCENERY) stands here in a ring of pebbles
-    for (const [x, y, c] of [[3, 13, '#a8a8a0'], [4, 14, '#8a8a84'], [7, 14, '#b4b2aa'], [10, 14, '#9a9a94'], [12, 13, '#a8a8a0'], [2, 11, '#9a9a94'], [13, 11, '#8a8a84']]) { G.set(x, y, c); G.set(x + 1, y, _enM(c, OUT, .2)); }
+    for (const [x, y, c] of [[3, 13, '#a8a8a0'], [4, 14, '#8a8a84'], [7, 14, '#b4b2aa'], [10, 14, '#9a9a94'], [12, 13, '#a8a8a0'], [2, 11, '#9a9a94'], [13, 11, '#8a8a84']]) { G.set(x, y, season === 3 ? _EN_SN.h : c); G.set(x + 1, y, season === 3 ? _EN_SN.s : _enM(c, OUT, .2)); }
   }
   if (nb.l === 'f') for (let y = 0; y < 16; y++) { sh(0, y, .35); if (_enBay(1, y) < .5) sh(1, y, .15); }
+  if (season === 3) _enSnowOver(G, tx, ty, _enDrift(tx, ty, { u: bottom ? null : 'r', l: nb.l === 'f' ? 'f' : null }, 'rf', 3));   // winter: drifts in the corner by the rocks
 }
 // milky (nigori) water inside a hinoki rim; 4 slow frames like waterArt, seamless; rim on the sides that are not water.
 // Soft wavy bands (big dither patches read as ice), slow white crests, the rim's shadow on the top / left.
@@ -1089,9 +1336,9 @@ function _enRotenWater(G, frame, tx, ty, nb) {
 // hedge on 'f', 'gd|s,f' the char's own painter (+ s = 1: a stepping stone in the grass). f = 1: the low bamboo fence
 // (yotsume-gaki) along the tile's west edge, between the garden and the front yard.
 function _enGardenLook(ch, L) {
-  if (L.id === 'bed' && ch === 'f') return (G, tx, ty, nb) => { _enFlowerBed(G, tx, ty, nb, L.a); if (L.b) _enLowFence(G, tx, ty); };
-  if (L.id === 'hedge' && ch === 'f') return (G, tx, ty, nb) => { _enHedge(G, tx, ty, nb); if (L.b) _enLowFence(G, tx, ty); };
-  if (L.id === 'gd' && _EN_TILE[ch]) return (G, tx, ty, nb) => { _EN_TILE[ch](G, tx, ty, nb); if (L.a) _enGrassStone(G, tx, ty); if (L.b) _enLowFence(G, tx, ty); };
+  if (L.id === 'bed' && ch === 'f') return (G, tx, ty, nb, s) => { _enFlowerBed(G, tx, ty, nb, L.a, s); if (L.b) _enLowFence(G, tx, ty, s); };
+  if (L.id === 'hedge' && ch === 'f') return (G, tx, ty, nb, s) => { _enHedge(G, tx, ty, nb, s); if (L.b) _enLowFence(G, tx, ty, s); };
+  if (L.id === 'gd' && _EN_TILE[ch]) return (G, tx, ty, nb, s) => { _EN_TILE[ch](G, tx, ty, nb, s); if (L.a) _enGrassStone(G, tx, ty, s); if (L.b) _enLowFence(G, tx, ty, s); };
   return null;
 }
 const _EN_BLOOM = [
@@ -1102,9 +1349,23 @@ const _EN_BLOOM = [
 ];
 // planting: a mass of leaf clumps (lit top-left, like the azaleas) over dark soil, flowers on a hashed lattice, an edging
 // of small stones on every side that is not more planting
-function _enFlowerBed(G, tx, ty, nb, v) {
-  v = clamp(v | 0, 0, 3);
-  const LP = v === 2 ? ['#2e5a26', '#3e7a2c', '#5a9a3a', '#7cb850', '#9ad068'] : ['#1f4a2a', '#2c6a30', '#3f8a38', '#56a040', '#74b84e'];
+// v2.1: what each bed shows by season. Summer = v2.0.1 (hydrangea, iris, cosmos, marigold); spring tulips / pansies and
+// iris leaves; autumn dried hydrangea heads, yellowing iris, cosmos and marigold; winter snow over the beds, the red
+// berries of nanten showing through
+const _EN_BEDS = [
+  [[['#d83a3a', '#f06a5a', '#fff0d0'], ['#f0a0c0', '#ffc8dc', '#fff4f8'], ['#f0c020', '#ffe060', '#fffbe0']], null,
+    [['#6a3ab8', '#9a6ae0', '#ffe060'], ['#f0d020', '#ffec70', '#5a3a2a'], ['#f4f0f4', '#ffffff', '#8a4ac0']], [['#f08a20', '#ffb050', '#fff0c0'], ['#e8c020', '#ffe060', '#fffbe0']]],
+  _EN_BLOOM,
+  [[['#9a6a74', '#b88e96', '#d8b8b8'], ['#7e7e5e', '#a0a07c', '#c4c0a0'], ['#8a7088', '#a890a4', '#cab4c4']], null, _EN_BLOOM[2], _EN_BLOOM[3]],
+  [null, null, null, null],
+];
+function _enFlowerBed(G, tx, ty, nb, v, season) {
+  v = clamp(v | 0, 0, 3); season = (season | 0) & 3;
+  const LP = season === 2 ? (v === 2 || v === 3 ? ['#3a4a22', '#4e6226', '#6a7a2e', '#8a9038', '#a8a844'] : ['#4a4a22', '#6a6026', '#8a7a2e', '#ac9438', '#c8b048'])
+    : season === 3 ? ['#16301f', '#1e4228', '#2a5430', '#36663a', '#447444']
+    : season === 0 && v !== 1 ? ['#24522a', '#326e32', '#48903c', '#62aa48', '#86c45a']
+    : v === 2 ? ['#2e5a26', '#3e7a2c', '#5a9a3a', '#7cb850', '#9ad068'] : ['#1f4a2a', '#2c6a30', '#3f8a38', '#56a040', '#74b84e'];
+  const BL = season === 2 ? ['#c8b048', '#7a7a30'] : season === 3 ? ['#6a6a4a', '#4a4a34'] : ['#84c058', '#3e7a2c'];   // iris blades: lit / shaded
   const open = c => c !== 'f' && c !== 'b' && c !== '#' && c != null;
   const eU = open(nb.u), eD = open(nb.d), eL = open(nb.l), eR = open(nb.r);
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
@@ -1112,8 +1373,8 @@ function _enFlowerBed(G, tx, ty, nb, v) {
     let c = _enH(wx, wy, 401) < .2 ? '#6a543a' : '#54402c';   // soil
     if (edge >= 1) {
       if (v === 1) {   // iris: upright blades
-        const col = wx % 3, top = 2 + Math.floor(_enH(wx >> 1, 7, 402) * 6), base = 15 - (eD ? 2 : 0);
-        if (col !== 2 && (wy % 16) >= top - (col ? 1 : 0) && y <= base && edge >= 2) c = col === 0 ? '#84c058' : '#3e7a2c';
+        const col = wx % 3, top = 2 + Math.floor(_enH(wx >> 1, 7, 402) * 6) + (season === 3 ? 4 : 0), base = 15 - (eD ? 2 : 0);
+        if (col !== 2 && (wy % 16) >= top - (col ? 1 : 0) && y <= base && edge >= 2) c = col === 0 ? BL[0] : BL[1];
         else if (_enVN(wx / 3, wy / 3, 403) > .4) c = edge >= 2 ? LP[2] : LP[1];
       } else {
         const S = 4, ci = Math.floor(wx / S), cj = Math.floor(wy / S);
@@ -1132,17 +1393,39 @@ function _enFlowerBed(G, tx, ty, nb, v) {
     }
     G.set(x, y, c);
   }
-  // flowers on a jittered lattice; hydrangea = big round heads, the others small blooms
-  const PAL = _EN_BLOOM[v], step = v === 0 ? 7 : 4;
+  if (season === 3) {   // winter: the beds lie under snow; leaves show on the shaded sides, nanten berries here and there
+    const leaf = new Set(LP);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const wx = tx * 16 + x, wy = ty * 16 + y, c = G.get(x, y), edge = Math.min(eU ? y : 9, eD ? 15 - y : 9, eL ? x : 9, eR ? 15 - x : 9);
+      if (edge === 0) { G.set(x, y, c === '#c4c2b8' ? _EN_SN.h : (eD && y === 15) || (eR && x === 15) ? _EN_SN.d : _EN_SN.s); continue; }   // the bed's edge: a soft blue step in the snow
+      const tuft = (leaf.has(c) || c === BL[0] || c === BL[1]) && _enVN(wx / 5, wy / 4, 611) < .3;
+      if (!tuft) G.set(x, y, _enSnowAt(wx, wy, x, y));
+      else if (_enVN(wx / 5, (wy - 1) / 4, 611) >= .3) G.set(x, y, _EN_SN.h);   // snow on the top of each evergreen tuft
+    }
+    for (let k = 0; k < 3; k++) {
+      if (_enH(tx, ty, 612 + k) < .45) continue;
+      const bx = 3 + Math.floor(_enH(tx, ty, 615 + k) * 10), by = 3 + Math.floor(_enH(ty, tx, 618 + k) * 10);
+      G.set(bx, by, '#d8302a'); G.set(bx + 1, by, '#b8201e'); G.set(bx, by + 1, '#a01a1a'); G.set(bx - 1, by + 1, '#e85040'); G.set(bx + 1, by - 1, '#2a5430');
+    }
+    return;
+  }
+  // flowers on a jittered lattice; hydrangea = big round heads, the others small blooms (spring: tulip cups)
+  const PAL = _EN_BEDS[season][v], step = v === 0 ? 7 : 4;
+  if (!PAL) return;
   for (let j = Math.floor(ty * 16 / step) - 1; j <= Math.floor((ty * 16 + 15) / step) + 1; j++) for (let i = Math.floor(tx * 16 / step) - 1; i <= Math.floor((tx * 16 + 15) / step) + 1; i++) {
     if (_enH(i, j, 409) < (v === 0 ? .1 : .22)) continue;
     const fx = i * step + Math.floor(_enH(i, j, 410) * (step - 1)), fy = j * step + Math.floor(_enH(j, i, 411) * (step - 1)), p = PAL[Math.floor(_enH(i, j, 412) * PAL.length)];
     const lx = fx - tx * 16, ly = fy - ty * 16, edge = Math.min(eU ? ly : 9, eD ? 15 - ly : 9, eL ? lx : 9, eR ? 15 - lx : 9);
     if (edge < (v === 0 ? 3 : 2)) continue;
     const put = (x, y, col) => { if (x >= 0 && y >= 0 && x < 16 && y < 16) G.set(x, y, col); };
-    if (v === 0) {   // hydrangea head: a 5x4 mound of florets, lit top-left
+    if (season === 0 && (v === 0 || v === 3)) {   // spring: a tulip cup on its stem (two per hydrangea slot)
+      for (const [ox, oy] of v === 0 ? [[-2, 0], [2, 1]] : [[0, 0]]) {
+        const x = lx + ox, y = ly + oy;
+        put(x, y + 2, '#3e7a2c'); put(x, y + 1, '#3e7a2c'); put(x - 1, y - 1, p[1]); put(x + 1, y - 1, p[0]); put(x - 1, y, p[1]); put(x, y, p[0]); put(x + 1, y, p[0]); put(x, y - 1, p[2]);
+      }
+    } else if (v === 0) {   // hydrangea head: a 5x4 mound of florets, lit top-left (autumn: dried)
       [[-1, -2], [0, -2], [1, -2], [-2, -1], [-1, -1], [0, -1], [1, -1], [2, -1], [-2, 0], [-1, 0], [0, 0], [1, 0], [2, 0], [-1, 1], [0, 1], [1, 1]].forEach(([dx, dy]) => put(lx + dx, ly + dy, dx + dy < -1 ? p[2] : dx + dy > 0 ? p[0] : p[1]));
-      put(lx - 1, ly - 1, '#ffffff'); put(lx + 1, ly + 2, '#1f4a2a');
+      put(lx - 1, ly - 1, season === 2 ? p[2] : '#ffffff'); put(lx + 1, ly + 2, '#1f4a2a');
     } else if (v === 1) {   // iris flower on a blade top
       put(lx, ly - 1, p[1]); put(lx - 1, ly, p[0]); put(lx + 1, ly, p[0]); put(lx, ly, p[2]); put(lx, ly + 1, p[0]);
     } else {
@@ -1150,8 +1433,11 @@ function _enFlowerBed(G, tx, ty, nb, v) {
     }
   }
 }
-function _enHedge(G, tx, ty, nb) {   // clipped box hedge: small leaf clumps lit top-left, a flat bright top edge, a shaded front
-  const PAL = ['#1e4226', '#2a5a2e', '#357036', '#468a3e', '#62a446', '#84bc56'];
+const _EN_HEDGEP = [['#1e4226', '#2a5a2e', '#357036', '#468a3e', '#62a446', '#84bc56'], ['#183c22', '#225228', '#2c6630', '#3a7e38', '#529a40', '#74b44e'],
+  ['#2a3a1e', '#3a4e22', '#4e6226', '#6a7a2e', '#8a9038', '#acaa48'], ['#16301f', '#1e4228', '#2a5430', '#36663a', '#447444', '#56864e']];
+function _enHedge(G, tx, ty, nb, season) {   // clipped box hedge: small leaf clumps lit top-left, a flat bright top edge, a shaded front
+  season = (season | 0) & 3;
+  const PAL = _EN_HEDGEP[season];
   const front = nb.d !== 'f', top = nb.u !== 'f', l = nb.l !== 'f', r = nb.r !== 'f';
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
     const wx = tx * 16 + x, wy = ty * 16 + y, S = 3, ci = Math.floor(wx / S), cj = Math.floor(wy / S);
@@ -1165,23 +1451,200 @@ function _enHedge(G, tx, ty, nb) {   // clipped box hedge: small leaf clumps lit
     else if (top && y < 2) k = y === 0 ? 3 : 5;                    // the clipped top edge catches the light
     if (l && x < 1) k = Math.min(5, k + 1);
     if (r && x > 14) k = Math.max(1, k - 2);
-    G.set(x, y, PAL[clamp(k, 0, 5)]);
+    let c = PAL[clamp(k, 0, 5)];
+    if (season === 2 && _enH(ci, cj, 621) < .18 && k >= 2) c = k >= 4 ? '#d8803a' : '#a8502a';   // autumn: russet leaves among the green
+    if (season === 3 && !(front && y >= 12)) {   // winter: snow on the clipped top, flecks lower down
+      const s = _enVN(wx / 3, wy / 2, 622);
+      if ((top && y < 4 + s * 3) || (k >= 4 && s > .62)) c = top && y === 0 ? _EN_SN.h : k >= 4 ? _EN_SN.w : k >= 2 ? _EN_SN.b : _EN_SN.s;
+    }
+    G.set(x, y, c);
   }
 }
-function _enLowFence(G, tx, ty) {   // a knee-high bamboo fence along the tile's west edge, tied at each post
+function _enLowFence(G, tx, ty, season) {   // a knee-high bamboo fence along the tile's west edge, tied at each post
   for (let y = 0; y < 16; y++) {
     const wy = ty * 16 + y, post = wy % 8 === 3 || wy % 8 === 4;
     G.set(0, y, '#2a3a1a'); G.set(1, y, post ? '#e0c890' : '#c8a860'); G.set(2, y, post ? '#b89858' : '#9a7a40');
     G.set(3, y, post ? '#5a4024' : _enM(G.get(3, y), OUT, .25));
     if (wy % 8 === 4) G.set(1, y, '#5a3a1e');   // rope tie
+    if (season === 3 && post && wy % 8 === 3) { G.set(1, y, _EN_SN.w); G.set(2, y, _EN_SN.b); }   // winter: a pinch of snow on each post
   }
 }
-function _enGrassStone(G, tx, ty) {   // a flat stepping stone set in the grass (tobi-ishi), lit top-left, contact shadow
+function _enGrassStone(G, tx, ty, season) {   // a flat stepping stone set in the grass (tobi-ishi), lit top-left, contact shadow
+  const snow = ((season | 0) & 3) === 3;
   const wx0 = tx * 16 + 8, wy0 = ty * 16 + 8, cx = 8 + (_enH(wx0, wy0, 431) - .5) * 3, cy = 8 + (_enH(wy0, wx0, 432) - .5) * 2, rx = 4.8, ry = 3.6;
   const base = ['#bcb6a8', '#c6c0b2', '#b0aa9c'][Math.floor(_enH(tx, ty, 433) * 3)];
   for (let y = 2; y < 15; y++) for (let x = 1; x < 15; x++) {
     const nx = (x + .5 - cx) / rx, ny = (y + .5 - cy) / ry, r2 = nx * nx + ny * ny, sh = ((x + .5 - cx - .8) / rx) ** 2 + ((y + .5 - cy - 1.2) / ry) ** 2;
-    if (r2 > 1) { if (sh <= 1) G.set(x, y, _enM(G.get(x, y), '#24402a', .35)); continue; }
-    G.set(x, y, r2 > .6 && nx + ny > .35 ? _enM(base, '#5a5040', .3) : r2 > .5 && nx + ny < -.45 ? _enM(base, '#ffffff', .32) : base);
+    if (r2 > 1) { if (sh <= 1) G.set(x, y, snow ? _EN_SN.d : _enM(G.get(x, y), '#24402a', .35)); continue; }
+    const c = r2 > .6 && nx + ny > .35 ? _enM(base, '#5a5040', .3) : r2 > .5 && nx + ny < -.45 ? _enM(base, '#ffffff', .32) : base;
+    G.set(x, y, snow ? (r2 > .7 && nx + ny < -.3 ? _EN_SN.h : _enM(c, '#dfe6f0', .14)) : c);
   }
+}
+
+// ============================================================ v2.1 trees (SPEC_v2 16.14: treeArt(kind, season, size))
+// Same shapes as the v2.0 trees (sakura 32x44 / maple 28x36 / pine 32x40, sizes 1 / 2 for the groves), now by season:
+// sakura  spring in bloom | summer green | autumn thinning orange leaves | winter bare, snow on the twigs
+// maple   spring fresh yellow-green | summer deep green | autumn red | winter bare, snow on the twigs
+// pine    evergreen; spring new candles | winter snow on every pad + yukitsuri ropes from a pole (Kenroku-en)
+// WORKFLOW 3.5 technique: an egg of small round leaf clumps lit top-left in 7 tones, each clump lit on its own top-left,
+// a dark-green (not black) outline, the trunk lit on the left, flaring at the roots.
+const _enHt = (x, y, s) => { let h = Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263) + Math.imul((s | 0) + 1, 1274126177); h = Math.imul(h ^ (h >>> 13), 1103515245); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+// keep(i, px, py) may drop clumps (autumn thinning); returns how many clumps were kept
+function _enCrown(G, cx, cy, rx, ry, pal, seed, cr, keep) {
+  cr = cr || 2.4;
+  const pts = [];
+  for (let gy = -ry; gy <= ry + .01; gy += cr * 1.2) for (let gx = -rx; gx <= rx + .01; gx += cr * 1.25) {
+    const qx = R(gx * 4), qy = R(gy * 4);
+    const px = gx + (_enHt(qx, qy, seed) - .5) * cr * .9, py = gy + (_enHt(qx, qy, seed + 1) - .5) * cr * .9;
+    if ((px / rx) * (px / rx) + (py / ry) * (py / ry) <= 1) pts.push([cx + px, cy + py, qx, qy]);
+  }
+  const r2 = cr * cr * 1.2;
+  for (let y = 0; y < G.h; y++) for (let x = 0; x < G.w; x++) {
+    let best = -1, bd = 1e9;
+    for (let i = 0; i < pts.length; i++) { const dx = x + .5 - pts[i][0], dy = y + .5 - pts[i][1], d = dx * dx + dy * dy; if (d < bd) { bd = d; best = i; } }
+    if (best < 0 || bd > r2) continue;
+    if (keep && !keep(pts[best][2], pts[best][3], (pts[best][1] - cy) / ry)) continue;
+    const nx = (x + .5 - cx) / rx, ny = (y + .5 - cy) / ry;
+    const glob = .6 - ny * .36 - nx * .22 - Math.max(0, nx * nx + ny * ny - .6) * .4;
+    const loc = -((x + .5 - pts[best][0]) + (y + .5 - pts[best][1])) / (cr * 2);
+    const v = glob + loc * .3 + (DITHER[y & 1][x & 1] - .375) * .1;
+    G.set(x, y, pal[clamp(Math.floor(v * pal.length), 0, pal.length - 1)]);
+  }
+}
+// trunk along a polyline from the base up; width w0 -> w1; pal [dark, mid, light] (light on the left)
+function _enTrunk(G, pts, w0, w1, pal) {
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x0, y0] = pts[i], [x1, y1] = pts[i + 1];
+    for (let y = y1; y <= y0; y++) {
+      const t = (y0 - y) / Math.max(1, y0 - y1), c = x0 + (x1 - x0) * t, w = w0 + (w1 - w0) * ((i + t) / (pts.length - 1));
+      const a = R(c - w / 2), b = Math.max(a, R(c + w / 2) - 1);
+      for (let x = a; x <= b; x++) { const u = (x - a + .5) / (b - a + 1); G.set(x, y, u < .38 ? pal[2] : u < .72 ? pal[1] : pal[0]); }
+    }
+  }
+}
+// bare twigs: from (x, y) at angle a (radians, -PI/2 = up), each branch forks in two; kept inside the crown's egg
+function _enTwigs(G, x, y, a, len, depth, seed, eg, pal) {
+  const x1 = x + Math.cos(a) * len, y1 = y + Math.sin(a) * len;
+  const nx = (x1 - eg[0]) / eg[2], ny = (y1 - eg[1]) / eg[3];
+  const k = nx * nx + ny * ny > 1 ? 1 / Math.sqrt(nx * nx + ny * ny) : 1;   // pull a tip back inside the egg
+  const ex = eg[0] + (x1 - eg[0]) * k, ey = eg[1] + (y1 - eg[1]) * k;
+  gLine(G, x, y, ex, ey, len > 5 ? pal[1] : len > 3 ? pal[2] : depth > 0 ? pal[3] : pal[4]);
+  if (len > 5.5) gLine(G, x + 1, y, ex + 1, ey, pal[0]);   // thick limbs: a shaded second line on the right
+  if (depth <= 0) return;
+  const h1 = _enHt(R(ex * 4), R(ey * 4), seed), h2 = _enHt(R(ey * 4), R(ex * 4), seed + 1);
+  const sp = .38 + h1 * .3;
+  _enTwigs(G, ex, ey, a - sp, len * (.62 + h2 * .18), depth - 1, seed + 2, eg, pal);
+  _enTwigs(G, ex, ey, a + sp * (.8 + h2 * .4), len * (.6 + h1 * .2), depth - 1, seed + 3, eg, pal);
+}
+// snow on every branch pixel that has open sky above it (winter)
+function _enSnowOnTwigs(G, top, seed) {
+  const add = [];
+  for (let y = 1; y < top; y++) for (let x = 0; x < G.w; x++) if (G.get(x, y) && !G.get(x, y - 1) && _enHt(x, y, seed) < .72) add.push([x, y - 1, _enHt(y, x, seed + 1) < .5 ? _EN_SN.w : _EN_SN.h]);
+  for (const [x, y, c] of add) G.set(x, y, c);
+}
+// own outline (crown colour mixed with a dark tone, not black; bare winter twigs get none) + soft ground shadow
+function _enTreeCanvas(w, h, fn, dark, shCx, shRx, snow, bare) {
+  const G = new Grid(w, h); fn(G);
+  const add = [];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (G.get(x, y) || (bare && y < h - 8)) continue;
+    const below = G.get(x, y + 1), n = below || G.get(x - 1, y) || G.get(x + 1, y) || G.get(x, y - 1);
+    if (n) add.push([x, y, mixHex(n, dark, below ? .5 : .62)]);
+  }
+  add.forEach(([x, y, c]) => G.set(x, y, c));
+  const c = mk(w, h), cx = c.getContext('2d');
+  for (let y = h - 3; y < h; y++) for (let x = 0; x < w; x++) {
+    const dx = (x + .5 - shCx) / shRx, dy = (y + .5 - (h - 1.5)) / 1.7;
+    if (dx * dx + dy * dy <= 1) { cx.fillStyle = (snow ? 'rgba(60,72,120,' : 'rgba(30,40,24,') + (dx * dx + dy * dy < .45 ? .32 : .18) + ')'; cx.fillRect(x, y, 1, 1); }
+  }
+  cx.drawImage(G.canvas(), 0, 0);
+  return c;
+}
+const _EN_TREE = { sakura: [32, 44], maple: [28, 36], pine: [32, 40] };
+// the full trees (size 0) and the grove sizes 1 (medium) / 2 (sapling): [w, h, trunk pts, trunk w0, w1, branches,
+// crown cx, cy, rx, ry, clump seed, clump r]. Anchor (w/2, h) in every size.
+const _EN_TREE_S = {
+  sakura: [[32, 44, [[16, 41], [16, 34], [15, 27]], 5, 3, [[15, 30, 9, 24], [17, 29, 23, 23], [16, 28, 16, 22]], 16, 15.5, 14.5, 13, 7, 2.5],
+    [26, 36, [[13, 33], [13, 27], [12, 22]], 4, 3, [[12, 25, 7, 19], [14, 24, 19, 18]], 13, 13, 11.5, 10.5, 11, 2.3],
+    [20, 28, [[10, 25], [10, 20], [10, 16]], 3, 2, [[10, 19, 6, 14], [10, 18, 14, 13]], 10, 10, 8.5, 8, 13, 2]],
+  maple: [[28, 36, [[14, 33], [14, 26], [13, 21]], 4, 3, [[13, 24, 8, 19], [15, 23, 20, 18]], 14, 13.5, 12.5, 11, 17, 2.1],
+    [24, 30, [[12, 27], [12, 21], [11, 17]], 4, 3, [[11, 20, 7, 15], [13, 19, 17, 14]], 12, 11.5, 10.5, 9.5, 19, 2],
+    [18, 24, [[9, 21], [9, 17], [9, 13]], 3, 2, [[9, 16, 5, 12], [9, 15, 13, 11]], 9, 9, 7.5, 7, 23, 1.8]],
+};
+// crown palettes (dark -> light) + the outline tone, by kind and season (4 = the classic v2.0 look: no season given)
+const _EN_TREEP = {
+  sakura: [[['#8a3a5a', '#a8506e', '#c66a88', '#de86a0', '#eea2b8', '#f8c0d0', '#fde0ea'], '#5a1e38'],
+    [['#1c4626', '#265a2c', '#327034', '#42863c', '#569c44', '#70b050', '#90c662'], '#10301a'],
+    [['#5a3414', '#7e4a18', '#a2641e', '#c08028', '#d89c34', '#eab848', '#f6d468'], '#3a200c'], null],
+  maple: [[['#3a5a1e', '#4a7024', '#5e8a2c', '#78a436', '#94bc44', '#b2d258', '#d0e67a'], '#22381a'],
+    [['#163c22', '#1e5028', '#2a662e', '#367c34', '#48923c', '#62a84a', '#84be5c'], '#0e2a16'],
+    [['#6a1e1a', '#8a2a1e', '#ae3a22', '#cc5226', '#e4702c', '#f29a40', '#fac46a'], '#4a1410'], null],
+};
+const _EN_TRUNK = ['#4a3024', '#6a4632', '#8a6246'], _EN_BARE = ['#3a2a24', '#5a4234', '#6e5444', '#7a6050', '#8e7462'];
+function _enTree(kind, season, size) {
+  if (!_EN_TREE[kind]) kind = 'sakura';
+  const classic = season == null;   // no season: the v2.0 look (sakura in bloom, maple red) for the cover / title
+  season = classic ? (kind === 'maple' ? 2 : 0) : (season | 0) & 3;
+  if (kind === 'pine') return art('en:tree:pine:' + season, () => _enPine(season));
+  size = size === 1 || size === 2 ? size : 0;
+  return art('en:tree:' + kind + ':' + size + ':' + season, () => {
+    const [w, h, tp, w0, w1, br, cx, cy, rx, ry, seed, cr] = _EN_TREE_S[kind][size], TR = _EN_TRUNK;
+    const P = _EN_TREEP[kind][season], winter = season === 3, mottle = kind === 'sakura' && season === 2;
+    const dark = P ? P[1] : '#2a201c', egg = [cx, cy, rx * .95, ry * .95];
+    const big = size === 0, sak = kind === 'sakura';
+    return _enTreeCanvas(w, h, G => {
+      _enTrunk(G, tp, w0, w1, TR);
+      if (big && sak) { G.set(13, 41, TR[1]); G.set(19, 41, TR[0]); G.set(12, 41, TR[0]); }   // roots
+      else if (big) { G.set(11, 33, TR[1]); G.set(16, 33, TR[0]); }
+      else { G.set(tp[0][0] - 2, tp[0][1], TR[1]); G.set(tp[0][0] + 2, tp[0][1], TR[0]); }
+      br.forEach(([a, b, c2, d]) => { gLine(G, a, b, c2, d, TR[1]); if (size === 1 || (big && sak)) gLine(G, a + 1, b, c2 + 1, d, TR[0]); });
+      if (winter) {   // bare twigs, a haze of the finest ones inside the crown's egg, snow along the tops of the branches
+        const top = tp[tp.length - 1], depth = size === 0 ? 5 : size === 1 ? 4 : 3;
+        const L0 = ry * (size === 0 ? .4 : .46);
+        br.forEach(([a, b, c2, d], i) => _enTwigs(G, c2, d, Math.atan2(d - b, c2 - a), L0 * .8, depth, seed + 10 * i, egg, _EN_BARE));
+        _enTwigs(G, top[0], top[1], -Math.PI / 2, L0, depth, seed + 40, egg, _EN_BARE);
+        for (let y = 0; y < h - 6; y++) for (let x = 0; x < w; x++) {
+          const nx = (x + .5 - cx) / rx, ny = (y + .5 - cy) / ry, r = nx * nx + ny * ny;
+          if (r < .92 && !G.get(x, y) && _enHt(x, y, seed + 70) < .2 * (1 - r * .5) && _enVN(x / 3, y / 3, seed) > .42) G.set(x, y, r < .5 ? '#7e6c62' : '#988a80');
+        }
+        _enSnowOnTwigs(G, h - 4, seed + 50); return;
+      }
+      _enCrown(G, cx, cy, rx, ry, P[0], seed, cr);
+      if (mottle) _enCrown(G, cx, cy, rx, ry, ['#4a1a14', '#6e2418', '#94301c', '#b84222', '#d45a2c', '#e87a3c', '#f49c58'], seed, cr, (qx, qy) => _enHt(qx, qy, seed + 60) < .38);   // autumn sakura: red clumps among the orange
+      if (sak && season === 0) {   // white glints in the blossom
+        const [x0, x1, y0, y1] = big ? [3, 28, 4, 24] : [1, w - 1, 2, h - 8];
+        for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const c = G.get(x, y); if (c && (c === P[0][5] || c === P[0][4]) && _enHt(x, y, big ? 9 : seed + 2) < .07) G.set(x, y, '#ffffff'); }
+      }
+      if (season === 0 || season === 2) {   // a fallen petal / leaf or three at the foot
+        const fall = big ? (sak ? [[10, 41, 5], [22, 40, 4], [25, 42, 5]] : [[6, 33, 4], [21, 34, 3], [18, 32, 5]]) : [[cx - 6, h - 2, sak ? 5 : 4], [cx + 5, h - 3, sak ? 4 : 3]];
+        for (const [x, y, i] of fall) G.set(x, y, P[0][i]);
+      }
+    }, dark, cx, big ? (sak ? 10 : 9) : rx * .62, winter, winter);
+  });
+}
+// pine: S-curved trunk + cloud-pruned pads (niwaki). Winter: snow on every pad and the yukitsuri ropes.
+function _enPine(season) {
+  const TR = _EN_TRUNK, PP = ['#183224', '#21452e', '#2a5636', '#376a40', '#4a8048', '#62984e', '#84b05a'];
+  const pads = [[15, 5.5, 6.5, 3.2], [8, 12, 7, 3], [23, 15.5, 8, 3.2], [9, 21.5, 6.5, 2.8], [22.5, 24.5, 6, 2.6]];
+  return _enTreeCanvas(32, 40, G => {
+    _enTrunk(G, [[16, 37], [17, 31], [15, 24], [13, 17], [14, 11], [15, 6]], 5, 2, TR);
+    G.set(13, 37, TR[1]); G.set(19, 37, TR[0]);
+    [[15, 22, 23, 19], [14, 16, 8, 13], [16, 26, 22, 26], [14, 27, 9, 24]].forEach(([a, b, c2, d]) => { gLine(G, a, b, c2, d, TR[1]); gLine(G, a, b + 1, c2, d + 1, TR[0]); });
+    pads.forEach(([cx, cy, rx, ry], i) => _enCrown(G, cx, cy, rx, ry, PP, 31 + i * 3, 1.7));
+    if (season === 0) pads.forEach(([cx, cy, rx, ry], i) => {   // spring: pale new candles on the pads' tops
+      for (let k = 0; k < 4; k++) { const x = R(cx - rx * .7 + k * rx * .45), y = R(cy - ry + .6 + (_enHt(i, k, 77) < .5 ? 0 : 1)); if (G.get(x, y)) { G.set(x, y, '#c4e08a'); G.set(x, y - 1, '#a8cc6c'); } }
+    });
+    if (season === 3) {
+      pads.forEach(([cx, cy, rx, ry], i) => {   // a soft cap of snow over the top of each pad
+        for (let y = R(cy - ry - 1); y <= cy; y++) for (let x = R(cx - rx - 1); x <= cx + rx + 1; x++) {
+          const nx = (x + .5 - cx) / rx, ny = (y + .5 - cy) / ry, r = nx * nx + ny * ny;
+          if (r > 1.05 || !G.get(x, y) || ny > -.05 - _enHt(x, i, 78) * .35) continue;
+          G.set(x, y, r > .7 ? (nx < 0 ? _EN_SN.w : _EN_SN.s) : nx + ny < -.6 ? _EN_SN.w : nx > .4 ? _EN_SN.b : _EN_SN.h);
+        }
+      });
+      gLine(G, 16, 6, 16, 0, '#c8a86a'); G.set(17, 1, '#8a7040'); G.set(16, 0, '#e8d4a0');   // the pole above the crown
+      for (const [x, y] of [[2, 13], [6, 21], [10, 6], [23, 4], [27, 16], [28, 24]]) gLine(G, 16, 0, x, y, '#cdb98a', true);   // ropes, only over the pads
+      for (const [x, y] of [[1, 12], [31, 17], [29, 25], [3, 22]]) gLine(G, 16, 0, x, y, '#c4ae7e');                   // the outer ropes, seen against the sky
+    }
+  }, '#0e2016', 16, 9, season === 3);
 }
