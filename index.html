@@ -196,6 +196,10 @@ function eyeG(G, x, y, r, iris, pupil = 'round') {
 // (selOutline); whiskers, glasses and the 1px contact shadow go straight onto the canvas after paint().
 // Walk frames: frame 1 and 2 are the two strides; in frame 2 the head, body and hat ride 1px higher (legs stretch),
 // so a walking cat bobs gently.
+// v2.1 (SPEC_v2 16.6 / 16.14): the innkeeper's wardrobe look.outfit = o_yukata o_chef o_momiji o_snow o_hakama o_ninja
+// o_samurai o_maneki (o_maneki frames 3 / 4 = the beckoning paw, for standing still); look.uniform = sakura / indigo /
+// sailor / gold, a palette swap of the six staff outfits; look.acc adds rod palette camera mic bundle tvcam; outfit 'mom'
+// = the cat mom (apron shape, her own colours); LOOKS_V21 = ready looks for the press, the mom and the rare guests.
 const FURS = {
   orange:    { O: '#f5a04a', D: '#d97a2a', W: '#fff3e0', eye: OUT, stripes: true },
   calico:    { O: '#fbfbf6', D: '#f0a040', D2: '#3a3040', W: '#ffffff', eye: OUT, patch: true },
@@ -218,6 +222,7 @@ const _chC = {
   bag: '#b4643a', bagD: '#7a4a2a', bagB: '#f0c05a',
   // v2 outfits
   chef: '#f8f6f0', chefS: '#d6dae4', chefBtn: '#9aa0b2', chefPants: '#4a4a5a', shoe: '#2a2a36', kerchief: '#d8443a',
+  toque: '#f8f6f1', toqueS: '#d6dae5',   // the toque: one step off the coat colours, so a uniform swap leaves it white
   samue: '#2c3a5e', samueL: '#5a6c98', wApron: '#fbfaf4',
   clerk: '#8c8c9a', clerkK: '#3e3e4e', himo: '#efe4c4',
   shopTop: '#5e4232', shopL: '#8a6a52', maekake: '#3a8a4a', maekakeD: '#2a6a38', cord: '#efe4c4',
@@ -231,9 +236,36 @@ const _chC = {
   // props
   bowl: '#b8323a', bowlD: '#7a1e28', rice: '#fbfbf6', cup: '#9ab890', cupL: '#e4eedc',
 };
-const _chRobe = { kimono: 1, apron: 1, yukata: 1, waiter: 1, clerk: 1, shop: 1, haori: 1, robe: 1 };
-const _chLong = { kimono: 4, yukata: 3, clerk: 4, haori: 4, robe: 4 };          // long hanging sleeves (rows)
-const _chPants = { porter: [_chC.pants, _chC.tabi], chef: [_chC.chefPants, _chC.shoe] };
+// v2.1 innkeeper outfits (o_*): yg = morning-glory yukata, kp = kappogi, mj = red-leaf haori, sn = snow coat,
+// hk = student hakama, nj = ninja, sm = samurai kamishimo, mk = lucky-cat costume
+const _chOC = {
+  ygM: '#40388c', ygF1: '#f67ab8', ygF2: '#86d2f8', ygCol: '#7a70cc', ygObi: '#f6c440', ygObiD: '#d8962a', ygLeaf: '#6ab85a',
+  kpW: '#fbfaf2', kpS: '#d8d4c8', kpK: '#8e2e42', kpScarf: '#fefdf8', kpDot: '#c8586a',
+  mjR: '#c8402e', mjK: '#3a2e46', mjL1: '#f8cc48', mjL2: '#f49034',
+  snC: '#2c7672', snCL: '#4a9a92', snF: '#f8f6f0', snS: '#de4a3c', snSD: '#a8303a', snB: '#6e4834', snTog: '#e8cc8a',
+  hkT: '#4c64a8', hkTd: '#e8eef8', hkH: '#5c4e4c', hkHD: '#3c3230', hkCap: '#272739', hkLine: '#f4f4f0', hkVis: '#18182a',
+  njS: '#363a5e', njL: '#5c6294', njR: '#d8443a', njW: '#727892', njT: '#24242e',
+  smG: '#3c7c54', smGD: '#285a3c', smK: '#ece2c8', smCrest: '#fbfbf6', smHilt: '#30303e', smTsuba: '#ecbc44', smSheath: '#2a2430',
+  mkW: '#fbf8f0', mkO: '#f2a040', mkB: '#3a3040', mkR: '#d8303a', mkG: '#f6ca4a', mkGD: '#c8963a',
+  // accessories
+  rod: '#b8903e', rodD: '#6e5024', line: '#e4e8f0', float: '#e0403a',
+  pal: '#dcb27a', palD: '#a87a48', brush: '#7a4a2a', pR: '#e8443a', pB: '#3a78d8', pY: '#f6d040', pG: '#4ab86a',
+  cam: '#3a3a4a', camL: '#c8ccd8', lens: '#5a90d0', lensD: '#24304a', rec: '#ff4a4a', strap: '#2a2a36',
+  mic: '#b4b8c8', micD: '#44465a', micH: '#2a2a36', micF: '#f6c440',
+  furo: '#3a8a4a', furoD: '#28683a', furoW: '#e8f4e0',
+  tv: '#aeb4c4', tvD: '#565a6c', tvL: '#1a1c28',
+};
+const _chRobe = { kimono: 1, apron: 1, yukata: 1, waiter: 1, clerk: 1, shop: 1, haori: 1, robe: 1, o_yukata: 1, o_chef: 1, o_momiji: 1, o_hakama: 1, o_samurai: 1 };
+const _chLong = { kimono: 4, yukata: 3, clerk: 4, haori: 4, robe: 4, o_yukata: 3, o_chef: 3, o_momiji: 4, o_hakama: 3, o_samurai: 3 };   // long hanging sleeves (rows)
+// [leg, foot]; foot null = the cat's own paw
+const _chPants = { porter: [_chC.pants, _chC.tabi], chef: [_chC.chefPants, _chC.shoe], o_snow: [_chOC.snF, _chOC.snB], o_ninja: [_chOC.njW, _chOC.njT], o_maneki: [_chOC.mkW, null] };
+const _chOut = { o_yukata: 1, o_chef: 1, o_momiji: 1, o_snow: 1, o_hakama: 1, o_ninja: 1, o_samurai: 1, o_maneki: 1 };
+// hats that sit on top of the head: they replace an o_* outfit's own cap / kerchief / beanie
+const _chTopHat = { straw: 1, beret: 1, captain: 1, goldband: 1, crown: 1, topknot: 1 };
+const _chAccs = { cane: 1, rod: 1, palette: 1, camera: 1, mic: 1, bundle: 1, tvcam: 1 };
+// accessories held in a paw: which arm (front view, 0 = screen left / 1 = screen right; mirrored in the back view)
+// and whether that paw is hidden behind the prop (-1) or shows (0)
+const _chHold = { rod: [1, 0], palette: [0, 0], mic: [1, -1], tvcam: [1, -1] };
 const _chTrimOK = { kimono: 1, apron: 1, porter: 1, chef: 1, waiter: 1, clerk: 1 };
 const _chHats = { straw: 1, flower: 1, beret: 1, captain: 1, shades: 1, foxmask: 1, crown: 1, goldband: 1, topknot: 1, ribbon: 1 };
 const _chCover = { straw: 1, beret: 1, captain: 1, goldband: 1 };    // these replace the outfit's own headwear
@@ -259,35 +291,43 @@ function _chShift(G, dy) {
   };
 }
 
-// view: 'down' | 'up' | 'side' (facing right), frame 0 stand / 1 / 2 walk,
-// look = { fur, outfit, shirt?, bag?, robe?, hat?, acc?, trim? }
+// view: 'down' | 'up' | 'side' (facing right), frame 0 stand / 1 / 2 walk (o_maneki also 3 / 4: paw up / paw down,
+// alternate them while it stands still),
+// look = { fur, outfit, shirt?, bag?, robe?, hat?, acc?, trim?, uniform? }
 function catSprite(view, frame, look) {
   look = look || {};
   const fur = FURS[look.fur] ? look.fur : 'orange', outfit = look.outfit || 'guest';
-  const shirt = look.shirt || '#e0705a', bag = !!look.bag, fr = frame === 1 || frame === 2 ? frame : 0;
+  const shirt = look.shirt || '#e0705a', bag = !!look.bag;
+  const fr = frame === 1 || frame === 2 || ((frame === 3 || frame === 4) && outfit === 'o_maneki') ? frame : 0;
   const v = view === 'up' || view === 'side' ? view : 'down';
   const x = _chExtra(look, outfit);
   return art('ch:' + v + ':' + fr + ':' + fur + ':' + outfit + ':' + (outfit === 'guest' || !_chKnown[outfit] ? shirt : '') + ':' + (bag ? 1 : 0) +
-    ':' + x.hat + ':' + x.acc + ':' + x.trim + ':' + x.robe,
+    ':' + x.hat + ':' + x.acc + ':' + x.trim + ':' + x.robe + ':' + x.uni,
     () => _chBuild(v, fr, FURS[fur], outfit, shirt, bag, x));
 }
-const _chKnown = { happi: 1, kimono: 1, apron: 1, porter: 1, guest: 1, yukata: 1, chef: 1, waiter: 1, clerk: 1, shop: 1, haori: 1, robe: 1 };
+const _chKnown = { happi: 1, kimono: 1, apron: 1, porter: 1, guest: 1, yukata: 1, chef: 1, waiter: 1, clerk: 1, shop: 1, haori: 1, robe: 1, mom: 1,
+  o_yukata: 1, o_chef: 1, o_momiji: 1, o_snow: 1, o_hakama: 1, o_ninja: 1, o_samurai: 1, o_maneki: 1 };
 function _chExtra(look, outfit) {
-  const t = Math.max(0, Math.min(2, look.trim | 0));
+  const t = Math.max(0, Math.min(2, look.trim | 0)), uni = _chTrimOK[outfit] ? _chUniId(look.uniform) : '';
   return {
-    hat: _chHatId(look.hat), acc: look.acc === 'cane' ? 'cane' : '',
-    trim: _chTrimOK[outfit] ? t : 0, robe: outfit === 'robe' ? _chHex(look.robe, '#8a5ac8') : '',
+    hat: _chHatId(look.hat), acc: _chAccs[look.acc] ? look.acc : '', uni,
+    trim: _chTrimOK[outfit] ? (uni === 'gold' ? 2 : t) : 0,   // the gold uniform is gold-edged at every level
+    robe: outfit === 'robe' ? _chHex(look.robe, '#8a5ac8') : outfit === 'haori' ? _chHex(look.robe, '') : '',   // haori: optional jacket colour
   };
 }
 
 function _chBuild(v, fr, f, o, shirt, bag, x) {
-  x = x || { hat: '', acc: '', trim: 0, robe: '' };
+  x = x || { hat: '', acc: '', trim: 0, robe: '', uni: '' };
+  if (o === 'mom') { o = 'apron'; x = Object.assign({}, x, { uni: 'mom', trim: 0 }); }   // the cat mom: apron shape, her colours
   const bob = fr === 2 ? 1 : 0;
   const c = paint(16, 24, G => {
     const gb = _chShift(G, 4 - bob), gl = _chShift(G, 4);
     if (v === 'side') _chSide(gb, f, o, fr, shirt, bag, gl, x); else _chFront(gb, f, o, fr, shirt, bag, v === 'up', gl, x);
+    if (x.uni) { const mp = _chUniMap(o, x.uni); G.map((px, py, col) => mp[col]); }   // uniform = palette swap before shading
   });
-  if (v === 'side') _chWhiskersSide(c, f, 4 - bob); else _chWhiskersFront(c, f, 4 - bob);
+  // a raised paw or a shoulder camera covers the whiskers on that side
+  const hide = (o === 'o_maneki' && fr > 2) || x.acc === 'tvcam' ? (v === 'up' ? 'l' : 'r') : '';
+  if (v === 'side') _chWhiskersSide(c, f, 4 - bob); else _chWhiskersFront(c, f, 4 - bob, hide);
   if (o === 'clerk' && x.hat !== 'shades') _chGlasses(c, v, 4 - bob);
   _chShadow(c, 8, 23, 5);
   return c;
@@ -304,9 +344,10 @@ function _chShadow(c, cx, y, hw) {
 function _chPx(c, col, pts) { const x = c.getContext('2d'); x.fillStyle = col; pts.forEach(p => x.fillRect(p[0], p[1], 1, 1)); }
 const _chTip = '#6e5a50';
 // whisker tips poke out past the cheeks (front and back views alike)
-function _chWhiskersFront(c, f, oy) {
+function _chWhiskersFront(c, f, oy, hide) {
   oy = oy || 0;
-  _chPx(c, _chTip, [[1, 9 + oy], [0, 9 + oy], [1, 10 + oy], [0, 11 + oy], [14, 9 + oy], [15, 9 + oy], [14, 10 + oy], [15, 11 + oy]]);
+  if (hide !== 'l') _chPx(c, _chTip, [[1, 9 + oy], [0, 9 + oy], [1, 10 + oy], [0, 11 + oy]]);
+  if (hide !== 'r') _chPx(c, _chTip, [[14, 9 + oy], [15, 9 + oy], [14, 10 + oy], [15, 11 + oy]]);
 }
 function _chWhiskersSide(c, f, oy) { oy = oy || 0; _chPx(c, _chTip, [[15, 9 + oy], [15, 11 + oy]]); }
 // clerk's round glasses: a 1px frame round each eye, drawn after paint so the outline pass can't thicken it
@@ -399,10 +440,10 @@ function _chHatFront(G, f, o, oy, back) {
     S(cx, 4, _chC.pin); S(cx - 1, 5, _chC.pin); S(cx + 1, 5, _chC.pin); S(cx, 5, _chC.gold);
   } else if (o === 'chef') {
     // tall toque: pleated puff over a band that hides the ears
-    G.rect(4, -2 + oy, 8, 1, _chC.chef); G.rect(3, -1 + oy, 10, 3, _chC.chef); G.rect(4, 2 + oy, 8, 1, _chC.chef);
-    G.rect(3, 3 + oy, 10, 2, _chC.chef); S(2, 4, _chC.chef); S(13, 4, _chC.chef);
-    [[5, 0], [8, -1], [8, 0], [10, 0], [5, 1], [10, 1]].forEach(p => S(p[0], p[1], _chC.chefS));
-    G.rect(3, 4 + oy, 10, 1, _chC.chefS);
+    G.rect(4, -2 + oy, 8, 1, _chC.toque); G.rect(3, -1 + oy, 10, 3, _chC.toque); G.rect(4, 2 + oy, 8, 1, _chC.toque);
+    G.rect(3, 3 + oy, 10, 2, _chC.toque); S(2, 4, _chC.toque); S(13, 4, _chC.toque);
+    [[5, 0], [8, -1], [8, 0], [10, 0], [5, 1], [10, 1]].forEach(p => S(p[0], p[1], _chC.toqueS));
+    G.rect(3, 4 + oy, 10, 1, _chC.toqueS);
   }
 }
 function _chHatSide(G, f, o, oy) {
@@ -415,9 +456,9 @@ function _chHatSide(G, f, o, oy) {
   }
   else if (o === 'kimono') { S(6, 3, _chC.pin); S(5, 4, _chC.pin); S(7, 4, _chC.pin); S(6, 4, _chC.gold); }
   else if (o === 'chef') {
-    G.rect(4, -2 + oy, 7, 1, _chC.chef); G.rect(3, -1 + oy, 9, 4, _chC.chef); G.rect(2, 3 + oy, 11, 2, _chC.chef);
-    [[5, 0], [8, -1], [8, 0], [5, 1], [10, 1]].forEach(p => S(p[0], p[1], _chC.chefS));
-    G.rect(2, 4 + oy, 11, 1, _chC.chefS);
+    G.rect(4, -2 + oy, 7, 1, _chC.toque); G.rect(3, -1 + oy, 9, 4, _chC.toque); G.rect(2, 3 + oy, 11, 2, _chC.toque);
+    [[5, 0], [8, -1], [8, 0], [5, 1], [10, 1]].forEach(p => S(p[0], p[1], _chC.toqueS));
+    G.rect(2, 4 + oy, 11, 1, _chC.toqueS);
   }
 }
 
@@ -522,8 +563,16 @@ function _chCloth(o, shirt, robe) {
     case 'waiter': return { m: _chC.samue, sleeve: _chC.samue };
     case 'clerk': return { m: _chC.clerk, sleeve: _chC.clerk };
     case 'shop': return { m: _chC.shopTop, sleeve: _chC.shopTop };
-    case 'haori': return { m: _chC.haori, sleeve: _chC.haori };
+    case 'haori': return { m: robe || _chC.haori, sleeve: robe || _chC.haori };
     case 'robe': return { m: robe || '#8a5ac8', sleeve: robe || '#8a5ac8' };
+    case 'o_yukata': return { m: _chOC.ygM, sleeve: _chOC.ygM };
+    case 'o_chef': return { m: _chOC.kpW, sleeve: _chOC.kpW };
+    case 'o_momiji': return { m: _chOC.mjR, sleeve: _chOC.mjR };
+    case 'o_snow': return { m: _chOC.snC, sleeve: _chOC.snC, cuff: _chOC.snF };
+    case 'o_hakama': return { m: _chOC.hkT, sleeve: _chOC.hkT };
+    case 'o_ninja': return { m: _chOC.njS, sleeve: _chOC.njS, cuff: _chOC.njW };
+    case 'o_samurai': return { m: _chOC.smG, sleeve: _chOC.smK };
+    case 'o_maneki': return { m: _chOC.mkW, sleeve: _chOC.mkW };
     default: return { m: shirt, sleeve: shirt };
   }
 }
@@ -552,14 +601,76 @@ function _chTrim(G, o, t, side) {
   [2, 3, 12, 13].forEach(x => { for (let y = 17; y >= 12; y--) if (G.get(x, y) === sl) { G.set(x, y, tcOf(sl)); break; } });
 }
 
+// ---------------------------------------------------------------- staff uniforms (look.uniform, SPEC_v2 16.6)
+// A uniform recolours the garment (never the shapes) of the six staff outfits: per outfit, _chC colour name -> new colour.
+// The swap runs on the grid before paint() shades and outlines it, so shading and outlines follow the new colours.
+// 'mom' is internal: the cat mom's apron colours (outfit 'mom').
+const _chUni = {
+  sakura: {
+    kimono: { kimono: '#fcd8e4', obi: '#d84c7c', sakura: '#ffffff' },
+    apron: { lilac: '#f2a2be', lilacD: '#c8587e', scarfHem: '#f6c4d4', scarfDot: '#e27aa0' },
+    porter: { porter: '#ec8cae', pants: '#7a3a58', belt: '#fde8f0' },
+    chef: { chef: '#fff0f5', chefS: '#f4c4d4', chefBtn: '#d86a92', kerchief: '#e8608c', chefPants: '#8a4a62' },
+    waiter: { samue: '#d0668c', samueL: '#f6b4ca', wApron: '#fff4f8' },
+    clerk: { clerk: '#e29cb6', clerkK: '#8a3a5c', himo: '#fff0f5' },
+  },
+  indigo: {
+    kimono: { kimono: '#3a5a9e', obi: '#e8e0c8', sakura: '#dce8f8' },
+    apron: { lilac: '#3a5496', lilacD: '#1e2c5c', scarfHem: '#7a96d0', scarfDot: '#3a5496' },
+    porter: { porter: '#24366e', pants: '#3a4a6e', belt: '#e8e0c8', towelS: '#5a78c0' },
+    chef: { chef: '#dfe8f6', chefS: '#a8bce0', chefBtn: '#3a5496', kerchief: '#2c4282', chefPants: '#24305a' },
+    waiter: { samue: '#dfe8f8', samueL: '#3a5496', wApron: '#24306a' },
+    clerk: { clerk: '#3e5694', clerkK: '#1e2850', himo: '#e4ecfa' },
+  },
+  sailor: {
+    kimono: { kimono: '#f6f7fa', obi: '#2a3e7a', sakura: '#2a3e7a' },
+    apron: { lilac: '#2a3e7a', lilacD: '#d83a3a', scarfHem: '#2a3e7a', scarfDot: '#d83a3a' },
+    porter: { porter: '#f4f6fa', pants: '#2a3e7a', belt: '#d83a3a' },
+    chef: { chef: '#f8faff', chefS: '#9cb0dc', chefBtn: '#d83a3a', kerchief: '#2a3e7a', chefPants: '#2a3e7a' },
+    waiter: { samue: '#f2f4f8', samueL: '#2a3e7a', wApron: '#2a3e7a' },
+    clerk: { clerk: '#f2f4f8', clerkK: '#2a3e7a', himo: '#d83a3a' },
+  },
+  gold: {
+    kimono: { kimono: '#7a2440', obi: '#1e1420', sakura: '#f0c040' },
+    apron: { lilac: '#6e2240', lilacD: '#f0c040', scarfHem: '#f0c040', scarfDot: '#6e2240', apron: '#fff4dc' },
+    porter: { porter: '#6e2240', pants: '#24161e', belt: '#f0c040' },
+    chef: { chef: '#fff4dc', chefS: '#ecd49a', chefBtn: '#e0a828', kerchief: '#7a2440', chefPants: '#24161e' },
+    waiter: { samue: '#5a1c36', samueL: '#f0c040', wApron: '#fff4dc' },
+    clerk: { clerk: '#6e2240', clerkK: '#1e1420', himo: '#f0c040' },
+  },
+  mom: { apron: { lilac: '#bc6a80', lilacD: '#8a4258', scarf: '#fff6e6', scarfHem: '#f2b48a', scarfDot: '#d47a5a', apron: '#fffaf0' } },
+};
+const _chUniAlias = { sakura: 'sakura', pink: 'sakura', indigo: 'indigo', aizome: 'indigo', sailor: 'sailor', gold: 'gold', goldtrim: 'gold', 'gold-trim': 'gold', kinbuchi: 'gold' };
+function _chUniId(u) {
+  if (!u || typeof u !== 'string') return '';
+  const id = u.indexOf('u_') === 0 ? u.slice(2) : u;
+  return _chUniAlias[id] || '';
+}
+// colour -> colour for one outfit + uniform; the darker / lighter shades the drawing derives from a garment colour
+// (far legs, lap, lapels, obi highlight) are swapped to the same shade of the new colour. Fur, eye and outline colours
+// are never swapped (a near-white garment shaded +30 clamps to #ffffff = white fur).
+const _CH_UNIMAP = {};
+let _chKeep = null;
+function _chUniMap(o, u) {
+  const k = o + ':' + u; if (_CH_UNIMAP[k]) return _CH_UNIMAP[k];
+  if (!_chKeep) {
+    _chKeep = new Set(['#ffffff', '#000000', OUT, _chC.wh, _chC.pink, _chC.nose, _chTip]);
+    for (const f in FURS) for (const c in FURS[f]) if (typeof FURS[f][c] === 'string') _chKeep.add(FURS[f][c]);
+  }
+  const t = (_chUni[u] || {})[o] || {}, m = {};
+  for (const n in t) for (const a of [-16, -26, -30, -34, -36, 30]) { const sc = shade(_chC[n], a); if (!_chKeep.has(sc)) m[sc] = shade(t[n], a); }
+  for (const n in t) if (!_chKeep.has(_chC[n])) m[_chC[n]] = t[n];
+  return (_CH_UNIMAP[k] = m);
+}
+
 // ---------------------------------------------------------------- DOWN / UP (front and back share the silhouette)
 // G = body view (rides up 1px on frame 2), L = leg view (feet stay on the ground)
 function _chFront(G, f, o, fr, shirt, bag, back, L, x) {
   L = L || G; x = x || {};
   const robe = _chRobe[o], P = f.P || f.W, cl = _chCloth(o, shirt, x.robe), T = f.T || f.O, bob = L !== G && fr === 2 ? 1 : 0;
   // the "back" leg of the stride is drawn shorter (lifted); frame 1 lifts the cat's own left leg
-  const lift = fr === 0 ? -1 : ((fr === 1) !== back ? 1 : 0);   // 0 = screen-left foot, 1 = screen-right
-  const pn = _chPants[o], leg = pn ? pn[0] : f.O, foot = pn ? pn[1] : P, ankle = o === 'waiter' ? _chC.samue : f.O;
+  const lift = fr === 0 || fr > 2 ? -1 : ((fr === 1) !== back ? 1 : 0);   // 0 = screen-left foot, 1 = screen-right
+  const pn = _chPants[o], leg = pn ? pn[0] : f.O, foot = pn ? pn[1] || P : P, ankle = _chAnkle(o, f);
   // down view: tail tip peeks out on the left behind the body
   if (!back) { const s = fr === 2 ? 1 : 0; [[3, 17], [2, 16], [1, 15 + s], [1, 14 + s], [2, 13 + s]].forEach(p => G.set(p[0], p[1], T)); }
   [5, 9].forEach((lx, i) => {
@@ -631,41 +742,53 @@ function _chFront(G, f, o, fr, shirt, bag, back, L, x) {
       G.rect(4, 14, 8, 1, _chC.cord); G.rect(4, 15, 8, 3, _chC.maekake); G.rect(4, 17, 8, 1, _chC.maekakeD);
       G.set(7, 15, '#ffffff'); G.set(8, 15, '#ffffff'); G.set(7, 16, '#ffffff'); G.set(8, 16, _chC.maekakeD);
     }
+  } else if (_chOut[o]) {
+    _chOFront(G, f, o, back, fr);
   } else {
     G.rect(4, 15, 8, 2, _chC.shorts);
     if (!back) { G.set(7, 12, f.O); G.set(8, 12, f.O); G.rect(7, 16, 2, 1, shade(_chC.shorts, -20)); }
   }
   // arms: on the lifted-leg side the arm swings forward (paw shows, a little inward); the other swings back (paw hidden)
   const cane = x.acc === 'cane', caneArm = back ? 0 : 1;
+  const hd = _chHold[x.acc], holdArm = hd ? (back ? 1 - hd[0] : hd[0]) : -9;   // a held prop keeps that arm still
+  const wave = o === 'o_maneki' && fr > 2, waveArm = back ? 0 : 1;            // the lucky cat's beckoning arm (drawn later)
   [[3, 0, 4], [12, 1, 11]].forEach(([ax, i, xi]) => {
     let sw = lift === -1 ? 0 : lift === i ? 1 : -1;
     if (cane && i === caneArm) sw = 0;
+    if (i === holdArm) sw = hd[1];
+    if (wave && i === waveArm) return;
     const lg = _chLong[o];
     if (lg) {
       const x2 = ax === 3 ? 2 : 13, py = 12 + lg;
       G.rect(x2, 12, 1, lg + (lg === 4 ? 1 : 0) - (sw < 0 ? 1 : 0), cl.sleeve); G.rect(ax, 12, 1, lg, cl.sleeve);
       if (o === 'yukata') G.set(x2, 13, _chC.yukS);
       if (o === 'robe') G.set(x2, 12 + lg + (sw < 0 ? -1 : 0), shade(cl.m, -34));
+      if (_chOut[o]) _chOSleeve(G, o, x2, ax, lg, sw);
       if (sw >= 0) G.set(ax, py, P); if (sw > 0) G.set(xi, py, P);
     } else {
       if (o === 'guest') { G.rect(ax, 12, 1, 2, cl.sleeve); G.set(ax, 14, f.O); }
       else { G.rect(ax, 12, 1, 3, cl.sleeve); if (cl.cuff) G.set(ax, 14, cl.cuff); }
-      if (sw >= 0) G.set(ax, 15, P); if (sw > 0) G.set(xi, 15, P);
+      const pw = o === 'o_snow' ? _chOC.snS : P;   // snow coat: red mittens
+      if (sw >= 0) G.set(ax, 15, pw); if (sw > 0) G.set(xi, 15, pw);
     }
   });
+  if (_chOut[o]) _chOArms(G, f, o, back, fr);
   _chTrim(G, o, x.trim, false);
   if (!back) {
-    _chHeadDown(G, f, 0); _chFaceDown(G, f, 0, 'open');
+    _chHeadDown(G, f, 0); _chFaceDown(G, f, 0, x.mood || 'open');
   } else {
     // back view: tail curls out from under the hem on the right
     const s = fr === 1 ? 1 : 0;
     [[10, 17], [11, 17], [12, 17], [13, 16], [13 + s, 15], [13 + s, 14], [12 + s, 13]].forEach(p => G.set(p[0], p[1], T));
     _chHeadUp(G, f, 0);
   }
-  if (!_chCover[x.hat]) _chHatFront(G, f, o, 0, back);
+  if (_chOut[o]) _chOHead(G, f, o, 0, back ? 'up' : 'down', x.hat);
+  else if (!_chCover[x.hat]) _chHatFront(G, f, o, 0, back);
   if (x.hat) _chHatOn(G, x.hat, back ? 'up' : 'down', 0);
+  if (wave) _chWave(G, back ? 'up' : 'down', fr, P);
   if (bag) _chBagFront(G, back ? 1 : 12, (fr === 1) !== back ? 14 : 15);
   if (cane) _chCane(G, L, back ? 1 : 14, bob, P, false);
+  else if (x.acc) _chAccFront(G, x.acc, back, fr, P);
 }
 // suitcase seen end-on (front/back views): handle on top, held at the side
 function _chBagFront(G, x, y) {
@@ -683,12 +806,12 @@ function _chCane(G, L, cx, bob, P, side) {
 function _chSide(G, f, o, fr, shirt, bag, L, x) {
   L = L || G; x = x || {};
   const robe = _chRobe[o], P = f.P || f.W, cl = _chCloth(o, shirt, x.robe), T = f.T || f.O, bob = L !== G && fr === 2 ? 1 : 0;
-  const tt = fr === 2 ? 1 : 0, pn = _chPants[o], ankle = o === 'waiter' ? _chC.samue : f.O;
+  const tt = fr === 2 ? 1 : 0, pn = _chPants[o], ankle = _chAnkle(o, f);
   [[4, 16], [3, 16], [2, 15], [1, 14], [1, 13], [1 + tt, 12], [2 + tt, 11]].forEach(p => G.set(p[0], p[1], T));
   // legs: near (lit) and far (shaded); frame 1 = near leg forward
-  const legs = fr === 0 ? [[6, 0], [8, 1]] : fr === 1 ? [[4, 0], [10, 1]] : [[10, 0], [4, 1]];
+  const legs = fr === 1 ? [[4, 0], [10, 1]] : fr === 2 ? [[10, 0], [4, 1]] : [[6, 0], [8, 1]];
   legs.forEach(([lx, near]) => {
-    const leg = pn ? pn[0] : f.O, foot = pn ? pn[1] : P, k = near ? 0 : -26;
+    const leg = pn ? pn[0] : f.O, foot = pn ? pn[1] || P : P, k = near ? 0 : -26;
     if (robe) { L.rect(lx, 18, 2, 1, shade(foot, k)); if (near) L.set(lx + 2, 18, shade(foot, k)); if (bob) L.rect(lx, 17, 2, 1, shade(ankle, k)); return; }
     L.rect(lx, 17, 2, 1, shade(leg, k)); L.rect(lx, 18, 3, 1, shade(foot, k)); if (bob) L.rect(lx, 16, 2, 1, shade(leg, k));
   });
@@ -713,28 +836,298 @@ function _chSide(G, f, o, fr, shirt, bag, L, x) {
     G.rect(10, 13, 1, 5, K); G.set(10, 12, K); G.set(11, 17, K); G.set(10, 14, _chC.himo); G.set(9, 14, _chC.himo);
   }
   else if (o === 'shop') { G.set(10, 12, _chC.shopL); G.set(9, 13, _chC.shopL); G.rect(5, 14, 6, 1, _chC.cord); G.rect(8, 15, 4, 3, _chC.maekake); G.set(4, 14, _chC.cord); G.set(4, 15, _chC.cord); }
+  else if (_chOut[o]) _chOSide(G, f, o, fr);
   else { G.rect(5, 15, 6, 2, _chC.shorts); G.set(10, 12, f.O); }
-  // near arm swings opposite to the near leg
-  const cane = x.acc === 'cane';
-  const a = cane ? [[9, 12], [10, 13], [11, 13], [12, 14]] : fr === 0 ? [[7, 12], [7, 13], [7, 14], [7, 15]] : fr === 1 ? [[6, 12], [6, 13], [5, 14], [4, 15]] : [[9, 12], [9, 13], [10, 14], [11, 15]];
+  // near arm swings opposite to the near leg; a cane or a held prop keeps it forward, the lucky cat's wave is drawn later
+  const cane = x.acc === 'cane', held = _chSideArm[x.acc], wave = o === 'o_maneki' && fr > 2;
+  const a = wave ? [] : held || (cane ? [[9, 12], [10, 13], [11, 13], [12, 14]] : fr === 1 ? [[6, 12], [6, 13], [5, 14], [4, 15]] : fr === 2 ? [[9, 12], [9, 13], [10, 14], [11, 15]] : [[7, 12], [7, 13], [7, 14], [7, 15]]);
   const lg = _chLong[o];
   a.forEach((p, i) => {
     let c = cl.sleeve;
-    if (i === 3) c = P; else if (i === 2 && o === 'guest') c = f.O; else if (i === 2 && cl.cuff) c = cl.cuff;
+    if (i === 3) c = o === 'o_snow' ? _chOC.snS : P; else if (i === 2 && o === 'guest') c = f.O; else if (i === 2 && cl.cuff) c = cl.cuff;
     G.set(p[0], p[1], c);
-    if (lg && i > 0 && i < 3 && !cane) G.set(p[0] - (fr === 1 ? -1 : 1), p[1] + 1, cl.sleeve);
-    if (lg && cane && i === 1) G.set(9, 14, cl.sleeve);
+    if (lg && i > 0 && i < 3 && !cane && !held) G.set(p[0] - (fr === 1 ? -1 : 1), p[1] + 1, cl.sleeve);
+    if (lg && (cane || held) && i === 1) G.set(p[0] - 1, p[1] + 1, cl.sleeve);
   });
+  if (_chOut[o]) _chOArmsSide(G, f, o, fr);
   _chTrim(G, o, x.trim, true);
+  if (x.acc === 'rod') _chRodSide(G);   // the rod rests on the shoulder, behind the head
   _chHeadSide(G, f, 0);
-  if (!_chCover[x.hat]) _chHatSide(G, f, o, 0);
+  if (_chOut[o]) _chOHead(G, f, o, 0, 'side', x.hat);
+  else if (!_chCover[x.hat]) _chHatSide(G, f, o, 0);
   if (x.hat) _chHatOn(G, x.hat, 'side', 0);
+  if (wave) _chWave(G, 'side', fr, P);
   if (bag) {
     const bx = fr === 2 ? 9 : fr === 1 ? 3 : 6, by = 14;
     G.rect(bx, by + 1, 5, 4, _chC.bag); G.set(bx + 1, by, _chC.bagD); G.set(bx + 3, by, _chC.bagD);
     G.rect(bx, by + 3, 5, 1, _chC.bagD); G.set(bx + 2, by + 3, _chC.bagB);
   }
   if (cane) _chCane(G, L, 14, bob, P, true);
+  else if (x.acc && x.acc !== 'rod') _chAccSide(G, x.acc, fr, P);
+}
+
+// ---------------------------------------------------------------- v2.1 innkeeper outfits (o_*, SPEC_v2 16.6)
+// Same skeleton as the staff outfits (robe = hem down to the feet, _chLong = hanging sleeves, _chPants = [leg, foot]);
+// these add the details over the shared body. Every one keeps the innkeeper's own orange head and face.
+function _chAnkle(o, f) { return o === 'waiter' ? _chC.samue : o === 'o_hakama' ? _chOC.hkH : o === 'o_samurai' ? _chOC.smG : f.O; }
+function _chOFront(G, f, o, back, fr) {
+  const C = _chOC, S = (x, y, c) => G.set(x, y, c), pts = (L, c) => L.forEach(p => G.set(p[0], p[1], c));
+  const collar = (k, inner) => { S(7, 12, f.W); S(8, 12, f.W); S(6, 12, k); S(9, 12, k); S(7, 13, inner || k); };
+  if (o === 'o_yukata') {
+    // morning-glory yukata: indigo with pink and sky-blue blooms, a soft yellow obi tied in a big bow at the back
+    if (back) {
+      G.rect(6, 12, 4, 1, C.ygCol); G.rect(4, 14, 8, 1, C.ygObi);
+      pts([[5, 13], [6, 13], [9, 13], [10, 13], [6, 15], [9, 15], [7, 15]], C.ygObi); pts([[5, 15], [10, 15], [7, 14], [8, 14], [8, 16]], C.ygObiD);
+      S(5, 17, C.ygF1); S(10, 16, C.ygF2);
+    } else {
+      collar(C.ygCol); G.rect(4, 14, 8, 1, C.ygObi); S(8, 14, C.ygObiD);
+      S(5, 13, C.ygF1); S(9, 16, C.ygF1); S(10, 13, C.ygF2); S(5, 16, C.ygLeaf);
+    }
+  } else if (o === 'o_chef') {
+    // kappogi: a white smock with sleeves over a wine kimono (its collar and hem show); ties at the back
+    G.rect(4, 16, 8, 1, C.kpS); G.rect(4, 17, 8, 1, C.kpK);
+    if (back) { G.rect(6, 12, 4, 1, C.kpK); pts([[6, 14], [9, 14], [7, 15], [8, 15]], C.kpS); S(7, 14, C.kpK); S(8, 14, C.kpK); }
+    else { collar(C.kpK, C.kpK); S(8, 13, C.kpW); pts([[5, 14], [10, 14]], C.kpS); }
+  } else if (o === 'o_momiji') {
+    // red-leaf haori: crimson jacket open over a dark kimono (longer, so it shows at the hem), gold and orange maple leaves
+    const K = C.mjK;
+    G.rect(4, 17, 8, 1, K);
+    if (back) {
+      G.rect(6, 12, 4, 1, shade(C.mjR, -30));
+      pts([[7, 13], [8, 13], [6, 14], [9, 14], [7, 15], [8, 15]], C.mjL1); pts([[7, 14], [8, 14]], C.mjL2); S(8, 16, C.mjL2);
+      pts([[4, 16], [11, 13]], C.mjL2);
+    } else {
+      S(7, 12, f.W); S(8, 12, f.W); S(6, 12, K); S(9, 12, K); G.rect(7, 13, 2, 5, K);
+      pts([[6, 14], [7, 14], [8, 14], [9, 14]], _chC.himo);
+      pts([[5, 13], [10, 16]], C.mjL1); pts([[10, 12], [5, 16]], C.mjL2);
+    }
+  } else if (o === 'o_snow') {
+    // snow-country coat: teal padded coat, white fluffy hem, red knitted scarf (and mittens, boots)
+    G.rect(4, 16, 8, 1, C.snF);
+    if (back) {
+      G.rect(5, 12, 6, 1, C.snF); G.rect(6, 13, 4, 1, C.snCL); S(4, 12, C.snS); S(11, 12, C.snS);   // the hood lies on the shoulders
+      pts([[5, 13], [5, 14]], C.snS); S(5, 15, C.snSD);
+    } else {
+      G.rect(4, 12, 8, 1, C.snS); pts([[5, 12], [8, 12]], C.snSD); pts([[9, 13], [9, 14]], C.snS); S(9, 15, C.snSD);
+      G.rect(7, 13, 1, 3, C.snCL); pts([[6, 13], [6, 15]], C.snTog);
+    }
+  } else if (o === 'o_hakama') {
+    // student: blue kasuri kimono, white under-collar, a brown striped hakama tied high
+    G.rect(4, 14, 8, 4, C.hkH); G.rect(4, 14, 8, 1, C.hkHD);
+    if (back) { pts([[5, 13], [10, 13], [7, 12]], C.hkTd); G.rect(6, 14, 4, 2, C.hkHD); pts([[6, 14], [9, 14]], _chC.himo); pts([[5, 16], [5, 17], [10, 16], [10, 17]], C.hkHD); }
+    else {
+      collar(_chC.wh); pts([[5, 13], [10, 13], [4, 12]], C.hkTd);
+      pts([[7, 14], [8, 14]], _chC.himo); pts([[6, 16], [6, 17], [9, 16], [9, 17]], C.hkHD);
+    }
+  } else if (o === 'o_ninja') {
+    // ninja: night-indigo suit, crossed collar, red sash (the hood is headwear: _chOHead)
+    G.rect(4, 15, 8, 1, C.njR);
+    if (back) { G.rect(6, 12, 4, 1, C.njL); pts([[7, 15], [8, 15]], C.snSD); pts([[7, 16], [8, 16]], C.njR); }
+    else { pts([[9, 12], [8, 13], [7, 14]], C.njL); S(6, 12, C.njL); S(8, 15, C.snSD); S(9, 16, C.njR); }
+  } else if (o === 'o_samurai') {
+    // kamishimo: pine-green winged vest and hakama over a cream kimono, white crests (wings + sword: _chOArms)
+    G.rect(4, 15, 8, 1, C.smGD);
+    if (back) { pts([[7, 13], [8, 13]], C.smCrest); G.rect(6, 12, 4, 1, C.smK); pts([[6, 16], [6, 17], [9, 16], [9, 17]], C.smGD); }
+    else {
+      S(7, 12, f.W); S(8, 12, f.W); S(6, 12, C.smK); S(9, 12, C.smK); S(7, 13, C.smK); S(8, 13, C.smK); S(7, 14, C.smK); S(8, 14, C.smK);
+      pts([[5, 13], [10, 13]], C.smCrest); pts([[6, 16], [6, 17], [9, 16], [9, 17]], C.smGD);
+    }
+  } else if (o === 'o_maneki') {
+    // lucky-cat costume: white suit with calico patches, red collar, a big gold bell
+    G.rect(4, 12, 8, 1, C.mkR);
+    if (back) { pts([[7, 13], [8, 13]], C.mkR); pts([[5, 14], [6, 14], [5, 15]], C.mkB); pts([[9, 15], [10, 15], [10, 16], [9, 16]], C.mkO); }
+    else {
+      pts([[7, 13], [8, 13]], C.mkG); pts([[7, 14], [8, 14]], C.mkGD);
+      pts([[5, 15], [6, 15], [5, 16]], C.mkO); pts([[10, 14], [10, 15]], C.mkB);
+    }
+  }
+}
+// pattern on the hanging sleeves (outer column x2, inner ax)
+function _chOSleeve(G, o, x2, ax, lg, sw) {
+  const C = _chOC;
+  if (o === 'o_yukata') G.set(x2, 13, x2 < 8 ? C.ygF2 : C.ygF1);
+  else if (o === 'o_momiji') G.set(x2, 14, C.mjL1);
+  else if (o === 'o_hakama') G.set(x2, 13, C.hkTd);
+  else if (o === 'o_chef') G.set(ax, 12 + lg - 1, C.kpS);   // gathered at the wrist
+}
+// over the arms: the samurai's shoulder wings and sword hilt
+function _chOArms(G, f, o, back, fr) {
+  const C = _chOC;
+  if (o === 'o_samurai') {
+    G.rect(0, 12, 4, 1, C.smG); G.rect(12, 12, 4, 1, C.smG); G.rect(1, 11, 2, 1, C.smG); G.rect(13, 11, 2, 1, C.smG);
+    if (back) { G.set(4, 15, C.smTsuba); G.set(3, 14, C.smHilt); G.set(2, 13, C.smHilt); }
+    else { G.set(11, 15, C.smTsuba); G.set(12, 14, C.smHilt); G.set(13, 13, C.smHilt); }
+  }
+}
+function _chOSide(G, f, o, fr) {
+  const C = _chOC, S = (x, y, c) => G.set(x, y, c), pts = (L, c) => L.forEach(p => G.set(p[0], p[1], c));
+  if (o === 'o_yukata') {
+    G.rect(5, 14, 6, 1, C.ygObi); pts([[4, 13], [3, 13], [3, 15], [4, 15]], C.ygObi); S(4, 14, C.ygObiD);
+    S(10, 12, C.ygCol); S(9, 13, C.ygCol); pts([[6, 13], [9, 16]], C.ygF1); pts([[6, 16]], C.ygF2); S(7, 17, C.ygLeaf);
+  } else if (o === 'o_chef') {
+    G.rect(4, 16, 8, 1, C.kpS); G.rect(4, 17, 8, 1, C.kpK); S(10, 12, C.kpK); S(9, 13, C.kpK); S(9, 15, C.kpS);
+    pts([[4, 14], [3, 14], [3, 15]], C.kpS);   // apron ties at the back
+  } else if (o === 'o_momiji') {
+    G.rect(4, 17, 8, 1, C.mjK); G.rect(10, 13, 1, 4, C.mjK); S(10, 12, C.mjK); S(10, 14, _chC.himo); S(9, 14, _chC.himo);
+    pts([[6, 13], [8, 16]], C.mjL1); pts([[5, 15]], C.mjL2);
+  } else if (o === 'o_snow') {
+    G.rect(5, 16, 6, 1, C.snF); G.rect(6, 12, 5, 1, C.snS); S(10, 13, C.snS); S(10, 14, C.snS); S(10, 15, C.snSD);
+    S(5, 12, C.snF); S(4, 12, C.snF); S(4, 13, C.snF);   // hood down at the back
+    S(9, 13, C.snTog); S(9, 15, C.snTog);
+  } else if (o === 'o_hakama') {
+    G.rect(4, 14, 8, 4, C.hkH); G.rect(5, 14, 6, 1, C.hkHD); S(4, 14, C.hkHD); S(3, 14, C.hkHD); S(4, 15, C.hkHD);
+    S(10, 12, _chC.wh); S(9, 13, _chC.wh); S(6, 13, C.hkTd); pts([[7, 16], [7, 17]], C.hkHD); S(10, 14, _chC.himo);
+  } else if (o === 'o_ninja') {
+    G.rect(5, 15, 6, 1, C.njR); S(4, 15, C.snSD); S(3, 16, C.njR); S(10, 12, C.njL); S(9, 13, C.njL);
+  } else if (o === 'o_samurai') {
+    G.rect(5, 15, 6, 1, C.smGD); S(10, 12, C.smK); S(9, 13, C.smK); S(10, 13, C.smK); S(7, 13, C.smCrest); pts([[6, 16], [6, 17], [9, 16], [9, 17]], C.smGD);
+  } else if (o === 'o_maneki') {
+    G.rect(6, 12, 5, 1, C.mkR); S(10, 13, C.mkG); S(11, 13, C.mkG); S(10, 14, C.mkGD); S(11, 14, C.mkGD);
+    pts([[6, 14], [7, 14], [6, 15]], C.mkO); pts([[8, 16], [9, 16]], C.mkB);
+  }
+}
+// over the near arm (side view): wings and the sword at the waist, hilt forward, scabbard slanting back
+function _chOArmsSide(G, f, o, fr) {
+  const C = _chOC;
+  if (o === 'o_samurai') {
+    G.set(4, 12, C.smG); G.set(3, 12, C.smG); G.set(11, 12, C.smG); G.set(12, 12, C.smG); G.set(3, 11, C.smG); G.set(12, 11, C.smG);
+    gLine(G, 9, 15, 3, 17, C.smSheath); G.set(10, 14, C.smTsuba); G.set(11, 13, C.smHilt); G.set(12, 12, C.smHilt);
+  }
+}
+function _chOSit(G, f, o) {
+  const C = _chOC;
+  if (o === 'o_yukata') { G.rect(5, 16, 6, 1, C.ygObi); G.set(10, 14, C.ygCol); G.set(7, 15, C.ygF1); G.set(11, 17, C.ygF2); }
+  else if (o === 'o_chef') { G.set(10, 14, C.kpK); G.rect(5, 18, 9, 1, C.kpK); }
+  else if (o === 'o_momiji') { G.rect(10, 14, 1, 3, C.mjK); G.set(10, 15, _chC.himo); G.set(7, 15, C.mjL1); }
+  else if (o === 'o_snow') { G.rect(5, 14, 6, 1, C.snS); G.rect(5, 16, 6, 1, C.snF); }
+  else if (o === 'o_hakama') { G.set(10, 14, _chC.wh); G.rect(5, 16, 6, 1, C.hkHD); }
+  else if (o === 'o_ninja') { G.rect(5, 16, 6, 1, C.njR); G.set(10, 14, C.njL); }
+  else if (o === 'o_samurai') { G.set(10, 14, C.smK); G.set(4, 14, C.smG); G.set(11, 14, C.smG); G.set(7, 15, C.smCrest); }
+  else if (o === 'o_maneki') { G.rect(5, 14, 6, 1, C.mkR); G.set(10, 15, C.mkG); }
+}
+// the outfit's own headwear: ninja hood (always, hats go over it; red band unless the hat covers it); kappogi kerchief,
+// snow beanie, student cap (replaced by any hat that sits on top: _chTopHat); red-leaf pin (replaced like the kimono's)
+function _chOHead(G, f, o, oy, v, hat) {
+  const C = _chOC, S = (x, y, c) => G.set(x, y + oy, c), Rr = (x, y, w, h, c) => G.rect(x, y + oy, w, h, c), K = (x, y) => G.clr(x, y + oy);
+  const side = v === 'side', back = v === 'up';
+  if (o === 'o_ninja') {
+    const H = C.njS;
+    if (side) { Rr(3, 3, 6, 1, H); Rr(2, 4, 12, 2, H); Rr(2, 6, 7, 4, H); Rr(3, 10, 6, 1, H); Rr(4, 11, 5, 1, H); }
+    else if (back) { Rr(4, 3, 8, 1, H); Rr(2, 4, 12, 6, H); Rr(3, 10, 10, 1, H); Rr(4, 11, 8, 1, H); }
+    else { Rr(4, 3, 8, 1, H); Rr(2, 4, 12, 2, H); Rr(2, 6, 1, 4, H); Rr(13, 6, 1, 4, H); S(3, 10, H); S(12, 10, H); }
+    if (_chCover[hat]) return;
+    const B = C.njR;
+    if (side) { Rr(2, 5, 12, 1, B); S(1, 5, B); S(1, 6, B); S(0, 7, B); }
+    else { Rr(2, 5, 12, 1, B); if (back) { S(2, 4, B); S(1, 4, B); S(1, 6, B); } else { S(13, 4, B); S(14, 4, B); S(14, 6, B); } }
+    return;
+  }
+  if (o === 'o_momiji') {
+    if (_chCover[hat]) return;
+    const leaf = (cx, cy) => { S(cx, cy, C.mjR); S(cx - 1, cy + 1, C.mjR); S(cx + 1, cy + 1, C.mjR); S(cx, cy + 1, C.mjL1); S(cx, cy + 2, C.mjL2); };
+    if (side) leaf(6, 2); else leaf(back ? 4 : 11, 3);
+    return;
+  }
+  if (_chTopHat[hat]) return;
+  if (o === 'o_chef') {
+    const W = C.kpScarf, D = C.kpS;
+    const Dt = C.kpDot;
+    if (side) { Rr(3, 3, 6, 1, W); Rr(2, 4, 11, 1, W); Rr(2, 5, 3, 1, W); S(1, 5, Dt); S(1, 6, W); S(0, 7, W); [[4, 3], [7, 4], [10, 4], [3, 5]].forEach(p => S(p[0], p[1], Dt)); }
+    else if (back) { Rr(4, 3, 8, 1, W); Rr(2, 4, 12, 1, W); Rr(3, 5, 10, 1, W); Rr(5, 6, 6, 1, W); S(7, 7, Dt); S(8, 7, Dt); S(6, 8, W); S(9, 8, W); [[5, 3], [9, 3], [3, 4], [7, 4], [11, 4], [5, 5], [9, 5], [7, 6]].forEach(p => S(p[0], p[1], Dt)); }
+    else { Rr(4, 3, 8, 1, W); Rr(2, 4, 12, 1, W); [[5, 3], [9, 3], [3, 4], [7, 4], [11, 4]].forEach(p => S(p[0], p[1], Dt)); }
+  } else if (o === 'o_snow') {
+    const R0 = C.snS, D = C.snSD, F = C.snF;
+    if (side) { Rr(4, 2, 5, 1, R0); Rr(3, 3, 6, 1, R0); Rr(2, 4, 11, 1, R0); Rr(2, 5, 11, 1, F); Rr(5, 0, 2, 2, F); S(5, 4, D); S(8, 4, D); S(11, 4, D); }
+    else {
+      Rr(5, 2, 6, 1, R0); Rr(4, 3, 8, 1, R0); Rr(2, 4, 12, 1, R0); Rr(2, 5, 12, 1, F); Rr(7, 0, 2, 2, F);
+      [4, 7, 10].forEach(x => S(x + (back ? 1 : 0), 4, D)); S(6, 3, D); S(9, 3, D);
+    }
+  } else if (o === 'o_hakama') {
+    const Cp = C.hkCap, Ln = C.hkLine;
+    if (side) {
+      [[4, 1], [4, 2], [5, 2], [4, 3], [5, 3], [6, 3], [9, 1], [9, 2], [10, 2], [9, 3], [10, 3], [11, 3]].forEach(p => K(p[0], p[1]));
+      Rr(3, -1, 8, 1, Cp); Rr(2, 0, 10, 2, Cp); Rr(2, 2, 10, 1, Ln); Rr(2, 3, 10, 1, Cp); Rr(9, 4, 5, 1, C.hkVis); S(10, 0, _chC.gold);
+    } else {
+      [[3, 1], [3, 2], [12, 1], [12, 2]].forEach(p => K(p[0], p[1]));
+      Rr(4, -1, 8, 1, Cp); Rr(3, 0, 10, 2, Cp); Rr(3, 2, 10, 1, Ln); Rr(3, 3, 10, 1, Cp);
+      if (!back) { Rr(4, 4, 8, 1, C.hkVis); S(7, 0, _chC.gold); S(8, 0, _chC.gold); }
+    }
+  }
+}
+// o_maneki frames 3 / 4: the beckoning paw raised by the face (palm out, pink pad), 4 = bent down to beckon
+function _chWave(G, v, fr, P) {
+  const W = _chOC.mkW, S = (x, y, c) => G.set(x, y, c), pad = _chC.pink, up = fr === 3;
+  if (v === 'side') {
+    S(9, 12, W); S(10, 11, W); S(11, 10, W);
+    if (up) { S(11, 9, W); S(12, 8, P); S(13, 8, P); S(12, 7, P); S(13, 7, P); S(13, 8, pad); }
+    else { S(12, 9, P); S(13, 9, P); S(13, 10, P); S(12, 10, P); }
+  } else {
+    const back = v === 'up', ax = back ? 3 : 12, d = back ? -1 : 1, px = ax + d;
+    S(ax, 12, W); S(px, 11, W); S(px, 10, W);
+    if (up) { S(px, 9, W); S(px, 8, P); S(px + d, 8, P); S(px, 7, P); S(px + d, 7, P); if (!back) S(px, 8, pad); }
+    else { S(px, 9, P); S(px + d, 9, P); S(px + d, 10, P); }
+  }
+}
+
+// ---------------------------------------------------------------- accessories (look.acc), SPEC_v2 16.14
+// rod (fishing grandpa), palette (painter), camera (reporter, on a strap), mic (TV host), bundle (cat mom's furoshiki),
+// tvcam (the cameraman's shoulder camera). cane stays where it was (_chCane).
+const _chSideArm = {   // near arm (side view) holding a prop: shoulder, elbow, cuff, paw
+  rod: [[7, 12], [8, 13], [9, 13], [10, 13]], palette: [[9, 12], [10, 13], [11, 13], [12, 14]],
+  mic: [[9, 12], [10, 13], [11, 13], [12, 12]], tvcam: [[9, 12], [10, 12], [11, 12], [12, 12]],
+};
+function _chAccFront(G, acc, back, fr, P) {
+  const C = _chOC, S = (x, y, c) => G.set(x, y, c), Rr = (x, y, w, h, c) => G.rect(x, y, w, h, c);
+  if (acc === 'rod') {
+    if (back) { gLine(G, 3, 14, 1, 0, C.rod); S(2, 7, C.rodD); S(1, 2, C.rodD); S(3, 15, P); }
+    else { gLine(G, 12, 14, 14, 0, C.rod); S(13, 7, C.rodD); S(14, 2, C.rodD); S(12, 15, P); }
+  } else if (acc === 'palette') {
+    if (back) { Rr(12, 14, 4, 2, C.palD); S(13, 16, C.palD); }
+    else {
+      Rr(0, 14, 4, 2, C.pal); S(1, 16, C.pal); S(2, 16, C.palD);
+      S(0, 14, C.pR); S(1, 14, C.pB); S(2, 14, C.pY); S(0, 15, C.pG); S(3, 15, P);
+      S(12, 3, C.brush); S(13, 2, C.brush); S(14, 1, C.pR);   // brush tucked behind the ear
+    }
+  } else if (acc === 'camera') {
+    if (back) { S(5, 12, C.strap); S(10, 12, C.strap); }
+    else {
+      S(5, 12, C.strap); S(10, 12, C.strap); Rr(6, 13, 4, 3, C.cam); S(6, 13, C.camL); S(9, 13, '#ffffff');
+      Rr(7, 14, 2, 2, C.lens); S(7, 14, '#c4e2ff'); S(8, 15, C.lensD);
+    }
+  } else if (acc === 'mic') {
+    if (!back) { Rr(11, 10, 2, 2, C.micD); S(11, 10, C.mic); Rr(11, 12, 2, 1, C.micF); S(11, 13, C.micH); S(11, 14, P); }
+  } else if (acc === 'bundle') {
+    const x = back ? 1 : 12, y = (fr === 1) !== back ? 14 : 15;
+    Rr(x, y + 1, 3, 3, C.furo); S(x, y, C.furo); S(x + 2, y, C.furo); S(x + 1, y + 1, C.furoD);
+    S(x, y + 2, C.furoW); S(x + 2, y + 3, C.furoW); S(x + 1, y + 3, C.furoD);
+  } else if (acc === 'tvcam') {
+    const x0 = back ? 0 : 11;
+    Rr(x0, 8, 5, 4, C.tv); Rr(x0 + 1, 7, 3, 1, C.tvD); Rr(x0, 11, 5, 1, C.tvD);
+    if (back) { S(x0, 8, C.rec); S(x0 + 3, 9, C.tvD); S(x0 + 3, 10, C.tvD); }
+    else { Rr(x0 + 1, 8, 2, 2, C.tvL); S(x0 + 1, 8, '#7aa8e0'); S(x0 + 4, 8, C.rec); }
+  }
+}
+function _chRodSide(G) {
+  const C = _chOC;
+  gLine(G, 10, 13, 1, -3, C.rod); G.set(3, 0, C.rodD);
+  for (let y = -2; y <= 4; y++) G.set(0, y, C.line);
+  G.set(0, 5, C.float); G.set(0, 6, '#ffffff');
+}
+function _chAccSide(G, acc, fr, P) {
+  const C = _chOC, S = (x, y, c) => G.set(x, y, c), Rr = (x, y, w, h, c) => G.rect(x, y, w, h, c);
+  if (acc === 'palette') {
+    Rr(11, 15, 4, 1, C.pal); Rr(12, 16, 3, 1, C.palD); S(12, 15, C.pR); S(13, 15, C.pB); S(14, 15, C.pY); S(12, 14, P);
+    S(6, 2, C.brush); S(5, 1, C.brush); S(4, 0, C.pR);
+  } else if (acc === 'camera') {
+    S(9, 12, C.strap); Rr(10, 13, 2, 3, C.cam); S(10, 13, C.camL); S(12, 14, C.lens); S(12, 15, C.lensD); S(12, 13, C.cam);
+  } else if (acc === 'mic') {
+    S(13, 12, C.micH); S(13, 11, C.micF); S(14, 11, C.micF); Rr(14, 9, 2, 2, C.micD); S(14, 9, C.mic);
+  } else if (acc === 'bundle') {
+    const bx = fr === 2 ? 9 : fr === 1 ? 3 : 6, by = 14;
+    Rr(bx, by + 1, 4, 3, C.furo); S(bx, by, C.furo); S(bx + 3, by, C.furo); S(bx + 1, by + 1, C.furoD); S(bx + 2, by + 1, C.furoD);
+    S(bx + 1, by + 3, C.furoW); S(bx + 3, by + 2, C.furoW); S(bx, by + 2, C.furoW);
+  } else if (acc === 'tvcam') {
+    Rr(6, 9, 8, 3, C.tv); Rr(7, 8, 4, 1, C.tvD); Rr(6, 11, 8, 1, C.tvD); Rr(14, 9, 2, 3, C.tvL); S(14, 9, '#7aa8e0'); S(6, 9, C.rec);
+  }
 }
 
 // ---------------------------------------------------------------- SITTING (dining seat, facing right; core flips for left)
@@ -745,9 +1138,15 @@ function catSit(frame, look) {
   look = look || {};
   const fur = FURS[look.fur] ? look.fur : 'orange', outfit = look.outfit || 'guest', shirt = look.shirt || '#e0705a';
   const fr = frame === 1 || frame === 2 || frame === 3 ? frame : 0, x = _chExtra(look, outfit);
-  return art('cht:' + fr + ':' + fur + ':' + outfit + ':' + (outfit === 'guest' || !_chKnown[outfit] ? shirt : '') + ':' + x.hat + ':' + x.trim + ':' + x.robe, () => {
+  return art('cht:' + fr + ':' + fur + ':' + outfit + ':' + (outfit === 'guest' || !_chKnown[outfit] ? shirt : '') + ':' + x.hat + ':' + x.trim + ':' + x.robe +
+    ':' + x.acc + ':' + x.uni, () => {
     const f = FURS[fur];
-    const c = paint(16, 24, Gr => _chSitBody(_chShift(Gr, 4), f, outfit, fr, shirt, x));
+    let o = outfit, xx = x;
+    if (o === 'mom') { o = 'apron'; xx = Object.assign({}, x, { uni: 'mom', trim: 0 }); }
+    const c = paint(16, 24, Gr => {
+      _chSitBody(_chShift(Gr, 4), f, o, fr, shirt, xx);
+      if (xx.uni) { const mp = _chUniMap(o, xx.uni); Gr.map((px, py, col) => mp[col]); }
+    });
     _chWhiskersSide(c, f, 6);
     if (outfit === 'clerk' && x.hat !== 'shades') _chGlasses(c, 'side', 6);
     _chShadow(c, 8, 23, 6);
@@ -757,7 +1156,7 @@ function catSit(frame, look) {
 function _chSitBody(G, f, o, fr, shirt, x) {
   const P = f.P || f.W, T = f.T || f.O, cl = _chCloth(o, shirt, x.robe), robe = _chRobe[o], pn = _chPants[o], oy = 2;
   // lower garment colour on the lap
-  const lap = robe ? cl.m : pn ? pn[0] : o === 'guest' || !_chKnown[o] ? _chC.shorts : f.O;
+  const lap = robe ? (o === 'o_hakama' ? _chOC.hkH : o === 'o_chef' ? _chOC.kpK : cl.m) : _chOut[o] ? cl.m : pn ? pn[0] : o === 'guest' || !_chKnown[o] ? _chC.shorts : f.O;
   // tail lies on the floor behind and curls up
   [[3, 18], [2, 18], [1, 17], [1, 16], [2, 15]].forEach(p => G.set(p[0], p[1], T));
   // soles tucked under the seat
@@ -777,11 +1176,14 @@ function _chSitBody(G, f, o, fr, shirt, x) {
   else if (o === 'clerk' || o === 'haori') { const K = o === 'clerk' ? _chC.clerkK : _chC.haoriK; G.rect(10, 14, 1, 3, K); G.set(10, 15, _chC.himo); }
   else if (o === 'porter') { G.rect(5, 16, 6, 1, _chC.belt); G.set(10, 14, _chC.wh); }
   else if (o === 'chef') { G.set(10, 14, _chC.kerchief); G.set(9, 14, _chC.kerchief); G.set(10, 16, _chC.chefBtn); }
+  else if (_chOut[o]) _chOSit(G, f, o);
   else { G.set(10, 14, f.O); }
+  if (x.acc === 'camera') { G.set(9, 14, _chOC.strap); G.rect(9, 15, 2, 2, _chOC.cam); G.set(11, 15, _chOC.lens); G.set(9, 15, _chOC.camL); }
   // head (dropped 2px)
   _chHeadSide(G, f, oy);
   if (fr !== 0) { const L = _chLid(f); G.set(11, 7 + oy, f.O); G.set(11, 8 + oy, L); G.set(10, 8 + oy, L); }
-  if (!_chCover[x.hat]) _chHatSide(G, f, o, oy);
+  if (_chOut[o]) _chOHead(G, f, o, oy, 'side', x.hat);
+  else if (!_chCover[x.hat]) _chHatSide(G, f, o, oy);
   if (x.hat) _chHatOn(G, x.hat, 'side', oy);
   // near arm + what it holds
   const sl = cl.sleeve, lg = _chLong[o];
@@ -854,8 +1256,10 @@ function catSleepHead(fur) {
 }
 
 // 16x24, anchor (8,23): the innkeeper bowing on the title screen (happi). frame 0 stand, 1 bow. hat = look.hat id or null.
-function catBow(fur, frame, hat) {
+// v2.1: optional outfit = an o_* outfit id (S.equip.outfit's look.outfit); anything else = the happi.
+function catBow(fur, frame, hat, outfit) {
   const fid = FURS[fur] ? fur : 'orange', f = FURS[fid], fr = frame ? 1 : 0, h = _chHatId(hat);
+  if (_chOut[outfit]) return art('chw:' + fid + ':' + fr + ':' + h + ':' + outfit, () => _chBowO(f, fr, h, outfit));
   return art('chw:' + fid + ':' + fr + ':' + h, () => {
     const c = paint(16, 24, Gr => {
       const G = _chShift(Gr, 4), P = f.P || f.W;
@@ -892,6 +1296,68 @@ function catBow(fur, frame, hat) {
     return c;
   });
 }
+// catBow in an o_* outfit: frame 0 = the outfit's front sprite with happy closed eyes; frame 1 = bowing, the outfit's
+// colours on the folded torso and its own headwear on the bowed head
+const _chBowPal = {   // torso, centre line, belt / accent, hem (null = no robe: legs show)
+  o_yukata: [_chOC.ygM, _chOC.ygCol, _chOC.ygObi, _chOC.ygM], o_chef: [_chOC.kpW, _chOC.kpK, _chOC.kpS, _chOC.kpK],
+  o_momiji: [_chOC.mjR, _chOC.mjK, _chC.himo, _chOC.mjK], o_snow: [_chOC.snC, _chOC.snCL, _chOC.snS, null],
+  o_hakama: [_chOC.hkT, _chC.wh, _chOC.hkHD, _chOC.hkH], o_ninja: [_chOC.njS, _chOC.njL, _chOC.njR, null],
+  o_samurai: [_chOC.smG, _chOC.smK, _chOC.smCrest, _chOC.smG], o_maneki: [_chOC.mkW, _chOC.mkR, _chOC.mkG, null],
+};
+function _chBowO(f, fr, h, o) {
+  if (!fr) {
+    const c = paint(16, 24, Gr => _chFront(_chShift(Gr, 4), f, o, 0, '', false, false, _chShift(Gr, 4), { hat: h, acc: '', trim: 0, robe: '', uni: '', mood: 'happy' }));
+    _chWhiskersFront(c, f, 4); _chShadow(c, 8, 23, 5);
+    return c;
+  }
+  const c = paint(16, 24, Gr => {
+    const G = _chShift(Gr, 4), P = f.P || f.W, C = _chOC, [m, mid, acc, hem] = _chBowPal[o], cl = _chCloth(o, '', '');
+    const pn = _chPants[o];
+    if (hem) { G.rect(4, 17, 8, 1, hem); G.rect(5, 18, 2, 1, P); G.rect(9, 18, 2, 1, P); }
+    else { const lg = pn[0], ft = pn[1] || P; G.rect(5, 17, 2, 1, lg); G.rect(5, 18, 2, 1, ft); G.rect(9, 17, 2, 1, lg); G.rect(9, 18, 2, 1, ft); }
+    G.rect(4, 14, 8, 3, m); G.rect(7, 14, 2, 3, mid); G.set(4, 16, acc); G.set(11, 16, acc);
+    if (o === 'o_samurai') { G.rect(2, 14, 2, 1, m); G.rect(12, 14, 2, 1, m); }
+    G.set(3, 15, cl.sleeve); G.set(12, 15, cl.sleeve); G.set(6, 16, P); G.set(7, 16, P); G.set(8, 16, P); G.set(9, 16, P);
+    if (o === 'o_snow') { G.set(6, 16, C.snS); G.set(9, 16, C.snS); }
+    const oy = 4, S = (x, y, col) => G.set(x, y + oy, col), Rr = (x, y, w, hh, col) => G.rect(x, y + oy, w, hh, col), ear = f.ear || f.O;
+    S(2, 1, ear); S(13, 1, ear); S(2, 2, ear); S(3, 2, ear); S(12, 2, ear); S(13, 2, ear);
+    Rr(2, 3, 12, 6, f.O); Rr(3, 9, 10, 1, f.O);
+    S(3, 2, _chC.pink); S(12, 2, _chC.pink);
+    if (f.stripes) [[6, 3], [7, 3], [8, 3], [9, 3], [7, 4], [8, 4]].forEach(p => S(p[0], p[1], f.D));
+    if (f.patch) { G.ell(4, 4.5 + oy, 2.5, 2, f.D); S(2, 1, f.D); S(2, 2, f.D); if (f.D2) { G.ell(11.5, 3.5 + oy, 2, 1.5, f.D2); S(13, 1, f.D2); S(13, 2, f.D2); } }
+    if (f.points) G.ell(8, 9 + oy, 3.2, 1.4, mixHex(f.O, f.D, .5));
+    const top = _chTopHat[h];
+    if (o === 'o_ninja') { Rr(2, 3, 12, 4, C.njS); if (!_chCover[h]) { Rr(2, 6, 12, 1, C.njR); S(14, 6, C.njR); S(14, 7, C.njR); } }
+    else if (o === 'o_chef' && !top) { Rr(3, 3, 10, 3, C.kpScarf); [[4, 3], [8, 3], [11, 3], [6, 4], [10, 4], [4, 5], [8, 5], [12, 5]].forEach(p => S(p[0], p[1], C.kpDot)); }
+    else if (o === 'o_snow' && !top) { Rr(3, 3, 10, 3, C.snS); Rr(2, 6, 12, 1, C.snF); Rr(7, 1, 2, 2, C.snF); }
+    else if (o === 'o_hakama' && !top) { Rr(3, 2, 10, 3, C.hkCap); Rr(3, 4, 10, 1, C.hkLine); Rr(3, 5, 10, 1, C.hkCap); }
+    else if (o === 'o_momiji' && !_chCover[h]) { S(11, 4, C.mjR); S(10, 5, C.mjR); S(12, 5, C.mjR); S(11, 5, C.mjL1); }
+    const L = _chLid(f); S(5, 8, L); S(6, 8, L); S(9, 8, L); S(10, 8, L);
+    S(4, 9, _chBlush(f)); S(11, 9, _chBlush(f));
+    S(7, 9, f.points ? f.D : _chC.nose); S(8, 9, f.points ? f.D : _chC.nose);
+    if (h) _chHatOn(G, h, 'down', oy + 1);
+  });
+  _chPx(c, _chTip, [[1, 16], [0, 16], [14, 16], [15, 16]]);
+  _chShadow(c, 8, 23, 5);
+  return c;
+}
+
+// ---------------------------------------------------------------- ready looks for v2.1 characters (SPEC_v2 16.4 / 16.5 / 16.7)
+// Plain look objects for catSprite / catSit (copy before changing). kittens = the three furs for kittenSprite.
+const LOOKS_V21 = {
+  reporter: { fur: 'tabby', outfit: 'guest', shirt: '#e0b050', hat: 'beret', acc: 'camera' },
+  host: { fur: 'white', outfit: 'guest', shirt: '#e8486e', acc: 'mic' },
+  cameraman: { fur: 'black', outfit: 'guest', shirt: '#5e6e80', acc: 'tvcam' },
+  mom: { fur: 'orange', outfit: 'mom', acc: 'bundle' },
+  zen: { fur: 'black', outfit: 'robe', robe: '#e0862a' },
+  fisher: { fur: 'tabby', outfit: 'robe', robe: '#5e7e5a', hat: 'straw', acc: 'rod' },
+  boy: { fur: 'cream', outfit: 'robe', robe: '#62c0e6', hat: 'straw' },
+  yukionna: { fur: 'white', outfit: 'robe', robe: '#acd4f2' },
+  kittens: ['calico', 'tabby', 'black'],
+  painter: { fur: 'gray', outfit: 'robe', robe: '#4a78b8', hat: 'beret', acc: 'palette' },
+  bride: { fur: 'white', outfit: 'robe', robe: '#f6f2ea', hat: 'foxmask' },
+  tea: { fur: 'gray', outfit: 'haori', robe: '#4e6a3e' },
+};
 // ==== end source:src/art/chars.js ====
 
 // ==== source:src/art/chars-small.js ====
@@ -1001,11 +1467,18 @@ function kittenSit(fur) {
 // ---------------------------------------------------------------- PETS (boutique, star 5)
 // petSprite('duck', view, frame): 10x10 anchor (5,9). petSprite('shiba', view, frame): 16x16 anchor (8,15).
 // frames 0 stand / 1 / 2 walk; shiba frames 3 and 4 = sitting, tail wagging (alternate them).
+// v2.1 (SPEC_v2 16.6): 'fox' 16x16 anchor (8,15): 3 / 4 = sitting, the tail tip swishes (alternate them).
+// 'tanuki' 16x16 anchor (8,15): 3 = sitting; 4 = a puff of smoke with a leaf, 5 = disguised as a paper lantern
+// (4 and 5 look the same in every view; play 3 .. 4 5 5 5 4 .. 3 now and then). 'crane' 16x20 anchor (8,19):
+// 3 = resting on one leg, 4 = one leg, head bowed (alternate slowly). Unlock ids p_* are accepted; petAnchor(kind) = [ax, ay].
+const _CH_PETS = { duck: [10, 10, 5, 9, 2], shiba: [16, 16, 8, 15, 4], fox: [16, 16, 8, 15, 4], tanuki: [16, 16, 8, 15, 5], crane: [16, 20, 8, 19, 4] };   // w, h, ax, ay, last frame
+function _chPetKind(kind) { const k = typeof kind === 'string' && kind.indexOf('p_') === 0 ? kind.slice(2) : kind; return _CH_PETS[k] ? k : 'duck'; }
 function petSprite(kind, view, frame) {
-  const k = kind === 'shiba' || kind === 'p_shiba' ? 'shiba' : 'duck', v = view === 'up' || view === 'side' ? view : 'down';
-  const max = k === 'shiba' ? 4 : 2, fr = frame >= 0 && frame <= max ? frame | 0 : 0;
-  return art('chp:' + k + ':' + v + ':' + fr, () => k === 'shiba' ? _chShiba(v, fr) : _chDuck(v, fr));
+  const k = _chPetKind(kind), v = view === 'up' || view === 'side' ? view : 'down';
+  const max = _CH_PETS[k][4], fr = frame >= 0 && frame <= max ? frame | 0 : 0;
+  return art('chp:' + k + ':' + v + ':' + fr, () => k === 'shiba' ? _chShiba(v, fr) : k === 'fox' ? _chFox(v, fr) : k === 'tanuki' ? _chTanuki(v, fr) : k === 'crane' ? _chCrane(v, fr) : _chDuck(v, fr));
 }
+function petAnchor(kind) { const d = _CH_PETS[_chPetKind(kind)]; return [d[2], d[3]]; }
 const _chDk = { Y: '#ffd84a', D: '#e8a830', L: '#fff2a8', B: '#f08a2a', F: '#e87a22' };
 function _chDuck(v, fr) {
   const c = paint(10, 10, G => {
@@ -1101,6 +1574,189 @@ function _chShiba(v, fr) {
     }
   });
   _chShadow(c, 8, 15, 5);
+  return c;
+}
+
+// fox kit: red-orange, white muzzle / chest / tail tip, black socks and ear backs, a big brush of a tail
+const _chFx = { R: '#e8743a', D: '#b8522a', C: '#fcf2e2', K: '#3a2a30', I: '#f6c0a8', N: OUT };
+function _chFox(v, fr) {
+  const sit = fr >= 3, sw = fr === 4 ? 1 : 0, bob = fr === 2 ? 1 : 0;
+  const c = paint(16, 16, Gr => {
+    const G = _chShift(Gr, -bob), L = Gr, C = _chFx, S = (x, y, cc) => G.set(x, y, cc);
+    const tail = (cx, cy, rx, ry, tipX) => G.ell(cx, cy, rx, ry, (x, y) => (tipX < 0 ? x <= -tipX : x >= tipX) ? C.C : (y + .5 < cy - ry * .3 ? C.R : C.D));
+    if (v === 'side') {
+      if (sit) {
+        G.rect(1, 12, 8, 2, C.D); G.rect(0, 12 - sw, 2, 2, C.C); S(2, 12, C.R);                       // tail along the floor, tip swishing
+        G.ell(5.5, 10.5, 3.2, 3, C.R); G.rect(7, 6, 4, 7, C.R); G.rect(9, 8, 2, 5, C.C);           // haunch + chest
+        L.rect(9, 12, 1, 2, C.K); L.rect(10, 12, 1, 2, C.K); L.set(11, 13, C.K); L.rect(4, 13, 3, 1, C.K);
+      } else {
+        tail(2.6, 8.6, 2.8, 2.4, -1);
+        const legs = fr === 0 ? [[4, 0], [5, 1], [9, 0], [10, 1]] : fr === 1 ? [[3, 0], [6, 1], [8, 0], [11, 1]] : [[5, 0], [3, 1], [10, 0], [8, 1]];
+        legs.forEach(([lx, near]) => { const k = near ? 0 : -26; L.set(lx, 11, shade(C.R, k)); L.rect(lx, 12, 1, 2, shade(C.K, k)); if (bob) L.set(lx, 10, shade(C.R, k)); });
+        G.rect(4, 7, 7, 4, C.R); G.rect(5, 6, 4, 1, C.R); G.rect(5, 10, 5, 1, C.C); G.rect(4, 7, 5, 1, C.D);
+      }
+      const hy = sit ? -1 : 0, H = (x, y, cc) => G.set(x, y + hy, cc);
+      H(10, 0, C.K); H(10, 1, C.D); H(11, 1, C.D); H(12, 0, C.K); H(12, 1, C.R); H(13, 1, C.R); H(12, 2, C.I);   // ears
+      G.rect(10, 2 + hy, 4, 4, C.R); G.rect(14, 4 + hy, 2, 2, C.R); G.rect(11, 6 + hy, 3, 1, C.C); G.rect(13, 5 + hy, 3, 1, C.C);
+      H(10, 5, C.C); H(9, 6, C.R); H(15, 4, C.N); H(13, 3, C.N);
+    } else if (v === 'up') {
+      if (sit) { G.ell(8, 10.8, 4.2, 3.4, C.R); G.rect(6, 7, 4, 2, C.R); G.rect(9, 13, 4, 1, C.D); G.rect(12, 12 - sw, 2, 2, C.C); G.rect(7, 7, 2, 2, C.D); }
+      else {
+        const lift = fr === 0 ? -1 : fr === 1 ? 0 : 1;
+        [[5, 0], [10, 1]].forEach(([lx, i]) => { if (lift !== i) { L.set(lx, 12, C.K); L.set(lx, 13, C.K); if (bob) L.set(lx, 11, C.R); } else G.set(lx, 12, C.K); });
+        G.rect(5, 7, 6, 4, C.R); G.rect(4, 8, 8, 2, C.R);
+        tail(8 + (fr === 1 ? -.5 : fr === 2 ? .5 : 0), 11, 2.4, 3, 0); G.ell(8 + (fr === 1 ? -.5 : fr === 2 ? .5 : 0), 13.4, 1.6, 1, C.C);
+      }
+      S(4, 0, C.K); S(4, 1, C.K); S(5, 1, C.K); S(11, 0, C.K); S(11, 1, C.K); S(10, 1, C.K);
+      G.rect(4, 2, 8, 1, C.R); G.rect(3, 3, 10, 3, C.R); G.rect(4, 6, 8, 1, C.R); G.rect(5, 2, 6, 1, C.D);
+    } else {
+      if (sit) {
+        G.ell(8, 11.6, 4.2, 2.6, C.R); G.rect(5, 7, 6, 5, C.R); G.rect(6, 7, 4, 5, C.C);
+        L.rect(6, 11, 1, 3, C.K); L.rect(9, 11, 1, 3, C.K);
+        G.rect(10, 13, 4, 1, C.D); G.rect(13, 12 - sw, 2, 2, C.C);                                  // tail round the paws, tip swishes
+      } else {
+        const lift = fr === 0 ? -1 : fr === 1 ? 0 : 1;
+        tail(12.6, 9.2 - (fr === 2 ? .5 : 0), 2.4, 2.6, 14);
+        G.rect(5, 8, 6, 4, C.R); G.rect(6, 8, 4, 3, C.C);
+        [[5, 0], [9, 1]].forEach(([lx, i]) => {
+          if (lift === i) { G.rect(lx, 12, 2, 1, C.K); }
+          else { L.rect(lx, 11, 2, 1, C.R); L.rect(lx, 12, 2, 2, C.K); if (bob) L.rect(lx, 10, 2, 1, C.R); }
+        });
+      }
+      // head: tall ears with black tips, white muzzle narrowing to the nose
+      S(4, 0, C.K); S(4, 1, C.R); S(5, 1, C.I); S(11, 0, C.K); S(11, 1, C.R); S(10, 1, C.I); S(3, 1, C.K); S(12, 1, C.K);
+      G.rect(4, 2, 8, 1, C.R); G.rect(3, 3, 10, 3, C.R); G.rect(4, 6, 8, 1, C.R);
+      G.rect(3, 5, 3, 2, C.C); G.rect(10, 5, 3, 2, C.C); G.rect(6, 6, 4, 2, C.C); S(5, 7, C.C); S(10, 7, C.C);
+      S(5, 4, C.N); S(10, 4, C.N); S(7, 6, C.N); S(8, 6, C.N);
+    }
+  });
+  _chShadow(c, 8, 15, 5);
+  return c;
+}
+
+// tanuki: round brown body, dark eye mask, cream muzzle and belly, ringed tail; can turn into a paper lantern
+const _chTk = { B: '#8e6c4a', D: '#5e4430', M: '#2e2420', C: '#eadcbc', E: '#4a3628', W: '#ffffff' };
+function _chTanuki(v, fr) {
+  if (fr >= 4) return _chTanukiMagic(fr);
+  const sit = fr === 3, bob = fr === 2 ? 1 : 0;
+  const c = paint(16, 16, Gr => {
+    const G = _chShift(Gr, -bob), L = Gr, C = _chTk, S = (x, y, cc) => G.set(x, y, cc);
+    const tail = (cx, cy, rx, ry) => G.ell(cx, cy, rx, ry, (x, y) => ((v === 'up' ? y : x) % 2 ? C.D : C.B));   // ringed
+    if (v === 'side') {
+      if (sit) { tail(2.4, 12.4, 2.6, 1.8); G.ell(6.5, 10.4, 3.8, 3.4, C.B); G.ell(8.8, 10.8, 1.6, 2.4, C.C); L.rect(9, 13, 2, 1, C.D); L.rect(4, 13, 3, 1, C.D); }
+      else {
+        tail(2.2, 9.4, 2.4, 2.2);
+        const legs = fr === 0 ? [[5, 0], [6, 1], [9, 0], [10, 1]] : fr === 1 ? [[4, 0], [7, 1], [8, 0], [11, 1]] : [[6, 0], [4, 1], [11, 0], [9, 1]];
+        legs.forEach(([lx, near]) => { const k = near ? 0 : -26; L.rect(lx, 12, 1, 2, shade(C.D, k)); if (bob) L.set(lx, 11, shade(C.D, k)); });
+        G.ell(7.4, 9.6, 4.6, 3, C.B); G.rect(6, 11, 4, 1, C.C); G.rect(5, 7, 4, 1, C.D);
+      }
+      // round head low on the chest, short cream muzzle, the dark mask round the eye
+      const hy = sit ? -1 : 0, H = (x, y, cc) => G.set(x, y + hy, cc);
+      G.ell(11.4, 5.8 + hy, 3.2, 2.9, C.B);
+      H(9, 2, C.E); H(10, 2, C.E); H(9, 3, C.E); H(10, 3, C.D);                                     // round ear
+      G.rect(13, 6 + hy, 2, 2, C.C); H(15, 6, C.M); H(12, 8, C.C); H(13, 8, C.C);
+      H(10, 5, C.M); H(11, 5, C.M); H(12, 5, C.M); H(13, 5, C.M); H(11, 6, C.M); H(12, 6, C.M); H(12, 5, C.W);
+    } else if (v === 'up') {
+      if (sit) { G.ell(8, 11, 4.6, 3.4, C.B); tail(8, 13.4, 3.4, 1.4); }
+      else {
+        const lift = fr === 0 ? -1 : fr === 1 ? 0 : 1;
+        [[5, 0], [10, 1]].forEach(([lx, i]) => { if (lift !== i) { L.rect(lx, 12, 1, 2, C.D); if (bob) L.set(lx, 11, C.D); } else G.set(lx, 12, C.D); });
+        G.ell(8, 9.5, 4.4, 3.2, C.B); tail(8 + (fr === 1 ? -.5 : fr === 2 ? .5 : 0), 12, 2, 2.2);
+      }
+      S(3, 1, C.E); S(4, 1, C.E); S(3, 2, C.E); S(12, 1, C.E); S(11, 1, C.E); S(12, 2, C.E);
+      G.ell(8, 4.4, 4.6, 3.2, C.B); G.rect(5, 2, 6, 1, C.D);
+    } else {
+      if (sit) {
+        G.ell(8, 11, 4.6, 3.4, C.B); G.ell(8, 11.2, 2.8, 2.6, C.C);                                // the famous round belly
+        L.rect(4, 13, 2, 1, C.D); L.rect(10, 13, 2, 1, C.D); S(4, 10, C.D); S(11, 10, C.D);
+        G.ell(13, 12, 1.6, 1.6, C.B); S(13, 11, C.D); S(14, 12, C.D);
+      } else {
+        const lift = fr === 0 ? -1 : fr === 1 ? 0 : 1;
+        G.ell(12.6, 10, 1.8, 2, C.B); S(13, 9, C.D); S(12, 11, C.D); S(14, 10, C.D);
+        G.ell(8, 9.8, 4.2, 3, C.B); G.ell(8, 10, 2.4, 2.2, C.C);
+        [[5, 0], [9, 1]].forEach(([lx, i]) => {
+          if (lift === i) G.rect(lx, 12, 2, 1, C.D); else { L.rect(lx, 12, 2, 2, C.D); if (bob) L.rect(lx, 11, 2, 1, C.D); }
+        });
+      }
+      // head: little round ears, dark mask band with bright eyes, cream muzzle, black nose
+      S(3, 1, C.E); S(4, 1, C.E); S(3, 2, C.E); S(12, 1, C.E); S(11, 1, C.E); S(12, 2, C.E);
+      G.ell(8, 4.6, 4.8, 3.3, C.B);
+      G.rect(4, 4, 3, 2, C.M); G.rect(9, 4, 3, 2, C.M); S(5, 4, C.W); S(10, 4, C.W);
+      G.rect(6, 5, 4, 3, C.C); S(5, 6, C.C); S(10, 6, C.C); S(7, 5, C.M); S(8, 5, C.M);
+      S(7, 2, C.D); S(8, 2, C.D);
+    }
+  });
+  _chShadow(c, 8, 15, 5);
+  return c;
+}
+// frame 4: poof (smoke puff, a leaf on top); frame 5: the paper-lantern disguise - ears on the cap, tail out of the bottom
+function _chTanukiMagic(fr) {
+  const C = _chTk;
+  const c = paint(16, 16, G => {
+    const S = (x, y, cc) => G.set(x, y, cc);
+    if (fr === 4) {
+      const puff = (cx, cy, r) => G.ell(cx, cy, r, r * .9, (x, y) => y + .5 < cy - r * .2 ? '#fbf8f2' : '#e2dcd2');
+      puff(5, 10.4, 3.2); puff(11, 10.6, 3); puff(8, 7.4, 3.6); puff(8, 11.6, 3);
+      S(8, 2, '#5aa84a'); S(9, 2, '#5aa84a'); S(7, 3, '#5aa84a'); S(8, 3, '#3e8a3a'); S(9, 3, '#5aa84a'); S(8, 4, '#3e8a3a'); S(10, 1, '#3e8a3a');
+    } else {
+      const R0 = '#e8603e', RL = '#ffb26e', RD = '#b83e2e', K = '#2a2430';
+      G.ell(13, 13, 2.2, 1.5, (x, y) => ((x + y) % 2 ? C.D : C.B));                                // the tail gives it away
+      S(4, 0, C.E); S(5, 0, C.E); S(4, 1, C.E); S(10, 0, C.E); S(11, 0, C.E); S(11, 1, C.E);       // tanuki ears on the cap
+      G.ell(8, 8, 6, 5.4, (x, y) => (y === 5 || y === 8 || y === 11) ? RD : (x >= 5 && x <= 9 && y >= 4 && y <= 10 ? RL : R0));
+      G.rect(5, 1, 6, 1, K); G.rect(4, 2, 8, 1, K); G.rect(4, 13, 8, 1, K); G.rect(5, 14, 6, 1, K);
+      S(5, 7, K); S(6, 6, K); S(7, 7, K); S(9, 7, K); S(10, 6, K); S(11, 7, K);                      // happy closed eyes
+      S(7, 9, K); S(8, 10, K); S(9, 9, K); S(4, 9, '#ff9a8a'); S(12, 9, '#ff9a8a');
+    }
+  });
+  _chShadow(c, 8, 15, 5);
+  return c;
+}
+
+// red-crowned crane: white body, black neck and drooping tail plumes, red crown; the long legs are 1px lines drawn
+// straight onto the canvas after paint() (no outline, so they stay thin)
+const _chCr = { W: '#fbfbf6', S: '#dcdce4', K: '#2a2a36', R: '#e0303a', L: '#7a7a88', LD: '#55555f', B: '#d8c890', N: OUT };
+function _chCrane(v, fr) {
+  const oneLeg = fr >= 3, bow = fr === 4, bob = fr === 2 ? 1 : 0, C = _chCr;
+  const c = paint(16, 20, Gr => {
+    const G = _chShift(Gr, -bob), S = (x, y, cc) => G.set(x, y, cc);
+    if (v === 'side') {
+      G.ell(7, 10.4, 4.4, 2.8, C.W); G.rect(4, 9, 6, 1, C.S); S(10, 11, C.S);
+      G.rect(1, 10, 4, 2, C.K); S(2, 12, C.K); S(1, 12, C.K); S(3, 12, C.K); S(0, 11, C.K);        // black plumes over the tail
+      if (bow) { G.rect(10, 7, 2, 3, C.K); S(12, 7, C.K); S(12, 6, C.K); S(13, 6, C.R); S(13, 7, C.K); S(14, 8, C.B); S(14, 7, C.B); S(13, 7, C.N); }
+      else {
+        G.rect(10, 3, 2, 6, C.K); S(10, 3, C.W); S(10, 4, C.W); S(10, 5, C.W);                       // neck, white nape
+        S(11, 1, C.K); S(12, 1, C.R); S(11, 2, C.K); S(12, 2, C.K); S(13, 2, C.K); S(10, 2, C.W);   // head, red crown
+        S(14, 2, C.B); S(15, 2, C.B); S(14, 3, C.B); S(12, 2, C.N);
+      }
+    } else {
+      const back = v === 'up';
+      if (back) G.rect(5, 12, 6, 2, C.K); else { G.rect(4, 11, 1, 2, C.K); G.rect(11, 11, 1, 2, C.K); }
+      G.ell(8, 10.4, 3.7, 3.1, C.W); G.rect(5, 12, 6, 1, back ? C.K : C.S);
+      if (back) { S(6, 13, C.K); S(9, 13, C.K); G.rect(6, 9, 4, 1, C.S); }
+      const hy = bow ? 4 : 0, H = (x, y, cc) => G.set(x, y + hy, cc);
+      G.rect(7, 4 + hy, 2, 5 - hy, C.K);
+      G.rect(6, 1 + hy, 4, 3, C.K); H(7, 1, C.R); H(8, 1, C.R);
+      if (back) { H(7, 4, C.W); H(8, 4, C.W); H(7, 5, C.W); H(6, 3, C.W); H(9, 3, C.W); }
+      else { H(6, 2, C.N); H(9, 2, C.N); H(7, 4, C.B); H(8, 4, C.B); H(7, 5, C.B); H(6, 3, C.W); H(9, 3, C.W); }
+    }
+  });
+  // legs: from under the body (row 13, rides up with the bob) to the ground (row 18), toes forward
+  const top = 13 - bob, leg = (hx, fx, near, len) => {
+    const col = near ? C.L : C.LD, y1 = len ? top + len : 18, pts = [];
+    for (let y = top; y <= y1; y++) pts.push([R(hx + (fx - hx) * (y - top) / Math.max(1, y1 - top)), y]);
+    if (!len) pts.push(v === 'side' ? [fx + 1, 18] : [fx + (fx < 8 ? -1 : 1), 18]);
+    _chPx(c, col, pts);
+  };
+  if (v === 'side') {
+    if (oneLeg) { leg(7, 7, true); _chPx(c, C.LD, [[8, top], [9, top + 1], [8, top + 2]]); }   // the other leg folded up
+    else if (fr === 1) { leg(8, 10, true); leg(6, 4, false); }
+    else if (fr === 2) { leg(6, 4, true); leg(8, 10, false); }
+    else { leg(6, 6, false); leg(8, 8, true); }
+  } else {
+    const lift = oneLeg ? 1 : fr === 0 ? -1 : (fr === 1) !== (v === 'up') ? 0 : 1;
+    [[6, 0], [9, 1]].forEach(([lx, i]) => { if (lift === i) { if (!oneLeg) leg(lx, lx, true, 3); } else leg(lx, lx, true); });
+  }
+  _chShadow(c, 8, 19, 4);
   return c;
 }
 
