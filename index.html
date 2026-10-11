@@ -56,6 +56,7 @@ setTimeout(function () { if (!window.__gameBooted) window.__gameErr('启动超�
 (() => {
 'use strict';
 const SCRIPT_TEXT = document.currentScript ? document.currentScript.textContent : '';
+// ==== source:src/core/constants.js ====
 // ============================================================ constants
 const W = 180, H = 320, OUT = '#1b1b2f';           // logical pixels (portrait); everything is drawn at this size
 const SAVE = 'purr-springs-';                       // localStorage key prefix — unique per game
@@ -74,7 +75,9 @@ const fmt = n => n >= 1e5 ? Math.floor(n / 1e4) + '万' : n >= 1e4 ? (Math.floor
 function mk(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
 function load(k, d) { try { const v = localStorage.getItem(SAVE + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
 function save(k, v) { try { localStorage.setItem(SAVE + k, JSON.stringify(v)); } catch (e) {} }
+// ==== end source:src/core/constants.js ====
 
+// ==== source:src/ui/pixel-painter.js ====
 // ============================================================ pixel painter
 const _RGBA = new Map(); let _rgbaX = null;   // colour string -> [r, g, b, a] (Grid.canvas)
 function rgbaOf(col) {
@@ -171,7 +174,9 @@ function eyeG(G, x, y, r, iris, pupil = 'round') {
   if (pupil === 'slit') G.rect(R(x - .5), R(y - r * .7), 1, Math.max(2, R(r * 1.4)), OUT); else if (pupil === 'round') G.ell(x + .3, y + .2, Math.max(.8, r * .45), Math.max(.8, r * .5), OUT);
   const hx = R(x - r * .5), hy = R(y - r * .5); G.set(hx, hy, '#ffffff'); if (r >= 3) { G.set(hx + 1, hy, '#ffffff'); G.set(hx, hy + 1, '#ffffff'); }
 }
+// ==== end source:src/ui/pixel-painter.js ====
 
+// ==== source:src/art/stubs.js ====
 // ============================================================ ART
 // Three blocks (characters, scenery, objects + icons + UI), merged from the art agents' files in stage M (SPEC_v2 12);
 // index.html is now their only copy. Core code only calls the SPEC_v2 section 12 functions (names, sizes, anchors).
@@ -180,6 +185,8 @@ function eyeG(G, x, y, r, iris, pupil = 'round') {
 // the same name in the art blocks below wins. Empty since the v2.0 merge (stage M); the v2.0 stubs + helper _stBox are
 // in git history (commit ce4c1aa) for the v2.1 art round.
 /*ART:stubs:END*/
+// ==== end source:src/art/stubs.js ====
+// ==== source:src/art/chars.js ====
 /*ART:chars:BEGIN*/
 // ============================================================ ART: characters (SPEC_v2 12.1; was art/chars.js until the stage M merge)
 // Chibi cats for Purr Springs (v2). Every sprite is built once and cached with art(key, ...).
@@ -882,7 +889,9 @@ function catBow(fur, frame, hat) {
     return c;
   });
 }
+// ==== end source:src/art/chars.js ====
 
+// ==== source:src/art/chars-small.js ====
 // ---------------------------------------------------------------- KITTEN (family guests' little one)
 // kittenSprite: 10x14, anchor (5,13). view 'down' | 'up' | 'side' (facing right), frame 0 stand / 1 / 2 walk (2 bobs up).
 function kittenSprite(view, frame, fur) {
@@ -1125,6 +1134,8 @@ function catCurl(fur) {
   });
 }
 /*ART:chars:END*/
+// ==== end source:src/art/chars-small.js ====
+// ==== source:src/art/env.js ====
 /*ART:env:BEGIN*/
 // ============================================================ ART: env - scenery tiles (SPEC_v2 12.2; was art/env.js until the stage M merge)
 // v1 API (SPEC 4.2, signatures kept): tileArt(ch, tx, ty, nb) , waterArt(frame, tx, ty) , doorArt(kind, open) ,
@@ -1841,7 +1852,9 @@ const _EN_TILE = {
   'b': _enFence, 'f': _enBush, 'r': _enRock,
   'k': _enKitchen, 'm': _enDining, 'z': _enSand, 'x': _enDeck, 'q': _enStoneQ,
 };
+// ==== end source:src/art/env.js ====
 
+// ==== source:src/art/env-api.js ====
 // ------------------------------------------------------------ public API
 function tileArt(ch, tx, ty, nb, season) {
   nb = nb || {};
@@ -2325,6 +2338,8 @@ function plazaDecor(tx, ty) {
   }));
 }
 /*ART:env:END*/
+// ==== end source:src/art/env-api.js ====
+// ==== source:src/art/objects.js ====
 /*ART:objects:BEGIN*/
 // ============================================================ ART: objects, icons, UI (SPEC_v2 12.3; was art/objects.js until the stage M merge)
 // Objects: 3/4 top-down, anchor = bottom-left of the footprint (sprite bottom edge sits on the footprint's
@@ -2936,7 +2951,9 @@ function poofArt(frame) {   // 16x12 white smoke puff, centre anchor (8,6), fram
     } else { puff(2.6, 5.4, 1.7); puff(13.4, 5.4, 1.7); puff(8, 2.4, 1.6); puff(4.6, 9.4, 1.3); puff(11.4, 9.4, 1.3); }
   }));
 }
+// ==== end source:src/art/objects.js ====
 
+// ==== source:src/art/objects-v2.js ====
 // ============================================================ v2.0 additions (SPEC_v2 section 12.3)
 // Same rules as above: 3/4 top-down, light from the top-left, 1px contact shadow, anchor = bottom-left of the
 // footprint unless the comment says otherwise, every canvas cached with art(). No randomness: _obH() hashes.
@@ -3640,7 +3657,9 @@ function wishBoardArt() {   // 40x14 wooden wish board over a suite door, anchor
     [13, 25].forEach(sx => { G.set(sx + 1, 4, P.red); G.set(sx + 1, 9, P.red); });
   }));
 }
+// ==== end source:src/art/objects-v2.js ====
 
+// ==== source:src/art/objects-ui.js ====
 // ------------------------------------------------------------ v2 icons (centre anchor, flat dark outline)
 // small icon from a pattern: rows of chars -> colours, 1px OUT outline added around (like rows())
 function _obIco(key, rs, pal) { return art(key, () => rows(rs, pal)); }
@@ -4050,7 +4069,9 @@ const _obPADPOST = {
   decor: x => { x.fillStyle = '#6a4a30'; [[5, 4], [4, 3], [7, 4], [8, 3], [6, 3]].forEach(([i, j]) => x.fillRect(i, j, 1, 1)); },
 };
 /*ART:objects:END*/
+// ==== end source:src/art/objects-ui.js ====
 
+// ==== source:src/ui/input.js ====
 // ============================================================ screen + input
 const wrap = document.getElementById('wrap'), cv = document.getElementById('c'), ctx = cv.getContext('2d');
 const low = mk(W, H);
@@ -4120,7 +4141,9 @@ function inputVec() {
   if (JOY.on) { const d = Math.hypot(JOY.dx, JOY.dy); if (d > 1.5) { const m = Math.min(1, d / 14); return { x: JOY.dx / d * m, y: JOY.dy / d * m }; } }
   return { x: 0, y: 0 };
 }
+// ==== end source:src/ui/input.js ====
 
+// ==== source:src/audio/engine.js ====
 // ============================================================ audio (synthesised, no files)
 // The v2 engine (SPEC_v2 9 + 13), merged in stage M; index.html is its only copy.
 /*AUDIO:BEGIN*/
@@ -4964,13 +4987,17 @@ try {
   });
 } catch (e) {}
 /*AUDIO:END*/
+// ==== end source:src/audio/engine.js ====
+// ==== source:src/audio/hooks.js ====
 // a sound effect by name (SPEC_v2 9.5); an unknown name is silent
 function sfx(k, a) { const f = SFX[k]; if (typeof f === 'function') try { f.call(SFX, a); } catch (e) {} }
 function vib(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
 // save when hidden; the audio block suspends / resumes AC itself
 document.addEventListener('visibilitychange', () => { try { if (document.hidden && state !== 'title') saveNow(); } catch (e) {} });
 window.addEventListener('pagehide', () => { try { if (state !== 'title') saveNow(); } catch (e) {} try { if (AC) AC.close(); } catch (e) {} });
+// ==== end source:src/audio/hooks.js ====
 
+// ==== source:src/ui/drawing.js ====
 // ============================================================ drawing helpers
 function disc(x, y, r, col) {
   x = R(x); y = R(y); g.fillStyle = col;
@@ -5049,7 +5076,9 @@ function ring(x, y, p, col) {
   g.fillStyle = '#6a6a7e'; for (const [dx, dy, , d] of RING) if (d < 5) g.fillRect(x + dx, y + dy, 1, 1);
   g.fillStyle = col || '#7ae07a'; for (const [dx, dy, a, d] of RING) if (a <= p && d < 5) g.fillRect(x + dx, y + dy, 1, 1);
 }
+// ==== end source:src/ui/drawing.js ====
 
+// ==== source:src/data/map.js ====
 // ============================================================ MAP & DATA (SPEC_v2 section 2)
 // 40 x 36 tiles. The v1 inn sits in cols 10-24: every v1 coordinate is x + 10, y unchanged.
 const MAP = [
@@ -5193,7 +5222,9 @@ Object.assign(PILE_AT, { recep: [15, 24], onsen: [18, 5], milk: [21, 5], dining:
 ROOMS.forEach(r => { PILE_AT[r.id] = r.pile; });
 const pileOpen = (id, s) => id === 'recep' || (ROOM[id] ? roomOpen(ROOM[id], s) : !!(s || S).unlocked[id]);
 const SHIRTS = ['#e05a5a', '#5a9ae0', '#6ac06a', '#e0b04a', '#b07ae0', '#e08ac0', '#4ac0b8', '#f08a4a'];
+// ==== end source:src/data/map.js ====
 
+// ==== source:src/data/tables.js ====
 // ---- unlocks (3.4). pad: [tx, ty] | 'decor' (the two shop decor pads) | 'hat' / 'pet' (one booth each) - see padsUpdate().
 // gate: opens an area (its pad is always shown); star: +1 star; staff: hires someone; need5: from star 5 on; vip: hosted that VIP first.
 // card: the one line on the info card and the "new!" banner. at: the tile that sparkles (default: the pad).
@@ -5373,7 +5404,9 @@ const VIP_SIP_T = { tea: 4, kaiseki: 6 };   // stage 4: the VIP drinks / eats th
 const VIP_FOLLOW = 16, VIP_HALT = 96, VIP_RESUME = 48, VIP_NOGREET = 60, VIP_IDLE = 120, VIP_LEAD_MAX = 120, VIP_NOSUITE = 240;
 // the clerk (4.8): claims piles >= 2 x the tip lying more than 48 px from the innkeeper and carries them to the cash box
 const CLERK_MIN = 2, CLERK_KEEP = 48, CLERK_BAG_T = .4, CLERK_DUMP_T = .3, CHEST_SPOT = [16, 24];
+// ==== end source:src/data/tables.js ====
 
+// ==== source:src/core/state-save.js ====
 // ============================================================ state + save/load (SPEC_v2 section 10)
 function defaults() {
   return {
@@ -5558,7 +5591,9 @@ const padXY = u => PADPOS.get(u.id) || (u.dyn ? null : u.pad);
 const visiblePads = () => UNLOCKS.filter(u => PADPOS.has(u.id));
 // buying this gate really adds a star (draw the little star badge only then)
 const raisesStar = u => !!u.star && starOf(S) + 1 > star();
+// ==== end source:src/core/state-save.js ====
 
+// ==== source:src/core/pathfinding.js ====
 // ============================================================ pathfinding (BFS) + movement / collision
 const BLOCK = new Uint8Array(MW * MH);   // 1 = can't walk (walls, closed doors, locked block-areas, furniture)
 let OBJS = [];                           // props, rebuilt on unlock
@@ -5702,7 +5737,9 @@ function unstick(e) {
     if (!boxHit(x, y)) { e.x = x; e.y = y; return; }
   }
 }
+// ==== end source:src/core/pathfinding.js ====
 
+// ==== source:src/core/entities.js ====
 // ============================================================ entities: player / guests / staff
 // P.tray = the hand tray (4.1; head towels stay in P.towels). pick: pick-up timers per zone; cookT / cookK: the stove;
 // giveT / giveTo / giveK: handing something over (DELIVER_T); putT: putting back what nobody wants any more.
@@ -5786,7 +5823,9 @@ function earn(v, wx, wy) {
   for (let i = 0; i < n; i++) FX.push({ k: 'fly', x0: wx - R(cam.x) + rand(-4, 4), y0: wy - R(cam.y) + rand(-3, 3), t: -i * .05, life: .55 + i * .02 });
   pop('+' + v, wx, wy - 8, '#ffe9a8', 8, .9); SFX.coin(0); markDirty();
 }
+// ==== end source:src/core/entities.js ====
 
+// ==== source:src/systems/guests.js ====
 // ---- guests (4.6): regular / elder / couple / family. A couple's partner and a family's kitten are followers
 // (gu.mate), not guests: they don't count towards GUEST_MAX and never take a room, a slot or a seat of their own.
 // the type of the next arrival: per-star weights; a type whose favourite room doesn't exist yet counts as a regular
@@ -6062,6 +6101,8 @@ function checkIn(gu, rm) {
   const rc = STAFF.find(s => s.role === 'recep' && s.atDesk); if (rc && !P.atDesk) { gainXp(rc, 1); lineSay(rc, 'S02'); }
   SFX.bell(); markDirty(); lineSay(gu, 'G06');
 }
+// ==== end source:src/systems/guests.js ====
+// ==== source:src/systems/staff.js ====
 // staff (4.7): need = the unlock that hires them; home = where they idle. Roles: recep (stays at the desk), maid
 // (cleans the nearest unclaimed messy room), porter (keeps the towel basket stocked), chef (keeps the dining counter
 // stocked, 4.3), waiter (counter -> the longest-waiting diners, 2 at a time). The clerk and the shop owner stand at
@@ -6235,7 +6276,9 @@ function updClerk(s, dt, walk) {
   }
   const h = homeOf(s); goTo(s, h[0], h[1]); if (walk()) s.dir = 'down';
 }
+// ==== end source:src/systems/staff.js ====
 
+// ==== source:src/systems/decor.js ====
 // ============================================================ decor + combos (4.5)
 // Bought once = owned; a piece can stand in any number of rooms. Stand still on a slot: after DECOR_T0 the next piece
 // swaps in, then one every DECOR_T while you stay; it stops by itself when the two pieces make a combo (walk off and step
@@ -6372,8 +6415,10 @@ function edgeNew(tx, ty, icon) {
   if (EDGE_Q.length >= 2 || EDGE_Q.some(e => Math.max(Math.abs(e.tx - tx), Math.abs(e.ty - ty)) <= 2)) return;
   EDGE_Q.push({ tx, ty, icon, t: T, age: 0 });
 }
+// ==== end source:src/systems/decor.js ====
 
 
+// ==== source:src/systems/vip.js ====
 // ============================================================ VIPs (4.4)
 // One at a time, not saved (10.1). arrive -> carpet (greet: stand within 14 px for 0.5 s; nobody for 60 s -> it walks to
 // a suite on its own) -> follow (walks the innkeeper's crumbs 16 px behind; more than 96 px behind it stops with "..." and
@@ -6496,7 +6541,9 @@ function vipWants(L) {
   if (!v || v.st !== 'seated' || (k !== 'tea' && k !== 'kaiseki')) return;
   L.push({ e: v, k, x: v.x, y: v.y, left: VIP_IDLE - v.t, tile: ROOM[v.suite].stand, give: vipWishDone, vip: true });
 }
+// ==== end source:src/systems/vip.js ====
 
+// ==== source:src/systems/daynight.js ====
 // ============================================================ day / night (4.10)
 // One day = DAY_LEN (6 min); S.clock only runs while you play (not under the star-5 celebration; stage 3: not in the
 // menu). Sunrise (the clock passes 0.10) starts the next day: a banner with yesterday's guests / hearts (+ a trophy on a
@@ -6537,7 +6584,9 @@ const roomBusy = rm => rm.vip ? !!RT[rm.id].guest : S.rooms[rm.id] === 'occupied
 const lightR = L => L.room ? (roomBusy(L.room) ? 18 : 10) : L.r;
 // the stars mirrored in the star-view bath at night: 10 fixed spots on the water, each fading in and out slowly (<= .5 Hz)
 const STAR_SPOTS = Array.from({ length: 10 }, (_, i) => ({ x: 27 * TILE + 3 + (i * 37) % 170, y: 2 * TILE + 3 + (i * 7) % 11, f: .18 + (i % 4) * .07, ph: i * 1.7 }));
+// ==== end source:src/systems/daynight.js ====
 
+// ==== source:src/systems/boutique.js ====
 // ============================================================ star 5: the tanuki's boutique + the golden statue (4.11)
 // From star 5 (with the shop open) the "preparing" curtain is gone: a hat booth (5,33), a pet booth (7,33), the mirror
 // (stand at (2,33)) and the pet cushion (8,34). Within 2 tiles of a booth you try its piece on before buying: the hat sits
@@ -6619,7 +6668,9 @@ const PLOOK = new Map();
 function lookWith(hat) { if (!hat) return PLAYER_LOOK; let l = PLOOK.get(hat); if (!l) { l = Object.assign({}, PLAYER_LOOK, { hat }); PLOOK.set(hat, l); } return l; }
 const playerLook = () => lookWith(P.towels > 0 ? null : TRY.hat || hatOf(S.equip.hat));
 const equipLook = () => lookWith(hatOf(S.equip.hat));
+// ==== end source:src/systems/boutique.js ====
 
+// ==== source:src/systems/zones.js ====
 // ============================================================ zones: check-in, cleaning, towels, piles, price pads
 let coinCombo = 0, coinT = -9, lastEarnT = 0;
 function deskManned() { const rc = STAFF.find(s => s.role === 'recep'); return P.atDesk || !!(rc && rc.atDesk); }
@@ -6764,6 +6815,8 @@ function zones(dt) {
   if (state === 'play' && !P.padLock) for (const [id, xy] of PADPOS) if (xy[0] === ptx && xy[1] === pty) on = UNLOCK[id];
   if (on) pour(on, dt); else { P.pourAcc = 0; P.pouring = null; P.padOn = null; P.padT = 0; }
 }
+// ==== end source:src/systems/zones.js ====
+// ==== source:src/systems/unlock.js ====
 // ---- unlocking
 const POPA = {};           // id -> time it popped in (objects / furniture scale in)
 const PADSEEN = new Set(); // pads already shown (a newly visible pad pops in once)
@@ -6827,7 +6880,9 @@ function padsSeen() {
 }
 // the value pops over your head when you buy (7.3.5); hearts pop for everything
 const BUY_POP = { shoes: '▲速度', basket: '+3 毛巾', tray: '+1 托盘', net: '▲范围' };
+// ==== end source:src/systems/unlock.js ====
 
+// ==== source:src/systems/guide.js ====
 // ============================================================ guide (arrow) + hints + bubbles
 // The single "what next" brain (SPEC_v2 6): the arrow draws it, the balance bots walk it. Every target carries the rule
 // it came from (`rule` = the row of the 6 table, 1 = "here": you're already doing it, no arrow) and a `key` (what it
@@ -7109,7 +7164,9 @@ function bubbles() {
     gu.bub = b; gu.urg = u;
   }
 }
+// ==== end source:src/systems/guide.js ====
 
+// ==== source:src/core/update.js ====
 // ============================================================ update(dt)
 let state = 'title', st = 0, T = 0;
 const TITLE_CAM = [190, MAPH - H - 32];   // the entrance noren + the bowing innkeeper below the start button (v1: x 30)
@@ -7196,7 +7253,9 @@ function audioTick(dt) {
     star: star(), menu: state === 'menu', area: a ? a.id : null, shishi: !!S.unlocked.g_shishi, shishiT: T });
   musicTick(dt);
 }
+// ==== end source:src/core/update.js ====
 
+// ==== source:src/ui/render-world.js ====
 // ============================================================ render
 // cat sprites are 16x24 with the anchor at (8,23) (4 rows of head room for hats): catSprite / catBow (art block).
 // Tiles: tileArt(ch, tx, ty, nb, season) draws every v2 char; season is 0 until v2.1's calendar.
@@ -7447,6 +7506,8 @@ function drawScene(vw, vh, live, noPlayer, card) {
   // ---- over everyone: the entrance noren
   g.drawImage(entranceNoren(), 16 * TILE - CX, 29 * TILE - 6 - CY);
 }
+// ==== end source:src/ui/render-world.js ====
+// ==== source:src/ui/render.js ====
 // the light pass (4.10): after the y-sorted scene, before the overlays. One multiply tint over the whole view (falls back
 // to a thin plain tint where multiply is missing), then additive glows (glowArt) for the visible lamps nearest the view
 // centre (<= LIGHT_MAX), the innkeeper's hand lantern at night, small glints on fish piles and the stars in the star-view
@@ -7750,7 +7811,9 @@ function render() {
   if (state === 'menu') { layerBreak(); drawMenu(); }
   present();
 }
+// ==== end source:src/ui/render.js ====
 
+// ==== source:src/systems/lines.js ====
 // ============================================================ cat lines (SPEC_v2 8)
 // One line on screen at most, <= 8 characters, in a white bubble over the speaker. Event lines (a new hire at its post,
 // calls, VIPs, level-ups, an angry guest leaving, the innkeeper buying / overtaking) skip the cooldown: one pushes a chat
@@ -7868,6 +7931,8 @@ function drawLine() {
   g.globalAlpha = 1;
   txt(L.text, bx + bw / 2, by + bh / 2, 7, '#2a2238', 'center', null, a);
 }
+// ==== end source:src/systems/lines.js ====
+// ==== source:src/ui/cards.js ====
 // ============================================================ UI (SPEC_v2 7): info card + preview, banners, "new" tags, first-time cards, menu
 // Screen zones (7.7) never overlap: y 0-28 the HUD (two rows), y 30-48 the top banner, the world in between (icon bubbles,
 // the one cat line, the arrow, pads, previews, wish boards, names), the screen edges (the off-screen arrow, <= 2 "new"
@@ -8080,7 +8145,9 @@ function uiUpdate(dt) {
   const b = BANNER_Q[0]; if (b) { if (!b.age && b.line) lineSay(P, b.line); b.age = (b.age || 0) + dt; if (b.age >= BANNER_IN + bannerHold(b) + BANNER_OUT) BANNER_Q.shift(); }   // b.line: said as it comes up
   const fc = FIRST_Q[0]; if (fc && !INFO) { fc.vis = (fc.vis || 0) + dt; if (fc.vis >= FIRST_T) FIRST_Q.shift(); }
 }
+// ==== end source:src/ui/cards.js ====
 
+// ==== source:src/ui/menu.js ====
 // ---- 7.5 the menu (state 'menu'): the game pauses (gameUpdate doesn't run: guests, the clock, the kitchen all wait; T and
 // the UI keep going; the music drops to half behind it). Pages: home, sound, book (the album, 4 tabs), bought, inn.
 const MENU = { page: 'home', tab: 0, pg: 0, sel: null };
@@ -8301,7 +8368,9 @@ function drawInnPage() {
   });
   menuBtn([50, 246, 80, 22], menuIcon('camera'), '拍照', 'blue');
 }
+// ==== end source:src/ui/menu.js ====
 
+// ==== source:src/ui/title.js ====
 // ============================================================ title / celebration / share card / cover
 const BTN = { start: [40, 200, 100, 24], share: [34, 196, 112, 22], cont: [34, 223, 112, 22] };
 function onPress(p) {
@@ -8366,6 +8435,8 @@ function drawCelebrate() {
   rowT(158, '接待客人', S.stats.guests + ' 位'); rowT(171, '总收入', fmt(S.earned) + ' 鱼干'); rowT(184, '营业时间', Math.max(1, R(S.stats.time / 60)) + ' 分钟');
   button(BTN.share, '分享旅馆', 'blue'); button(BTN.cont, '继续营业');
 }
+// ==== end source:src/ui/title.js ====
+// ==== source:src/ui/share.js ====
 // ---- share card
 // A tall pixel postcard (180x320, saved at 4x = 720x1280) with a QR code back to the game, shown in an
 // overlay with 保存图片 / 分享给朋友 (system share sheet on phones) / 关闭. Long-press also saves on phones.
@@ -8432,6 +8503,8 @@ function showShare(cvs, msg) {
   el.appendChild(img); el.appendChild(tip); el.appendChild(row);
   document.body.appendChild(el); shareEl = el;
 }
+// ==== end source:src/ui/share.js ====
+// ==== source:src/ui/cover.js ====
 // 16:9 share image: open index.html#cover, then tools/shot.py saves it as cover.png (1920x1080)
 function renderCover() {
   const CW = 320, CH = 180, SC = 6, c = mk(CW, CH); g = c.getContext('2d'); g.imageSmoothingEnabled = false;
@@ -8491,7 +8564,9 @@ function renderCover() {
   document.body.innerHTML = ''; big.style.cssText = 'position:fixed;left:0;top:0;width:1920px;height:1080px'; document.body.appendChild(big);
   document.title = 'COVER READY';
 }
+// ==== end source:src/ui/cover.js ====
 
+// ==== source:src/ui/present.js ====
 // ============================================================ present: pixel layer + crisp text
 // layerBreak() (WORKFLOW 3): what is drawn so far (pixels + queued text) goes to the screen, the pixel layer is cleared
 // and the next layer is drawn over it - so text of a lower layer never shows through a panel above it
@@ -8527,7 +8602,9 @@ function textSprite(t) {
 try { if (document.fonts) { document.fonts.addEventListener('loadingdone', () => { TXC.clear(); TW.clear(); }); document.fonts.ready.then(() => { TXC.clear(); TW.clear(); }); } } catch (e) {}
 const ALLTEXT = [...new Set((SCRIPT_TEXT.match(/[^\x00-\x7f]/g) || []))].join('') + '0123456789+-/!?';
 try { if (document.fonts && document.fonts.load) { document.fonts.load('12px "ZCOOL QingKe HuangYou"', ALLTEXT).catch(() => {}); document.fonts.load('12px "Fusion Pixel"', ALLTEXT).catch(() => {}); } } catch (e) {}
+// ==== end source:src/ui/present.js ====
 
+// ==== source:src/boot.js ====
 // ============================================================ boot
 S = loadState();
 resetWorld();
@@ -8543,6 +8620,7 @@ function frame(now) {
 }
 window.__gameBooted = true;
 requestAnimationFrame(frame);
+// ==== end source:src/boot.js ====
 })();
 </script>
 </body>

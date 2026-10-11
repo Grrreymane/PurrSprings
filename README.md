@@ -24,8 +24,10 @@
 
 ## 本地运行
 
-整个游戏是一个 `index.html`，没有构建步骤，直接用浏览器打开即可（或 `python -m http.server` 后访问）。进度保存在浏览器本地存储里。
+发布的整个游戏是一个 `index.html`，直接用浏览器打开即可（或 `python -m http.server` 后访问）。进度保存在浏览器本地存储里。
+
+游戏代码在 `src/`：改完运行 `npm run sync` 写回 `index.html`，再 `npm test`（Node 18+，没有依赖要装）。目录和规则见 `docs/source-layout.md`、`AGENTS.md`。
 
 改了游戏里的文字后运行 `python D:/Minigame/_workflow/tools/subset_font.py .` 更新字体子集。
 
-测试：`node D:/Minigame/_workflow/tools/headless.js . tests/smoke.js --seed 1`（冒烟）；`node tests/balance_all.js`（平衡机器人，12 个种子 × 7 档玩家，对照 `docs/SPEC_v2.md` 14.2 的目标）。设计文档见 `docs/SPEC_v2.md`。
+测试：`npm test`（布局 + 同步检查 + 冒烟 / 地图 / 界面）；单个测试 `node D:/Minigame/_workflow/tools/headless.js . tests/smoke.js --seed 1`；`node tests/balance_all.js`（平衡机器人，12 个种子 × 7 档玩家，对照 `docs/SPEC_v2.md` 14.2 的目标）。设计文档见 `docs/SPEC_v2.md`。

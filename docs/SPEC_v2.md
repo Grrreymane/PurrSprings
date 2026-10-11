@@ -1545,6 +1545,27 @@ v1 全部 + ：钱 / ♥ / 每个鱼干堆是有限非负整数；♥ 只增不�
 
 ### 15.1 谁拥有哪个文件（同一时间一个文件只有一个人改）
 
+> **2026-10-10 起拆成 `src/`**（v2.0 之后，见 18.2 和 `docs/source-layout.md`）：游戏代码在 `src/`，`index.html` 的游戏脚本由 `npm run sync` 从源码生成。下面第一张表是现在的归属；第二张是拆分前（v2.0 开发时）的原表，留作记录。
+
+| 文件 | 归属 | 别人能做什么 |
+|---|---|---|
+| `src/core/`、`src/data/`、`src/systems/`、`src/ui/`、`src/boot.js`、`src/audio/hooks.js`、`src/art/stubs.js`、`src/modules.json` | **核心代理** | 只读 |
+| `index.html` 生成区之外（head、字体块、CSS、报错面板、脚本外壳） | 核心代理（字体块由 `subset_font.py` 写） | — |
+| `index.html` 的 `// ==== source:… ====` 生成区 | 没人手改，`npm run sync` 写 | 谁都可以跑 sync（总是用全部源码重建） |
+| `src/art/chars.js` + `chars-small.js`（`/*ART:chars*/`） | 角色美术代理 | 只读 |
+| `src/art/env.js` + `env-api.js`（`/*ART:env*/`） | 场景美术代理 | 只读 |
+| `src/art/objects.js` + `objects-v2.js` + `objects-ui.js`（`/*ART:objects*/`） | 物件 / 图标 / UI 美术代理 | 只读 |
+| `src/audio/engine.js`（`/*AUDIO*/`）+ `tools/audio/` | 音频代理 | 只读 |
+| `tests/*`、`tests/fixtures/*`、`.shots/stage.js`、`tools/*.cjs`、`package.json` | 核心代理 | — |
+| `docs/SPEC_v2.md` | 核心代理只改第 18 节（偏差记录）；设计改动先问主设计 | — |
+| `D:/Minigame/_workflow/WORKFLOW.md`、`tools/` | 核心代理收尾时补经验 | — |
+
+- 美术 / 音频代理**直接改自己的 `src/` 文件**，再 `npm run sync` + `npm test`；不再拷一份 `art/*.js` 去整段替换，也不用核心代理来拼。标记 `/*ART:x:BEGIN*/…END*/`、`/*AUDIO:BEGIN*/…END*/` 留在源码里；12.0 / 13 的规矩照旧（文件里不许有中文，`npm test` 会查）。自检页照旧用以 `_` 开头的文件名（字体脚本会跳过），截图放 `.shots/`。
+- 一个块分在几个文件里时（chars、env、objects），BEGIN 在第一个文件开头、END 在最后一个文件结尾，新函数放进最贴近的那个文件；文件顺序就是执行顺序，不能调换。
+- 核心改代码：改 `src/`，`npm run sync`，改了文字跑 `subset_font.py`。下面「先在 scratchpad 里改再拷回」那条是单文件时期的做法：现在每人改自己的源码文件，sync 只重写生成区。
+
+*拆分前（v2.0 开发时）的原表：*
+
 | 文件 | 归属 | 别人能做什么 |
 |---|---|---|
 | `index.html` | **核心代理**（唯一会改它的人，包括拼接美术 / 音频） | 美术 / 音频代理只读（拷自己那一段） |
@@ -2052,3 +2073,10 @@ v2.0 上线、用户试玩反馈之后再做。目标：五星后的每一天、
 *测试*：改了 `sys_pads`（合计 1,473,800；连买锁；买桌子挪猫）、`sys_boutique`（新价；金像箭头）、`sys_events`（P09 / P07 / P08；V01 在迎宾时；上岗话等进画面）、`sys_hearts` / `sys_economy`（新门槛）、`sys_decor`（最少的组合优先；金★3 公开 + 重新布置）、`lines_check`（G 到 39、P 到 11；buyLine 和横幅带的台词也算调用点）、`check_reload_rewards`（贵宾走后读档）、`soak.js` / `bot_balance.js`（金像只在全买齐且 ≥ 5 万时可以指，连续两次检查才算）。新截图场景 `.shots/stage.js`：`chain_lock`、`gate_onsen`、`banner_hint`、`arrow_statue`、`roten_open`、`rooms_mix`。
 
 *没做的*：审查里的 R1（茶台 / 仲居 1 降价、仲居 4 挪到 ★5 后）、B2 指标改成「最长买不起的那段」、e5v（★5 后贵宾更勤）都不在确认清单里；稳定审查的场景 C（满托盘没人要时箭头去哪）是另一个问题（CRP-5），这次没动。
+
+**2026-10-10 · v2.0 之后 · 拆成 `src/` 模块**
+- **为什么**：v2.0 上线时 `index.html` 约 8,550 行，过了 `D:/Minigame/CLAUDE.md` 的「单文件约 8000 行」信号线（0.3 的行数警告）。照一喵天下的做法拆：`src/` 下 39 个源码文件 + `src/modules.json`（嵌入顺序），`npm run sync`（`tools/sync-inline.cjs`）把它们写回 `index.html` 里成对的 `// ==== source:src/x.js ====` / `// ==== end source:src/x.js ====` 标记之间。发布仍是单个 `index.html`，同一个脚本作用域、原执行顺序、没有运行时 import；页面外壳、CSS、字体块、报错面板留在 HTML。目录见 `docs/source-layout.md`。
+- **纯搬移**：沿现有 `// ====` 分区和 ART / AUDIO 块原样切开，没有改一个字（注释里「index.html 是唯一副本」这类旧说法也原样保留，留到下次真改代码时顺手更新）。`index.html` 去掉 78 行标记后与 `91df539` 逐字节相同；拆分前后 smoke / map_check / migrate_v1 / ui_check / lines_check / music_check 输出逐字相同，`balance_all.js` 3 种子 × 7 档结果相同，封面和标题截图逐像素相同；字体版本不变。
+- **美术 / 音频合同（12.0、13、15.1）的文件路径变了**：`art/chars.js` → `src/art/chars.js` + `chars-small.js`；`art/env.js` → `src/art/env.js` + `env-api.js`；`art/objects.js` → `src/art/objects.js` + `objects-v2.js` + `objects-ui.js`；`audio/engine.js` → `src/audio/engine.js`（AUDIO 块整段）。BEGIN / END 标记留在源码里（多文件的块：BEGIN 在第一个文件开头、END 在最后一个结尾）。代理直接改这些文件再 sync，不再「拷一段 → 整段替换」。12.0 / 13 的其他规矩不变；「文件里不许有中文」由 `tests/source-layout.cjs` 检查。
+- **`/*TEST_HOOK*/`** 在 `src/boot.js`，`index.html` 里仍只出现一次，`headless.js` / `make_test_page.py` / `shot.py` / `subset_font.py` / 字体钩子都不用改（`subset_font.py` 也扫 `src/*.js`，字和 `index.html` 一样）。
+- **测试入口**：`npm test`（布局 + 同步检查 + 报错定位 + 冒烟 / 地图 / 界面）、`npm run test:full`（拆分基线那一整套）、`npm run locate -- 行:列`（报错面板的位置换成源码位置）。
