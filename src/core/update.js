@@ -69,7 +69,7 @@ function update(dt) {
   for (let i = FX.length - 1; i >= 0; i--) {
     const f = FX[i]; f.t += dt;
     if (f.k === 'spark' && f.t > 0) { f.x += f.vx * dt; f.y += f.vy * dt; f.vx *= .92; f.vy *= .92; }
-    if (f.t >= f.life) { if (f.k === 'fly') hudBump = .15; FX.splice(i, 1); }
+    if (f.t >= f.life) { if (f.k === 'fly' || f.k === 'suck') hudBump = .15; FX.splice(i, 1); }
   }
     for (let i = POPS.length - 1; i >= 0; i--) { const p = POPS[i]; if (p.wait > 0) { p.wait -= dt; continue; } p.life -= dt; p.y -= 14 * dt; if (p.life <= 0) POPS.splice(i, 1); }
   }

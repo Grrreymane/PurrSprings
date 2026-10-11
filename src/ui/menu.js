@@ -216,5 +216,5 @@ function drawInnPage() {
     txt(r.name, 49, y + 5.5, 7, col, 'left', null);
     txt(String(r.h), 146, y + 5.5, 7, col, 'right', null); drawC(heartIcon(), 151, y + 5);
   });
-  menuBtn([50, 246, 80, 22], menuIcon('camera'), '拍照', 'blue');
+  menuBtn([50, 246, 80, 22], menuIcon('camera'), '分享', 'blue');   // the share card, any time (G2)
 }

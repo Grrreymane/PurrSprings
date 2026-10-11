@@ -23,7 +23,7 @@ function resetWorld() {
   // calls, trays, the counter and followers are not saved (10.1): they start empty
   Object.assign(P, { x: 17 * TILE + 8, y: 27 * TILE + 8, dir: 'up', moving: false, walkT: 0, towels: 0, dist: 0, sway: 0, atDesk: false, pourAcc: 0, pouring: null, padOn: null, padT: 0, padLock: null, shelfT: 0, basketT: 0,
     tray: [], pick: {}, cookT: 0, cookK: null, giveT: 0, giveTo: null, giveK: null, putT: 0, slot: { key: null, t: 0, n: 0, stop: false, cyc: null } });
-  PASS.n = 0; BROWSE.occ = null; TABLE_EATEN.fill(-9); FIRST_Q.length = 0; BANNER_Q.length = 0; lastCallAt = -99; comboRushAt = NUL(); lastBuyAt = S.stats.time;
+  PASS.n = 0; BROWSE.occ = null; TEA_AT.occ = null; netPullAt = -9; TABLE_EATEN.fill(-9); FIRST_Q.length = 0; BANNER_Q.length = 0; lastCallAt = -99; comboRushAt = NUL(); lastBuyAt = S.stats.time;
   for (const k in PILE_AGE) delete PILE_AGE[k];
   // the VIP is not saved (10.1): after a load the next one comes soon - unless half a gift was just refunded (no shortcut)
   VIPG = null; lastVip = null; vipT = !S.unlocked.garden ? 1e9 : Math.max(S.stats.time + (S.vipRefunded ? vipGap() : S.vipNext ? VIP_RELOAD : VIP_FIRST), S.vipAt || 0);
@@ -37,7 +37,7 @@ function resetWorld() {
 }
 function newGame() { S = defaults(); resetWorld(); saveNow(); hasSave = true; go('play'); }
 function continueGame() {
-  S = loadState(); resetWorld(); go('play'); if (star() >= 5 && !S.done) celebrateAt = T + 1;   // the v1 sign bought, celebration never seen
+  S = loadState(); resetWorld(); go('play'); if (!S.done && innComplete()) celebrateAt = T + 1;   // the whole inn built, its panel never seen (G2)
   if (S.gift) { banner('gift', 0); S.gift = false; markDirty(); }                                // a v1 save: "the inn grew!" once (10.2)
 }
 function drawTitle() {
@@ -53,7 +53,7 @@ function drawCelebrate() {
   g.globalAlpha = .55 * Math.min(1, st / .4); g.fillStyle = '#0c0818'; g.fillRect(0, 0, W, H); g.globalAlpha = 1;
   if (st < .15) return;
   panel(18, 84, 144, 170);
-  txt('五星旅馆！', 90, 106, 17, '#c0392b', 'center', null);
+  txt('全馆落成！', 90, 106, 17, '#c0392b', 'center', null);   // G2: every room and area open (star 5 alone: a banner)
   const sc = starIcon(true); for (let i = 0; i < 5; i++) g.drawImage(sc, 53 + i * 15, 117, sc.width * 2, sc.height * 2);   // 2x, pixel exact
   const rowT = (y, a, b) => { txt(a, 38, y, 8, '#6a4a2a', 'left', null); txt(b, 142, y, 8, '#8a3a1a', 'right', null); };
   // 4.11: what comes next - the rank board, the boutique, the golden statue (icons only)

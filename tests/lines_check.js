@@ -8,7 +8,7 @@ const DT = 1 / 30, MIN = +(ARGS[0] || 25);
 // ---- static: the table
 const IDS = [];
 for (let i = 1; i <= 39; i++) IDS.push('G' + String(i).padStart(2, '0'));
-for (let i = 1; i <= 19; i++) IDS.push('S' + String(i).padStart(2, '0'));
+for (let i = 1; i <= 21; i++) IDS.push('S' + String(i).padStart(2, '0'));   // v2.0.1: S20 / S21 the tea runner
 for (let i = 1; i <= 4; i++) IDS.push('K0' + i);
 for (let i = 1; i <= 12; i++) IDS.push('V' + String(i).padStart(2, '0'));
 for (let i = 1; i <= 11; i++) IDS.push('P' + String(i).padStart(2, '0'));

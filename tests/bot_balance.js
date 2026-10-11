@@ -75,11 +75,12 @@ if (PROF.skip) { const bGT = guideTarget; guideTarget = o => bGT(Object.assign({
 // the afkref profile: no price pads while it holds (the arrow skips them, so it plays the same inn the afk bot leaves)
 if (PROF.hold) { const bGT = guideTarget; guideTarget = o => afkFrom !== null && t0() >= afkFrom && t0() < afkTo ? bGT(Object.assign({ skip: { pad: true } }, o || {})) : bGT(o); }
 // ---------------------------------------------------------------- income by source (14.1 log, D1 / D2 / E3)
-const INC = { room: 0, tip: 0, bath: 0, milk: 0, meal: 0, souv: 0, call: 0, vip: 0 };
+// v2.0.1: tea = guests' own cups at the urn (G3); callStaff = the tea runner's call tips (into the cash box, not active)
+const INC = { room: 0, tip: 0, bath: 0, milk: 0, meal: 0, souv: 0, tea: 0, call: 0, callStaff: 0, vip: 0 };
 let bEarnSrc = 'vip', bPickups = 0;
 { const f0 = fee; fee = function (k, o) { const v = f0(k, o); INC[k] = (INC[k] || 0) + v; return v; }; }   // fees only ever land in a pile
 { const e0 = earn; earn = function (v, x, y) { INC[bEarnSrc] += Math.max(0, v | 0); return e0(v, x, y); }; }   // calls + VIP gifts
-{ const s0 = serveCall; serveCall = function (gu) { bEarnSrc = 'call'; try { return s0(gu); } finally { bEarnSrc = 'vip'; } }; }
+{ const s0 = serveCall; serveCall = function (gu, by) { bEarnSrc = 'call'; const p0 = S.piles.recep || 0; try { return s0(gu, by); } finally { if (by) INC.callStaff += Math.max(0, (S.piles.recep || 0) - p0); bEarnSrc = 'vip'; } }; }
 let bPickT = -9;   // C5 counts pick-ups: piles taken within 1.5 s of each other are one pick-up (the coin-chain sound does the same)
 const bCol = {}; let bEarnN = 0;   // F2: pick-ups per pile, money handed to you (a call served, a VIP gift)
 { const c0 = collect; collect = function (id) { if (S.stats.time - bPickT > 1.5) bPickups++; bPickT = S.stats.time; bCol[id] = (bCol[id] || 0) + 1; return c0(id); }; }
@@ -97,7 +98,7 @@ const bUnreachAt = [];
 let bPath = [], bKey = '', bThink = 0, bMode = 'follow', bEpisode = 0, bStuckT = 0, bLast = [P.x, P.y], bStuckN = 0, bRand = false, bCur = null, bTrack = 0, bUnreach = 0;
 let afkFrom = null, afkTo = null;
 const inv = {}, flag = (k, m) => { inv[k] = inv[k] || { n: 0, first: m }; inv[k].n++; };
-let bStatueBad = 0;
+let bStatueBad = 0, bVipWaitMax = 0, bTeaAt = null, bTeaBase = null;
 function bRandomPath() {
   for (let k = 0; k < 200; k++) { const tx = Math.floor(Math.random() * MW), ty = Math.floor(Math.random() * MH); if (walkable(tx, ty)) { const [sx, sy] = tileOf(P), p = findPath(sx, sy, tx, ty); if (p) return p; } }
   return [];
@@ -241,7 +242,8 @@ function checkSecond() {
   for (const k in S.decor) { const [rid] = k.split(':'); if (!S.unlocked[S.decor[k]] || !UNLOCK[S.decor[k]].decor || !roomOpen(ROOM[rid]) || ROOM[rid].vip) flag('decor', mmss(t) + ' ' + k + '=' + S.decor[k]); }
   if (VIPG) {
     const v = VIPG, k = v.st + ':' + v.wi; if (k !== vipStK) { vipStK = k; vipStT = t; }
-    if (t - vipStT > 300) flag('vip-state>300s', mmss(t) + ' ' + v.st);
+    if (t - vipStT > 300 && v.st !== 'seated') flag('vip-state>300s', mmss(t) + ' ' + v.st);   // v2.0.1 G1: a seated wish never runs out
+    if (v.st === 'seated') bVipWaitMax = Math.max(bVipWaitMax, t - vipStT);
     if (v.st === 'follow' && !v.halt && dist(P.x, P.y, v.x, v.y) > 200) flag('vip-far', mmss(t) + ' ' + R(dist(P.x, P.y, v.x, v.y)));
     if (!Number.isFinite(v.x) || !Number.isFinite(v.y)) flag('vip-nan', mmss(t));
     const [tx, ty] = tileOf(v), a = areaAt(tx, ty);
@@ -300,6 +302,7 @@ for (let i = 0; i < steps * 10; i++) {
   if (state === 'celebrate') { S.done = true; go('play'); }
   const t = t0();
   if (S.unlocked.recep && recepAt === null) { recepAt = t; base = { g: S.stats.guests, a: S.stats.angry }; }
+  if (S.unlocked.teaboy && bTeaAt === null) { bTeaAt = t; bTeaBase = { made: RUN.calls, staff: RUN.callsStaff, self: RUN.callsSelf, missed: RUN.callsMissed, served: S.stats.calls }; }
   arrTick(t); swTick(t);
   if (S.earned > lastEarned) { lastEarned = S.earned; bActive = 0; } else if (bMode === 'follow' && !bRand && !afkNow() && fin === null) { bActive += DT; bMaxActive = Math.max(bMaxActive, bActive); }
   if (Math.floor(t) !== lastSec) {
@@ -374,9 +377,14 @@ const M = {
   C5: t3 !== undefined && end > t3 && pre.length ? r2((pre[pre.length - 1].pk - (recs.find(r => r.t >= t3) || { pk: 0 }).pk) / ((end - t3) / 60)) : null,
   D1: { s3: r2(actShare(t3, t4)), s4: r2(actShare(t4, fin === null ? undefined : fin)), s5: r2(post.length ? act(incOf(post)) / Math.max(1, tot(incOf(post))) : null) },
   D2: post.length >= 60 ? R(tot(incOf(post)) / (post.length / 60)) : null,
-  E1: { done: r2(S.stats.calls / Math.max(1, S.stats.calls + RUN.callsMissed)), fast: r2(S.stats.callsFast / Math.max(1, S.stats.calls)), made: RUN.calls, served: S.stats.calls, missed: RUN.callsMissed },
+  // E1 (v2.0.1 G3): calls are the tea runner's job once it is hired - done = brought (by anyone) / (brought + timed out)
+  // among the calls since then (a call that ended because the guest got it by itself counts neither way); before the
+  // hire they are an optional tip the arrow never points at (pre = the innkeeper's share of those)
+  E1: (() => { const b = bTeaBase || { made: RUN.calls, staff: RUN.callsStaff, self: RUN.callsSelf, missed: RUN.callsMissed, served: S.stats.calls }, sv = S.stats.calls - b.served, ms = RUN.callsMissed - b.missed;
+    return { done: bTeaAt === null ? null : r2(sv / Math.max(1, sv + ms)), staff: RUN.callsStaff, self: RUN.callsSelf, hireAt: bTeaAt === null ? null : R(bTeaAt), pre: r2(b.served / Math.max(1, b.made)),
+      fast: r2(S.stats.callsFast / Math.max(1, S.stats.calls)), made: RUN.calls, served: S.stats.calls, missed: RUN.callsMissed }; })(),
   E2: { noChef: r2(dineRate(unlockT.dining, unlockT.chef)), twoWaiters: r2(dineRate(unlockT.waiter2)) },
-  E3: { used: r2(med(RUN.vipUsed)), f: r2(med(RUN.vipF)), share: r2((preInc.vip || 0) / Math.max(1, tot(preInc))), came: RUN.vips, done: RUN.vipDone, left: RUN.vipLeft },
+  E3: { used: r2(med(RUN.vipUsed)), f: r2(med(RUN.vipF)), share: r2((preInc.vip || 0) / Math.max(1, tot(preInc))), came: RUN.vips, done: RUN.vipDone, left: RUN.vipLeft, waitMax: R(bVipWaitMax) },
   E4: { firstCombo, rooms5: comboRooms5 },
   E5: r2(ga + aa ? aa / (ga + aa) : 0),
   F1: r2(RUN.lineLog.filter(l => l[0] <= end).length / Math.max(1, end / 60)),

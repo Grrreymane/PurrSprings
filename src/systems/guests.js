@@ -63,12 +63,13 @@ function freeRoom(gu) {
   }
   return best;
 }
-// 4.12: after the room (woken up, checked out) -> breakfast -> bath (+ milk) -> souvenirs -> home. A step that is
-// closed or full is skipped; only the queue makes guests angry.
-const NEXT = ['room', 'seat', 'bath', 'browse'];
+// 4.12: after the room (woken up, checked out) -> tea at the urn (v2.0.1 G3) -> breakfast -> bath (+ milk) -> souvenirs
+// -> home. A step that is closed or full is skipped; only the queue makes guests angry.
+const NEXT = ['room', 'tea', 'seat', 'bath', 'browse'];
 function guestNext(gu, from) {
   for (let i = NEXT.indexOf(from) + 1; i < NEXT.length; i++) {
     const k = NEXT[i];
+    if (k === 'tea' && S.unlocked.tea && !TEA_AT.occ && Math.random() < TEA_P) { TEA_AT.occ = gu; setSt(gu, 'toTea'); gu.goal = null; return; }
     if (k === 'seat' && S.unlocked.dining && takeSeat(gu)) { RUN.seated++; setSt(gu, 'toSeat'); gu.goal = null; return; }
     if (k === 'bath' && S.unlocked.onsen) { setSt(gu, 'toBath'); gu.goal = null; return; }
     if (k === 'browse' && S.unlocked.shop && !BROWSE.occ && Math.random() < BROWSE_P) { BROWSE.occ = gu; setSt(gu, 'toBrowse'); gu.goal = null; return; }
@@ -81,24 +82,33 @@ function guestLeave(gu, angry) {
   if (gu.mate) gu.path.push([EXIT[0], EXIT[1] + 24]);   // walk on a little so the partner / kitten leaves the screen too
   if (!angry) { addHearts(1); lineSay(gu, star() >= 5 ? 'G17|G18|G19' : 'G17|G18'); }   // a happy guest: hearts +1 (4.9)
 }
-// ---- calls (4.2): only the innkeeper takes them. Need 茶台; milk needs 牛奶 and a night snack 食堂 (else tea).
-// At most 2 at a time (3 from star 3), 6 s apart; the call rides along with the guest until served or timed out.
+// ---- calls (4.2). Need 茶台; milk needs 牛奶 and a night snack 食堂 (else tea). At most 2 at a time (3 from star 3), 6 s
+// apart; the call rides along with the guest until served, timed out, or the guest gets the thing by itself.
+// v2.0.1 G3: a call is an optional tip. Until the tea runner (茶房) is hired the innkeeper may bring it (the arrow never
+// sends you for one); once hired, the runner brings them all and the tip lands in the cash box. Timing out costs nothing
+// and says nothing.
 const callCount = () => { let n = 0; for (const gu of GUESTS) if (gu.call) n++; return n; };
+const hasTeaboy = () => !!S.unlocked.teaboy;
 function tryCall(gu, k, p) {
   if (!S.unlocked.tea || gu.call || Math.random() >= p) return false;
   if (callCount() >= callMax() || S.stats.time - lastCallAt < CALL_GAP) return false;
   if ((k === 'milk' && !S.unlocked.milk) || (k === 'rice' && !S.unlocked.dining)) k = 'tea';
-  const t = callT(); gu.call = { k, t, max: t }; lastCallAt = S.stats.time; RUN.calls++;
-  sfx('ring'); firstTime('call'); lineSay(gu, { tea: 'G22', milk: 'G23', rice: 'G24' }[k]);
+  const t = callT(); gu.call = { k, t, max: t }; gu.callBy = null; lastCallAt = S.stats.time; RUN.calls++;
+  sfx('ring'); if (!hasTeaboy()) firstTime('call'); lineSay(gu, { tea: 'G22', milk: 'G23', rice: 'G24' }[k]);
   return true;
 }
-function callExpire(gu) { gu.call = null; gu.callGone = .25; RUN.callsMissed++; lineSay(gu, 'G21'); }   // no anger, no fee lost, no hearts lost
-function serveCall(gu) {
-  const c = gu.call, fast = c.t > c.max * (1 - CALL_FAST), [x, y] = guestSpot(gu);
-  gu.call = null; gu.heart = 1;
-  earn(callReward(fast), x, y - 12);   // straight into the wallet
+function callExpire(gu) { gu.call = null; gu.callBy = null; gu.callGone = .25; RUN.callsMissed++; }   // no anger, no fee lost, no hearts lost, no sigh
+// the guest got it by itself (tea at the urn, milk at the machine, breakfast): the call just ends - no tip, no sigh
+function callSelf(gu, k) { if (!gu.call || gu.call.k !== k) return; gu.call = null; gu.callBy = null; RUN.callsSelf++; }
+// by = the tea runner who brought it (its tip goes into the cash box at the desk - one place to pick up, no fast bonus),
+// else the innkeeper (the wallet)
+function serveCall(gu, by) {
+  const c = gu.call, fast = !by && c.t > c.max * (1 - CALL_FAST), [x, y] = guestSpot(gu);
+  gu.call = null; gu.callBy = null; gu.heart = 1;
+  if (by) { const v = R(callReward(false) * TEA_TIP_K); S.piles.recep = (S.piles.recep || 0) + v; RUN.callsStaff++; gainXp(by, 1); pop('+' + v, x, y - 20, '#ffe9a8', 8, .9); }
+  else { earn(callReward(fast), x, y - 12); firstDone('call'); }   // straight into the wallet
   addHearts(fast ? 2 : 1); S.stats.calls++; if (fast) S.stats.callsFast++;
-  lineSay(gu, fast ? 'G27|G37|G38' : 'G25|G26|G39'); sfx('serve'); firstDone('call'); markDirty();
+  lineSay(gu, fast ? 'G27|G37|G38' : 'G25|G26|G39'); sfx('serve'); markDirty();
 }
 // ---- dining seats (4.3): a party (couple / family) takes a whole table; a guest alone sits at a half-taken table
 // first, keeping empty tables for parties. No free seat -> no breakfast (nobody queues for a seat).
@@ -122,7 +132,7 @@ function leaveSeat(gu) {
   if (gu.mate && gu.seat2 >= 0) unpark(gu, gu.mate.mode === 'park' ? [tcx(SEATS[gu.seat2].at), tcy(SEATS[gu.seat2].at)] : null);
   gu.seat = gu.seat2 = -1; gu.served = false; gu.claim = null;
 }
-function serveSeat(gu) { gu.served = true; gu.claim = null; setSt(gu, 'eat'); gu.tt = EAT_T; sfx('eat'); lineSay(gu, 'G15'); }
+function serveSeat(gu) { gu.served = true; gu.claim = null; setSt(gu, 'eat'); gu.tt = EAT_T; sfx('eat'); lineSay(gu, 'G15'); callSelf(gu, 'rice'); }
 // plates on a table: 'set' while someone eats there, 'eaten' for 3 s after
 function tableState(ti) {
   for (const i of [ti * 2, ti * 2 + 1]) { const gu = SEAT_OCC[i]; if (gu && gu.st === 'eat') return 'set'; }
@@ -157,8 +167,8 @@ function freeSlot() {
 }
 // The guest state machine v2 (4.12):
 //   arrive -> queue (patience; runs out = angry) -> check-in (zones) -> toRoom -> sleep (a call may come 1 s in)
-//   -> wake: messy room, tip, check out -> [dining] toSeat -> seated (<= SEAT_WAIT) -> eat -> breakfast fee
-//   -> [onsen] toBath -> towel (<= BATH_WAIT) -> toSlot -> bathing (20% milk call as they get in) -> [milk] toMilk -> milk
+//   -> wake: messy room, tip, check out -> [tea, TEA_P] toTea -> tea (pays at the urn, G3) -> [dining] toSeat -> seated
+//   (<= SEAT_WAIT) -> eat -> breakfast fee -> [onsen] toBath -> towel (<= BATH_WAIT) -> toSlot -> bathing -> [milk] toMilk -> milk
 //   -> [shop, 30%] toBrowse -> browse -> souvenir fee -> leave.  Every step that is closed or full is skipped.
 function updGuest(gu, dt) {
   gu.t += dt; if (gu.heart > 0) gu.heart -= dt; if (gu.heart2 > 0) gu.heart2 -= dt; if (gu.embT > 0) gu.embT -= dt; if (gu.callGone > 0) gu.callGone -= dt;
@@ -226,7 +236,6 @@ function updGuest(gu, dt) {
         goTo(gu, SLOTS[gu.slot].x, 4);
         if (walk()) {
           setSt(gu, 'bathing'); gu.tt = BATH_T; SFX.splash(); if (gu.mate) gu.mate.mode = 'park';
-          if (S.unlocked.milk) tryCall(gu, BATH_CALL[0], BATH_CALL[1]);
           lineSay(gu, SLOTS[gu.slot].roten && dayLight().night > .5 ? 'G10|G34' : 'G10');
         }
       }
@@ -247,10 +256,14 @@ function updGuest(gu, dt) {
       }
       break;
     case 'toMilk': goTo(gu, MILK_SPOT[0], MILK_SPOT[1]); if (walk()) { setSt(gu, 'milk'); gu.tt = MILK_T; gu.dir = 'up'; SFX.milk(); lineSay(gu, 'G13'); } break;
-    case 'milk':
-      if (gu.call) break;   // stage 4: a call still open waits here for the delivery (or until it runs out) - nobody leaves with one
+    case 'milk':   // G3: nobody waits at the machine for the innkeeper any more - it buys its milk and goes
       gu.tt -= dt;
-      if (gu.tt <= 0) { S.piles.milk = (S.piles.milk || 0) + fee('milk', { gu }); markDirty(); gu.heart = 1; SFX.meow(); guestNext(gu, 'bath'); }
+      if (gu.tt <= 0) { S.piles.milk = (S.piles.milk || 0) + fee('milk', { gu }); callSelf(gu, 'milk'); markDirty(); gu.heart = 1; SFX.meow(); guestNext(gu, 'bath'); }
+      break;
+    case 'toTea': goTo(gu, TEA_SPOT[0], TEA_SPOT[1]); if (walk()) { setSt(gu, 'tea'); gu.tt = TEA_T; gu.dir = 'left'; SFX.milk(); lineSay(gu, 'G13'); } break;
+    case 'tea':    // a cup at the lobby urn (G3): pays into the tea pile, like milk at the machine
+      gu.tt -= dt;
+      if (gu.tt <= 0) { S.piles.tea = (S.piles.tea || 0) + fee('tea', { gu }); RUN.teaSelf++; callSelf(gu, 'tea'); if (TEA_AT.occ === gu) TEA_AT.occ = null; markDirty(); gu.heart = 1; guestNext(gu, 'tea'); }
       break;
     case 'toBrowse': goTo(gu, SPOT.browse[0], SPOT.browse[1]); if (walk()) { setSt(gu, 'browse'); gu.tt = BROWSE_T; gu.dir = 'up'; lineSay(gu, 'G35'); } break;
     case 'browse':

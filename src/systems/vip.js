@@ -3,8 +3,9 @@
 // a suite on its own) -> follow (walks the innkeeper's crumbs 16 px behind; more than 96 px behind it stops with "..." and
 // goes on once you're back within 48 px) -> you step into a clean empty suite -> toSuite (walks to its seat) -> seated:
 // three wishes in order on the board over the door (tea / kaiseki: the tray; bath: stand on the tap 1.5 s, it soaks 5 s;
-// photo: stand by it 1.2 s) -> leave. 25% of the gift G per earlier wish, 50% x speed at the photo. 120 s without
-// progress -> it leaves with what it already paid, no penalty. No clean suite: it waits on the carpet, the clock stops.
+// photo: stand by it 1.2 s) -> leave. v2.0.1 G1: the current wish shows as a big gold bubble over its head; a wish never
+// runs out - the faster, the bigger the tip: 25% of the gift G x wishF per earlier wish, 50% x the overall speed factor
+// at the photo - and each one done pops a big tick. No clean suite: it waits on the carpet, the clock stops.
 let VIPG = null, vipT = 1e9, lastVip = null;
 const SUITES = ROOMS.filter(r => r.vip);
 const suiteFree = rm => roomOpen(rm) && S.rooms[rm.id] === 'clean' && !RT[rm.id].guest;
@@ -29,6 +30,7 @@ function vipArrive() {
 function vipToSuite(rm) { const v = VIPG; v.suite = rm.id; RT[rm.id].guest = v; setSt(v, 'toSuite'); v.goal = null; v.q = []; v.halt = false; if (v.greetAt === null) v.greetAt = S.stats.time; }
 function vipLeave(happy) {
   const v = VIPG; if (!v || v.st === 'leave') return;
+  firstDone('vip');
   if (v.suite) { const id = v.suite; RT[id].guest = null; S.rooms[id] = 'messy'; RT[id].vipMess = true; RT[id].cleanP = 0; }   // the suite needs a long clean
   S.vipOwe = 0; vipT = S.stats.time + vipGap(); S.vipAt = Math.ceil(vipT); if (!happy) RUN.vipLeft++;
   lineSay(v, happy ? 'V11' : 'V12');
@@ -37,14 +39,18 @@ function vipLeave(happy) {
 }
 function vipWishStart() {   // a new current wish: its first-time card; the photo wish says so
   const k = vipWish(); if (!k) return;
+  VIPG.wt = 0;   // how long this wish has waited (its tip: wishF)
   if (k !== 'tea') firstTime(k);
   if (k === 'photo') lineSay(VIPG, 'V10');
 }
+// a wish's tip factor: full when done within VIP_WISH_FAST s, then down to 0.6 at VIP_WISH_FAST + VIP_WISH_SLOW s (G1)
+const wishF = wt => .6 + .4 * clamp(1 - (wt - VIP_WISH_FAST) / VIP_WISH_SLOW, 0, 1);
 function vipWishDone() {
   const v = VIPG, def = VIP[v.id], k = def.wishes[v.wi];
-  firstDone(k);
-  if (v.wi < def.wishes.length - 1) {   // an earlier wish: 25% of the gift, hearts 2
-    const pay = R(v.G * .25); v.paid += pay; earn(pay, v.x, v.y - 18); addHearts(2); lineSay(v, 'V09');
+  firstDone(k); firstDone('vip');   // the 3-step card of the first VIP stays up until its first wish is done
+  FX.push({ k: 'vipok', x: v.x, y: v.y - 20, t: 0, life: 1.3 }); fxSpark(v.x, v.y - 30, 6);   // a big tick over its head (G1)
+  if (v.wi < def.wishes.length - 1) {   // an earlier wish: 25% of the gift x how quick, hearts 2
+    const pay = R(v.G * .25 * wishF(v.wt || 0)); v.paid += pay; earn(pay, v.x, v.y - 4); addHearts(2); lineSay(v, 'V09');
     v.wi++; setSt(v, 'seated'); v.actT = 0; S.vipOwe = Math.max(0, v.G - v.paid); markDirty();
     v.hold = VIP_SIP_T[k] || 0; if (!v.hold) vipWishStart();   // tea / kaiseki: it enjoys it first (stage 4)
     return;
@@ -52,7 +58,7 @@ function vipWishDone() {
   // the last one (always the photo): the other half x the speed factor, hearts 10 (+10 the first photo of this VIP), its gift
   const used = S.stats.time - (v.greetAt !== null ? v.greetAt : v.t0), f = .6 + .4 * clamp(1 - (used - 90) / 120, 0, 1);
   const pay = R(v.G * .5 * f), first = !S.album.photos.some(p => p.v === v.id);
-  v.paid += pay; earn(pay, v.x, v.y - 18); addHearts(10 + (first ? 10 : 0));
+  v.paid += pay; earn(pay, v.x, v.y - 4); addHearts(10 + (first ? 10 : 0));
   S.album.photos.push({ v: v.id, d: S.day, h: S.equip.hat, p: S.equip.pet }); if (S.album.photos.length > 40) S.album.photos.shift();
   if (!S.gifts.includes(v.id)) { S.gifts.push(v.id); if (S.gifts.length > 6) S.gifts.shift(); }
   S.stats.vips++; RUN.vipDone++; RUN.vipF.push(f); RUN.vipUsed.push(used); RUN.vipPaid += v.paid;
@@ -93,14 +99,14 @@ function updVip(dt) {
     }
     case 'toSuite': {
       const rm = ROOM[v.suite]; goTo(v, rm.stand[0], rm.stand[1]);
-      if (walk(G_SPEED * 1.2)) { setSt(v, 'seated'); v.dir = 'up'; v.wi = 0; v.actT = 0; S.vipOwe = Math.max(0, v.G - v.paid); firstDone('vip'); vipWishStart(); markDirty(); }
+      if (walk(G_SPEED * 1.2)) { setSt(v, 'seated'); v.dir = 'up'; v.wi = 0; v.actT = 0; S.vipOwe = Math.max(0, v.G - v.paid); vipWishStart(); markDirty(); }
       break;
     }
     case 'seated': {
       v.moving = false;
       if (v.hold > 0) { v.hold -= dt; v.t = 0; if (v.hold <= 0) { v.hold = 0; vipWishStart(); } break; }   // enjoying the tea / kaiseki
       const k = vipWish(), rm = ROOM[v.suite];
-      if (v.t >= VIP_IDLE) { vipLeave(false); break; }
+      v.wt = (v.wt || 0) + dt;   // no time limit any more (G1): the wait only lowers the tip
       if (k === 'photo') { if (dist(P.x, P.y, v.x, v.y) <= VIP_NEAR) { v.actT += dt; if (v.actT >= VIP_PHOTO_T) { v.actT = 0; vipPhoto(); } } else v.actT = 0; }
       else if (k === 'bath') {
         const [ptx, pty] = tileOf(P);
@@ -118,5 +124,5 @@ function updVip(dt) {
 function vipWants(L) {
   const v = VIPG, k = vipWish();
   if (!v || v.st !== 'seated' || (k !== 'tea' && k !== 'kaiseki')) return;
-  L.push({ e: v, k, x: v.x, y: v.y, left: VIP_IDLE - v.t, tile: ROOM[v.suite].stand, give: vipWishDone, vip: true });
+  L.push({ e: v, k, x: v.x, y: v.y, left: 1e9, tile: ROOM[v.suite].stand, give: vipWishDone, vip: true });   // never late (G1)
 }

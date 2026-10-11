@@ -3,6 +3,11 @@
 // afkref - the same seed played on from the same moment, buying nothing - in the same minutes; stage 4, see SPEC_v2 18.2).
 //   node D:/Minigame/Hotelgame/tests/balance_all.js [cfg] [set=key:val,...] [seeds=12] [profiles=eager,casual,...] [game=dir] [j=N] [raw] [json]
 // Exit 1 when any run fails an invariant or doesn't reach star 5.
+// v2.0.1 (SPEC_v2 18.2, the user's v2.0 feedback): calls are the tea runner's job (G3) and the net pulls every pile in
+// reach (G5), so C2 counts serving / the VIP / decor (>= 15 %), C5 is an upper bound on pick-ups (<= 14 / min), D1 and the
+// E1 fast share are printed only, E1 done counts the calls since the runner was hired, E3 takes 40-100 s (G1: the VIP
+// is led step by step and a quicker visit tips more), A4 45-80 % (G3: the calls - most of what playing added over idling
+// at star 2 - are the runner's now; cleaning, towels and the desk are what is left).
 const { execFile } = require('child_process'), path = require('path'), os = require('os');
 const GAME = path.resolve(__dirname, '..'), HEADLESS = 'D:/Minigame/_workflow/tools/headless.js';
 const argv = process.argv.slice(2), A = k => { const a = argv.find(s => s.startsWith(k + '=')); return a ? a.slice(k.length + 1) : null; };
@@ -60,15 +65,15 @@ const missed = [];   // targets not met (profile: target)
     tgt.push(ok(ATT ? mx(M(m => m.B3.max)) <= 150 : null, 'B3 <=150s'));
     const c3 = {}; rs.forEach(r => { if (r.M.C3.kind) c3[r.M.C3.kind] = (c3[r.M.C3.kind] || 0) + 1; });
     console.log(`  C1 pile med ${P2(med(M(m => m.C1.max)))} max ${P2(mx(M(m => m.C1.max)))} | C2 active ${P2(med(M(m => m.C2)))} | C3 top kind ${Object.entries(c3).map(([k, n]) => k + '×' + n).join(' ')} share med ${P2(med(M(m => m.C3.share)))} max ${P2(mx(M(m => m.C3.share)))} | C4 null ${P2(med(M(m => m.C4)))} max ${P2(mx(M(m => m.C4)))} | C5 pickups/min ${med(M(m => m.C5))}`);
-    tgt.push(ok(MIX ? mx(M(m => m.C1.max)) <= .35 : null, 'C1 <=35%'), ok(MIX ? med(M(m => m.C2)) >= .25 : null, 'C2 >=25%'), ok(MIX ? mx(M(m => m.C3.share)) <= .5 : null, 'C3 <=50%'), ok(mx(M(m => m.C4)) <= .05, 'C4 <=5%'), ok(ATT ? med(M(m => m.C5)) >= 4 && med(M(m => m.C5)) <= 8 : null, 'C5 4-8/min'));
+    tgt.push(ok(MIX ? mx(M(m => m.C1.max)) <= .35 : null, 'C1 <=35%'), ok(MIX ? med(M(m => m.C2)) >= .15 : null, 'C2 >=15%'), ok(MIX ? mx(M(m => m.C3.share)) <= .5 : null, 'C3 <=50%'), ok(mx(M(m => m.C4)) <= .05, 'C4 <=5%'), ok(ATT ? med(M(m => m.C5)) <= 14 : null, 'C5 <=14/min'));
     console.log(`  D1 active income ★3 ${P2(med(M(m => m.D1.s3)))} ★4 ${P2(med(M(m => m.D1.s4)))} ★5 ${P2(med(M(m => m.D1.s5)))} | D2 ★5 income/min ${R(med(M(m => m.D2)))}`);
-    if (p === 'eager') { const d3 = med(M(m => m.D1.s3)), d4 = med(M(m => m.D1.s4)), d5 = med(M(m => m.D1.s5)), d2 = med(M(m => m.D2)); tgt.push(ok(d3 >= .15 && d3 <= .3 && d4 >= .2 && d4 <= .35 && (d5 === null || d5 >= .15), 'D1'), ok(d2 === null ? null : d2 >= 2500 && d2 <= 4500, 'D2 2500-4500')); }
-    console.log(`  E1 calls done ${P2(med(M(m => m.E1.done)))} fast ${P2(med(M(m => m.E1.fast)))} | E2 hungry no-chef ${P2(med(M(m => m.E2.noChef)))} two waiters ${P2(med(M(m => m.E2.twoWaiters)))} | E3 VIP ${R(med(M(m => m.E3.used)))} s f ${med(M(m => m.E3.f))} income ${P2(med(M(m => m.E3.share)))} (left ${rs.reduce((a, r) => a + r.M.E3.left, 0)}/${rs.reduce((a, r) => a + r.M.E3.came, 0)}) | E4 first combo ${mmss(med(M(m => m.E4.firstCombo)))} combo rooms ★5 ${med(M(m => m.E4.rooms5))} | E5 angry ${P2(med(M(m => m.E5)))} max ${P2(mx(M(m => m.E5)))}`);
-    // E1 (stage 4, 18.2): done >= 80 % / >= 45 % for eager / casual; the fast share 40-60 % is the eager rhythm (casual,
-    // half as quick to answer, sits near 30-40 % for any fast window that keeps eager under 60 %; printed)
-    if (p === 'eager' || p === 'casual') tgt.push(ok(med(M(m => m.E1.done)) >= (p === 'eager' ? .8 : .45), 'E1 done'), ok(p === 'eager' ? med(M(m => m.E1.fast)) >= .4 && med(M(m => m.E1.fast)) <= .6 : null, 'E1 fast 40-60%'));
+    if (p === 'eager') { const d2 = med(M(m => m.D2)); tgt.push(ok(d2 === null ? null : d2 >= 2500 && d2 <= 4500, 'D2 2500-4500')); }   // D1: printed only (v2.0.1 G3)
+    console.log(`  E1 calls done since the runner ${P2(med(M(m => m.E1.done)))} (runner ${R(med(M(m => m.E1.staff)))}, self-served ${R(med(M(m => m.E1.self)))}, hired ${mmss(med(M(m => m.E1.hireAt)))}; innkeeper before it ${P2(med(M(m => m.E1.pre)))}) fast ${P2(med(M(m => m.E1.fast)))} | VIP wait max ${R(mx(M(m => m.E3.waitMax)))} s | E2 hungry no-chef ${P2(med(M(m => m.E2.noChef)))} two waiters ${P2(med(M(m => m.E2.twoWaiters)))} | E3 VIP ${R(med(M(m => m.E3.used)))} s f ${med(M(m => m.E3.f))} income ${P2(med(M(m => m.E3.share)))} (left ${rs.reduce((a, r) => a + r.M.E3.left, 0)}/${rs.reduce((a, r) => a + r.M.E3.came, 0)}) | E4 first combo ${mmss(med(M(m => m.E4.firstCombo)))} combo rooms ★5 ${med(M(m => m.E4.rooms5))} | E5 angry ${P2(med(M(m => m.E5)))} max ${P2(mx(M(m => m.E5)))}`);
+    // E1 (v2.0.1 G3): the calls since the tea runner was hired, brought by anyone: >= 80 % for every profile that plays
+    // (afk included - it is the runner's job); the fast share is printed only (the runner has no fast bonus)
+    if (p !== 'afkref') tgt.push(ok(med(M(m => m.E1.done)) >= .8, 'E1 done'));
     if (p === 'eager') tgt.push(ok(med(M(m => m.E2.noChef)) <= .25, 'E2 no chef <=25%'), ok(med(M(m => m.E2.twoWaiters)) <= .05, 'E2 2 waiters <=5%'),
-      ok(med(M(m => m.E3.used)) >= 60 && med(M(m => m.E3.used)) <= 100 && med(M(m => m.E3.f)) >= .85 && med(M(m => m.E3.share)) <= .15, 'E3'),
+      ok(med(M(m => m.E3.used)) >= 40 && med(M(m => m.E3.used)) <= 100 && med(M(m => m.E3.f)) >= .85 && med(M(m => m.E3.share)) <= .15, 'E3'),
       ok(med(M(m => m.E4.firstCombo)) >= 240 && med(M(m => m.E4.firstCombo)) <= 420 && med(M(m => m.E4.rooms5)) >= 6, 'E4'));
     if (p !== 'afk') tgt.push(ok(mx(M(m => m.E5)) < (p === 'novice' ? .12 : .08), 'E5'));
     console.log(`  F1 lines/min ${med(M(m => m.F1))} | F2 ok med ${P2(med(M(m => m.F2.ok)))} min ${P2(mn(M(m => m.F2.ok)))} | jumps/run ${R(med(M(m => m.F2.jumps)))}, >3 in 5 s ${R(med(M(m => m.F2.many)))} (max ${R(mx(M(m => m.F2.many)))}), A-B-A ${R(med(M(m => m.F2.flip)))} | H1 pads on screen max ${mx(M(m => m.H1.max))} (shop ${mx(M(m => m.H1.shop))})`);
@@ -88,7 +93,7 @@ const missed = [];   // targets not met (profile: target)
       if (e && e.inc30) { ei = 0; const a = Math.floor(r.afk.from / 30), b = Math.floor(r.afk.to / 30); for (let i = a; i < b; i++) ei += e.inc30[i] || 0; }
       r.A4lit = ei ? r.afk.inc / ei : null;
     }
-    if (p === 'afk') { const a4 = rs.map(r => r.A4), al = rs.map(r => r.A4lit); s.A4 = med(a4); console.log(`  A4 afk income in its 10 hands-off minutes ÷ afkref (same seed, same inn, same minutes): med ${P2(med(a4))} [${P2(mn(a4))}-${P2(mx(a4))}] | ÷ eager (inn still growing): med ${P2(med(al))}`); tgt.push(ok(s.A4 === null ? null : s.A4 >= .45 && s.A4 <= .65, 'A4 45-65%')); }
+    if (p === 'afk') { const a4 = rs.map(r => r.A4), al = rs.map(r => r.A4lit); s.A4 = med(a4); console.log(`  A4 afk income in its 10 hands-off minutes ÷ afkref (same seed, same inn, same minutes): med ${P2(med(a4))} [${P2(mn(a4))}-${P2(mx(a4))}] | ÷ eager (inn still growing): med ${P2(med(al))}`); tgt.push(ok(s.A4 === null ? null : s.A4 >= .45 && s.A4 <= .8, 'A4 45-80%')); }
     if (p === 'afkref') tgt.length = 0;   // a reference run for A4, no targets of its own
     console.log('  targets: ' + tgt.join(' | '));
     for (const t of tgt) if (t.startsWith('NO ')) missed.push(p + ': ' + t.slice(3));
@@ -97,6 +102,6 @@ const missed = [];   // targets not met (profile: target)
   if (sum.ignore && sum.eager) { const a3 = sum.ignore.fin / sum.eager.fin; console.log(`\nA3 ignore ★5 ÷ eager ★5 (medians): ${a3.toFixed(2)} ${ok(a3 <= 1.4, 'A3 <=1.4')}`); if (a3 > 1.4) missed.push('A3'); }
   console.log(missed.length ? 'TARGETS NOT MET (' + missed.length + '): ' + missed.join(' | ') : 'TARGETS: every 14.2 target that applies is met');
   console.log(`\n${bad ? 'BALANCE RUNS FAILED: ' + bad + ' run(s) with an error, an invariant failure or no star 5' : 'ALL RUNS OK: every profile reached star 5 on every seed, invariants OK'}`);
-  if (argv.includes('json')) console.log(JSON.stringify({ cfg, set, seeds: N, sum, runs: all.map(r => ({ profile: r.profile, seed: r.seed, fin: r.fin, M: r.M, inv: r.inv, afk: r.afk, A4: r.A4, A4lit: r.A4lit })) }));
+  if (argv.includes('json')) console.log(JSON.stringify({ cfg, set, seeds: N, sum, runs: all.map(r => ({ profile: r.profile, seed: r.seed, fin: r.fin, M: r.M, inv: r.inv, afk: r.afk, A4: r.A4, A4lit: r.A4lit, unlockT: r.unlockT })) }));
   process.exitCode = bad ? 1 : 0;
 })();

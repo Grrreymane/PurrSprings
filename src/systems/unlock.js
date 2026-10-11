@@ -12,7 +12,7 @@ function unlock(id) {
   if (id === 'dining') firstTime('dine');   // the "[stove] -> [rice] -> [table]" card (7.4; stage 3 draws it)
   if (u.decor) firstTime('decor');          // "[decor] -> [room]" (7.4)
   if (id === 'garden') vipT = S.stats.time + VIP_FIRST;   // the first VIP comes 20 s later (4.4)
-  if (/^net\d$/.test(id)) FX.push({ k: 'netring', r0: NET_R[netLvl() - 1], r1: NET_R[netLvl()], t: 0, life: .6 });   // the new reach rings out once (4.8)
+  if (/^net\d$/.test(id)) FX.push({ k: 'netring', r0: NET_R[netLvl() - 1], r1: NET_R[netLvl()], t: 0, life: 2.4 });   // the new reach rings out and stays a moment (4.8 / G5)
   for (const rm of ROOMS) if (rm.open === id) { S.rooms[rm.id] = 'clean'; POPA[rm.id] = T; POPA[rm.id + ':t'] = T + .15; POPA[rm.id + ':a'] = T + .3; POPA[rm.id + ':u'] = T + .45; }
   if (id === 'onsen') S.basket = BASKET_MAX;
   if (u.hat) S.equip.hat = id;   // bought = worn (4.11)
@@ -45,7 +45,7 @@ function unlock(id) {
   if (at[0] !== tcx(xy) || at[1] !== tcy(xy)) fxSpark(tcx(xy), tcy(xy), 4);
   if (!onView(at[0], at[1])) edgeNew(Math.floor(at[0] / TILE), Math.floor(at[1] / TILE), u);   // out of view: a "new" tag points at it (7.3.3)
   SFX.unlock(); saveNow();
-  if (star() >= 5 && s0 < 5 && !S.done) celebrateAt = T + 1.4;
+  if (!S.done && innComplete()) celebrateAt = T + 1.4;   // G2: the big panel (+ share) when the whole inn is built, not at star 5
 }
 // the innkeeper's line for an ordinary purchase (8.2): a room, a decor piece, a tool, a garden piece, else P01
 function buyLine(u) {

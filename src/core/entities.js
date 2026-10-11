@@ -8,10 +8,12 @@ const GUESTS = [], Q = [], STAFF = [], SLOT_OCC = SLOTS.map(() => null), SEAT_OC
 const RT = {};   // per room runtime: { guest, cleanP, claim }
 const PASS = { n: 0 };                    // rice portions on the dining counter (4.3; runtime only, like the tray)
 const BROWSE = { occ: null };             // the one souvenir-browsing spot (7,32)
+const TEA_AT = { occ: null };             // the one spot at the lobby urn where a guest serves itself tea (TEA_SPOT, G3)
 const TABLE_EATEN = [-9, -9, -9, -9];     // when each table last finished a meal (its plates show 'eaten' for 3 s)
 // run counters for tests / balancing (not saved): calls made / timed out, diners seated / gone hungry
 // stage 2C: level-ups, overtakes, dawns, boutique buys, and `news` = [game time, kind] of every "something new" event (4.13 / 14.2 B3)
-const RUN = { calls: 0, callsMissed: 0, seated: 0, hungry: 0, clerk: 0, vips: 0, vipDone: 0, vipLeft: 0, vipPaid: 0, vipF: [], vipUsed: [],
+// v2.0.1: callsStaff = calls the tea runner brought, callsSelf = calls that ended because the guest got it by itself
+const RUN = { calls: 0, callsMissed: 0, callsStaff: 0, callsSelf: 0, teaSelf: 0, seated: 0, hungry: 0, clerk: 0, vips: 0, vipDone: 0, vipLeft: 0, vipPaid: 0, vipF: [], vipUsed: [],
   levelups: 0, overtakes: 0, days: 0, shop: [], news: [], lines: 0, lineLog: [] };
 function news(kind) { RUN.news.push([S.stats.time, kind]); if (RUN.news.length > 2000) RUN.news.splice(0, 1000); }
 let spawnT = 1.5, guestN = 0, lastCallAt = -99;
@@ -54,7 +56,7 @@ function goldCheck() {
 const lvOf = xp => { let l = 1; while (l < 5 && xp >= LV_XP[l]) l++; return l; };
 const staffLv = s => lvOf(S.staff[s.id] | 0);
 const lvMul = (s, per) => Math.pow(per, staffLv(s) - 1);
-const staffSpeed = s => STAFF_SPEED * (s.role === 'maid' || s.role === 'waiter' || s.role === 'clerk' ? 1 + .05 * (staffLv(s) - 1) : 1);
+const staffSpeed = s => STAFF_SPEED * (s.role === 'maid' || s.role === 'waiter' || s.role === 'clerk' || s.role === 'tea' ? 1 + .05 * (staffLv(s) - 1) : 1);
 const porterCap = s => 6 + staffLv(s) - 1;
 function gainXp(s, n) {
   if (!s || !STAFF_DEF[s.id] || s.role === 'owner') return;

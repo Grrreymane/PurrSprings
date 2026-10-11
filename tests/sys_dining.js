@@ -50,7 +50,8 @@ st(DIN, 3);
 st(DIN.concat(['tea', 'shop', 'd_scroll', 'd_ikebana']), 3);
 { addGuest('couple'); const gu = GUESTS[GUESTS.length - 1]; Q.length = 0; Object.assign(gu, { st: 'sleep', room: 'room1', tt: .05, rolled: true, inside: true, x: tcx(ROOM.room1.stand), y: tcy(ROOM.room1.stand) });
   RT.room1.guest = gu; S.rooms.room1 = 'occupied'; gu.mate.mode = 'park'; gu.mate.x = gu.x; gu.mate.y = gu.y + 9;
-  run(.1, [gu]); eq(gu.st, 'toSeat', 'couple to a table');
+  TEA_AT.occ = {};   // v2.0.1: the urn spot taken, so no cup first (G3: a guest may stop for tea after checking out)
+  run(.1, [gu]); eq(gu.st, 'toSeat', 'couple to a table'); TEA_AT.occ = null;
   for (let i = 0; i < 30 * 40 && !(gu.st === 'seated' && gu.mate.mode === 'park'); i++) updGuest(gu, DT);
   eq(gu.st, 'seated', 'couple seated'); eq(gu.mate.mode, 'park', 'partner seated'); ok(dist(gu.mate.x, gu.mate.y, tcx(SEATS[gu.seat2].at), tcy(SEATS[gu.seat2].at)) < 1, 'partner on the other seat');
   serveSeat(gu); run(EAT_T + .1, [gu]); eq(S.piles.dining, fee('meal', { gu }), 'couple pays x2'); eq(gu.mate.mode, 'follow', 'partner follows again'); }

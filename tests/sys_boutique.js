@@ -21,6 +21,7 @@ function setup(five, extra) {
   S = defaults(); for (const id of PRE4.concat(extra || [])) S.unlocked[id] = true; if (five) S.unlocked.roten = true;
   for (const rm of ROOMS) if (roomOpen(rm)) S.rooms[rm.id] = 'clean';
   S.peak = starOf(S); S.basket = BASKET_MAX; S.tut.moved = true; S.done = true; for (const c of COMBOS) if (c.hint) S.combos[c.id] = 1;   // a star-5 inn has made its combos (else rule 14 goes first)
+  S.stats.vips = 1;   // ... and hosted a VIP (v2.0.1 G1: the arrow leads the first VIP ever ahead of the pads)
   resetWorld(); go('play'); spawnT = 1e9;
   for (let i = STAFF.length - 1; i >= 0; i--) if (STAFF[i].role !== 'owner') STAFF.splice(i, 1);
   P.x = 17 * 16 + 8; P.y = 27 * 16 + 8; SFXLOG.length = 0; LINES.length = 0; BANNER_Q.length = 0;

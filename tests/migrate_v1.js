@@ -3,7 +3,9 @@
 //   node D:/Minigame/_workflow/tools/headless.js D:/Minigame/Hotelgame tests/migrate_v1.js --seed 1 [-- <fixture filter> <minutes>]
 // Right after loading: v = 2, star >= the v1 star (peak), nothing v1 bought is lost, money only grows by refunds (the
 // v1 招牌's part payment), hearts = SPEC formula, piles kept (+ the tip of each guest that was asleep), <= 4 progress
-// pads, no NaN, a save -> load round trip is stable, a v1 招牌 bought but never celebrated celebrates again.
+// pads, no NaN, a save -> load round trip is stable. v2.0.1 G2: the celebration panel is for the whole inn built (every
+// room and area) - a v1 save never has that, so loading queues no panel (a v1 招牌 never celebrated included); one that
+// already saw the v1 panel (done) never gets another.
 // While playing: the bot.js invariants + the v2 ones (hearts never drop, star >= peak, guide target reachable ...).
 // Then every odd / broken save shape in v1_odd.json loads without throwing and plays 5 s.
 const fs = require('fs'), pathM = require('path');
@@ -68,8 +70,7 @@ for (const f of files) {
   if (BANNER_Q.some(b => b.kind === 'gift') !== (v1Star >= 2) || S.gift) bad(tag, 'the "inn grew" banner: ' + BANNER_Q.map(b => b.kind).join(',') + ' / flag ' + S.gift);   // shown once, then the flag is off (10.2)
   const asleep = Object.values(raw.rooms || {}).filter(v => v === 'occupied').length;
   if (sum(S.piles) !== sum(raw.piles) + asleep * STARS[S.peak].tip) bad(tag, 'piles ' + sum(raw.piles) + ' (+' + asleep + ' tips) -> ' + sum(S.piles));
-  if (u.sign && !raw.done && !celebrateAt) bad(tag, '招牌 bought, celebration never seen: no celebration queued');
-  if ((!u.sign || raw.done) && celebrateAt) bad(tag, 'celebration queued again');
+  if (celebrateAt) bad(tag, 'a celebration queued on load (the v2 inn is not complete; G2)');
   nanWalk(S, 'S', tag);
   { const a = JSON.stringify(S); saveNow(); const b = JSON.stringify(loadState()); if (a !== b) bad(tag, 'save -> load round trip changed S'); }
   const loaded = { star: star(), peak: S.peak, money: S.money, hearts: S.hearts, pads: [...PADPOS.keys()].join(',') };
@@ -82,7 +83,7 @@ for (const f of files) {
     if (state === 'celebrate') { celebrated = true; S.done = true; go('play'); }
     if (Math.floor(S.stats.time) !== lastSec) { lastSec = Math.floor(S.stats.time); invariants(tag, stt); }
   }
-  if (u.sign && !raw.done && !celebrated) bad(tag, 'the queued celebration never showed');
+  if (celebrated && (raw.done || !innComplete())) bad(tag, 'a celebration showed ' + (raw.done ? 'again (the v1 panel was seen)' : 'before the inn was complete'));
   nanWalk(S, 'S', tag);
   const bought = Object.keys(S.unlocked).length - before;
   report.push(`${tag.padEnd(14)} v1★${v1Star} -> ★${loaded.star} (peak ${loaded.peak}) | money ${raw.money}->${loaded.money} | ♥ ${loaded.hearts} | pads [${loaded.pads}] | 15 min: +${bought} unlocks, ★${star()}, money ${S.money}, ♥ ${S.hearts}, guests +${S.stats.guests - raw.stats.guests}`);

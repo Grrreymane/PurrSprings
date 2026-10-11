@@ -20,6 +20,8 @@ const _findPath = findPath; findPath = function (a, b, c, d) { bfsFrame++; retur
 const _textSprite = textSprite; textSprite = function (t) { const had = TXC.has(t.s + '|' + t.size + '|' + t.col + '|' + t.stroke + '|' + K); if (!had) txNew++; return _textSprite(t); };
 const _fee = fee; fee = function (k, o) { const v = _fee(k, o); generated += v; return v; };
 const _earn = earn; earn = function (v, x, y) { generated += Math.max(0, v | 0); return _earn(v, x, y); };   // calls pay straight into the wallet (v2 4.2)
+// v2.0.1 G3: a call the tea runner brings pays its tip into the cash box (not a fee, not the wallet)
+const _serveCall = serveCall; serveCall = function (gu, by) { const p0 = S.piles.recep || 0; const r = _serveCall(gu, by); if (by) generated += (S.piles.recep || 0) - p0; return r; };
 newGame();
 // ---------------------------------------------------------------- driver (as bot.js)
 let path = [], key = '', think = 0, mode = 'follow', episode = 0, stuckT = 0, lastPos = [P.x, P.y], stuckN = 0;

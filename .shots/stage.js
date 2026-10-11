@@ -161,6 +161,47 @@
       firstDone('vip'); vipWishStart();   // as if walked here: the escort card is done, the bath wish brings its own card
       place(rm.tap[0], rm.tap[1], 'right'); ff(.8, false); FREEZE_AT();
     },
+    vip_tea_wish() {   // seated in 月见亭 wanting tea; the innkeeper back in the lobby: what does the screen say to do?
+      newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); resetWorld(); go('play'); spawnT = 1e9;
+      vipArrive(); const v = VIPG, rm = ROOM.c3; v.x = tcx(rm.stand); v.y = tcy(rm.stand); v.suite = 'c3'; RT.c3.guest = v; setSt(v, 'seated'); v.dir = 'up'; v.wi = 0;
+      firstDone('vip'); vipWishStart(); place(18, 25, 'up'); ff(.4, false); GUIDE = guideTarget(); FREEZE_AT();
+    },
+    vip_tea_near() {   // the same, the innkeeper in the garden by the suite: the VIP's own bubble and the arrow
+      newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); resetWorld(); go('play'); spawnT = 1e9;
+      vipArrive(); const v = VIPG, rm = ROOM.c3; v.x = tcx(rm.stand); v.y = tcy(rm.stand); v.suite = 'c3'; RT.c3.guest = v; setSt(v, 'seated'); v.dir = 'up'; v.wi = 0;
+      firstDone('vip'); vipWishStart(); place(26, 17, 'up'); ff(.4, false); GUIDE = guideTarget(); FREEZE_AT();
+    },
+    // ---- v2.0.1 G1-G5: the VIP flow step by step, the tea runner, the guests' own cups, the net pulling piles
+    vip_tea_carry() {   // tea on the tray: the arrow over the VIP's big gold bubble
+      newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); resetWorld(); go('play'); spawnT = 1e9;
+      vipArrive(); const v = VIPG, rm = ROOM.c3; v.x = tcx(rm.stand); v.y = tcy(rm.stand); v.suite = 'c3'; RT.c3.guest = v; setSt(v, 'seated'); v.dir = 'up'; v.wi = 0;
+      vipWishStart(); place(26, 18, 'up'); P.tray = ['tea']; ff(.4, false); GUIDE = guideTarget(); FREEZE_AT();
+    },
+    vip_tick() {   // the tea handed over: a big tick over its head, the board ticks wish 1, the 3-step card is done
+      newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); resetWorld(); go('play'); spawnT = 1e9;
+      vipArrive(); const v = VIPG, rm = ROOM.c3; v.x = tcx(rm.stand); v.y = tcy(rm.stand); v.suite = 'c3'; RT.c3.guest = v; setSt(v, 'seated'); v.dir = 'up'; v.wi = 0;
+      vipWishStart(); place(rm.stand[0], rm.stand[1] + 1, 'up'); P.y -= 6; P.tray = ['tea']; ff(.55, false); FREEZE_AT();
+    },
+    vip_bath_wish() {   // the second wish: the big bath bubble, the arrow at the tap with the same gold bubble
+      newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); resetWorld(); go('play'); spawnT = 1e9;
+      vipArrive(); const v = VIPG, rm = ROOM.c3; v.x = tcx(rm.stand); v.y = tcy(rm.stand); v.suite = 'c3'; RT.c3.guest = v; setSt(v, 'seated'); v.dir = 'up'; v.wi = 1;
+      firstDone('vip'); vipWishStart(); FIRST_Q.length = 0; place(26, 18, 'up'); ff(.4, false); GUIDE = guideTarget(); FREEZE_AT();
+    },
+    teaboy_run() {   // the tea runner carries a cup to a guest's room; a call bubble over the futon
+      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'shoes1', 'onsen', 'recep', 'tea', 'teaboy', 'maid1', 'room4']); resetWorld(); go('play'); spawnT = 1e9; ff(.5, false);
+      const gu = sleepIn('room3'); gu.call = { k: 'tea', t: 40, max: 50 };
+      const rn = STAFF.find(s => s.role === 'tea'); Object.assign(rn, { arrive: false, x: tcx(SPOT.urn1), y: tcy(SPOT.urn1), path: [], goal: null });
+      ff(5, false); place(16, 18, 'down'); ff(.2, false); FREEZE_AT();
+    },
+    tea_self() {   // a guest buys its own cup at the lobby urn; the tea pile beside it; the runner at its post
+      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'shoes1', 'onsen', 'recep', 'tea', 'teaboy', 'maid1']); S.piles.tea = 24; resetWorld(); go('play'); spawnT = 1e9; ff(8, false);
+      const gu = guest({ st: 'tea', tt: 60, x: tcx(TEA_SPOT), y: tcy(TEA_SPOT), dir: 'left' }); TEA_AT.occ = gu;
+      place(15, 27, 'up'); ff(.3, false); FREEZE_AT();
+    },
+    net_pull() {   // net 2: walking the main corridor pulls the room tips in - the faint ring, fish flying over
+      newGame(); S.tut.moved = true; unl(['room2', 'room3', 'shoes1', 'onsen', 'recep', 'maid1', 'net1', 'room4', 'room5', 'room6', 'dining', 'porter', 'milk', 'clerk', 'net2']); resetWorld(); go('play'); spawnT = 1e9;
+      S.piles.room4 = 14; S.piles.room3 = 9; place(18, 19, 'up'); ff(.12, false); FREEZE_AT();
+    },
     vip_soak() {   // soaking in the hinoki tub
       newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); resetWorld(); go('play'); spawnT = 1e9;
       vipArrive(); const v = VIPG, rm = ROOM.c3; v.x = tcx(rm.stand); v.y = tcy(rm.stand); v.suite = 'c3'; RT.c3.guest = v; setSt(v, 'soak'); v.tt = 99; v.wi = 1; firstDone('vip');
