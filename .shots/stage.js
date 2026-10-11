@@ -283,6 +283,32 @@
     firstcard_dine() { newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen', 'recep', 'maid1', 'room4', 'room5', 'dining']); S.stats.time = 500; resetWorld(); go('play'); spawnT = 1e9; ff(1, false); firstTime('dine'); place(6, 24, 'up'); ff(.5, false); FREEZE_AT(); },
     firstcard_vip() { newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); S.stats.time = 900; resetWorld(); go('play'); spawnT = 1e9; ff(1, false); vipArrive(); ff(6, false); place(17, 24, 'down'); ff(.3, false); FREEZE_AT(); },
     firstcard_tryon() { newGame(); S.tut.moved = true; unl(ALL); S.done = true; S.stats.time = 2000; resetWorld(); go('play'); spawnT = 1e9; ff(1, false); firstTime('tryon'); place(12, 31, 'down'); ff(.5, false); FREEZE_AT(); },
+    // ---- stage 5 audit fixes
+    chain_lock() {   // F1: the straw hat bought at the booth, then 2 s standing still: the next hat waits (no card, no pour)
+      newGame(); S.tut.moved = true; unl(ALL); S.done = true; S.stats.time = 2000; S.money = 60000; resetWorld(); go('play'); spawnT = 1e9; ff(1, false);
+      place(HAT_PAD[0], HAT_PAD[1], 'down'); ff(3, false); FREEZE_AT();
+    },
+    gate_onsen() {   // F4: the onsen gate also passes a rival: the area banner + P04 come first, the rank banner waits
+      newGame(); S.tut.moved = true; unl(['room2', 'room3']); S.stats.time = 130; S.hearts = 26; resetWorld(); go('play'); spawnT = 1e9; ff(1, false); place(17, 8, 'up'); unlock('onsen'); ff(.5, false); FREEZE_AT();
+    },
+    banner_hint() {   // ROOM-2: gold star 3 lights: the hidden combo's banner and P11 when it comes up (after the rank + gold ones)
+      newGame(); S.tut.moved = true; unl(ALL); S.done = true; S.stats.time = 3000; S.hearts = 2999; resetWorld(); go('play'); spawnT = 1e9; place(17, 26, 'down'); ff(.3, false);
+      addHearts(1); for (let i = 0; i < 30 * 12 && !(LINE && LINE.id === 'P11'); i++) update(1 / 30); ff(.4, false); FREEZE_AT();
+    },
+    arrow_statue() {   // END-1: every hat and pet bought, 60,000 on hand: the arrow points at the statue
+      newGame(); S.tut.moved = true; unl(ALL.concat(UNLOCKS.filter(u => u.hat || u.pet).map(u => u.id), ['maid4'])); S.equip = { hat: 'h_crown', pet: 'p_shiba' };
+      S.done = true; S.stats.time = 6000; S.money = 60000; for (const c of COMBOS) S.combos[c.id] = 1; resetWorld(); go('play'); spawnT = 1e9; ff(2, false);
+      place(17, 28, 'down'); guideClock = 0; ff(.5, false); FREEZE_AT();
+    },
+    roten_open() {   // F7: the star-view bath 60 s after it opened, by day: guests fill it first for 3 minutes
+      newGame(); S.tut.moved = true; unl(ALL.filter(id => id !== 'roten')); S.clock = .3; S.stats.time = 1500; resetWorld(); go('play'); ff(40, false);
+      S.money = 5000; S.done = true; unlock('roten'); ff(60, false); place(31, 6, 'up'); ff(.3, false); FREEZE_AT();
+    },
+    rooms_mix() {   // ROOM-1: the west wing after the arrow dressed every room (map view of the rooms' noren colours)
+      newGame(); S.tut.moved = true; unl(ALL); S.done = true; S.stats.time = 2000; resetWorld(); go('play');
+      for (let k = 0; k < 40; k++) { const sl = slotTarget(); if (!sl) break; const id = slotPiece(sl); if (!id) break; setDecor(sl, id); }
+      place(17, 14, 'down'); ff(4, false); BANNER_Q.length = 0; LINE = null; ff(.3, false); FREEZE_AT();
+    },
     menu_main() { sc.late(); S.stats.time = 900; S.hearts = 260; S.day = 4; openMenu(); ff(.3, false); FREEZE_AT(); },
     menu_sound() { sc.late(); openMenu(); MENU.page = 'sound'; setSfxOn(false); ff(.3, false); FREEZE_AT(); },
     book_vip() {

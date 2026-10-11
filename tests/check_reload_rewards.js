@@ -30,4 +30,10 @@ const v1 = reload(), gap1 = vipT - S.stats.time; const v2 = reload(); saveNow();
 console.log('VIP owed ' + owe + ': fish ' + v0 + ' -> ' + v1 + ' (+' + (v1 - v0) + '), again ' + v2 + ', save + reload ' + v3 + ' | next VIP in ' + R(gap1) + ' s');
 const vipOk = v1 - v0 === R(owe * .5) && v2 === v1 && v3 === v1 && gap1 >= 180 - .1;
 console.log(vipOk ? 'OK: an interrupted VIP pays half its unpaid gift once; the next VIP needs the full gap' : 'MISMATCH (VIP)');
-if (!vipOk || !(r1 - saved === STARS[1].tip && r2 === r1 && r3 === r1 && r4 === r1)) process.exitCode = 1;
+// v2.0 audit CRP-4: a served VIP leaves, then a reload - the next VIP is not any sooner than without the reload
+resetWorld(); go('play'); vipArrive(); setSt(VIPG, 'seated'); VIPG.suite = 'c3'; RT.c3.guest = VIPG; S.vipOwe = 0; vipLeave(true);
+const due = vipT; for (let i = 0; i < 30 * 5; i++) update(DT); saveNow(); reload(); const due2 = vipT; reload(); const due3 = vipT;
+console.log('VIP served and gone: next due ' + R(due) + ' s; after a reload ' + R(due2) + ', again ' + R(due3) + ' (game time ' + R(S.stats.time) + ')');
+const leftOk = due2 >= Math.floor(due) && due3 >= Math.floor(due);
+console.log(leftOk ? 'OK: a reload after a VIP left does not bring the next one sooner' : 'MISMATCH (VIP gap after a reload)');
+if (!vipOk || !leftOk || !(r1 - saved === STARS[1].tip && r2 === r1 && r3 === r1 && r4 === r1)) process.exitCode = 1;

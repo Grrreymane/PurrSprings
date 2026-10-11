@@ -12,7 +12,7 @@ ok(UNLOCKS.length === 66, 'UNLOCKS has ' + UNLOCKS.length + ' rows (SPEC 3.4: 54
 const tot = (a, b) => UNLOCKS.slice(UNLOCKS.findIndex(u => u.id === a), UNLOCKS.findIndex(u => u.id === b) + 1).reduce((s, u) => s + u.price, 0);
 ok(tot('room2', 'onsen') === 145 && tot('recep', 'dining') === 2245 && tot('tray1', 'garden') === 7120 && tot('g_shishi', 'roten') === 9770,   // stage 4 prices (SPEC_v2 3.4 / 18.2)
    'star totals ' + [tot('room2', 'onsen'), tot('recep', 'dining'), tot('tray1', 'garden'), tot('g_shishi', 'roten')]);
-ok(tot('maid4', 'statue') === 1354800, 'after-star-5 total ' + tot('maid4', 'statue'));
+ok(tot('maid4', 'statue') === 1473800, 'after-star-5 total ' + tot('maid4', 'statue'));
 for (const u of UNLOCKS) {
   for (const r of u.req) ok(UNLOCK[r] && UNLOCKS.indexOf(UNLOCK[r]) < UNLOCKS.indexOf(u), u.id + ' requires ' + r + ' listed later / unknown');
   ok(u.card && [...u.card].length <= 9, u.id + ' card longer than 9: ' + u.card);
@@ -62,5 +62,20 @@ st(['room2', 'room3']); S.money = 60; S.tut.moved = true; go('play');
 Object.assign(P, { x: 17 * TILE + 8, y: 7 * TILE + 8 }); for (let i = 0; i < 120; i++) update(1 / 30);
 ok(S.unlocked.onsen && S.money === 10 && star() === 2 && S.peak === 2 && S.hearts === 20, 'onsen bought by standing on it: ' + JSON.stringify({ u: !!S.unlocked.onsen, m: S.money, star: star(), h: S.hearts }));
 ok(doorOpen(17, 6) && walkable(17, 6) && walkable(17, 5), 'onsen door open after buying');
+// v2.0 audit F1: after a purchase the tile is locked until you step off it - the next pad that pops up on the same tile
+// (recep -> maid1 at the desk side) is not bought by standing still, and the arrow doesn't point at your own tile
+st(['room2', 'room3', 'onsen']); S.money = 500; S.tut.moved = true; go('play'); spawnT = 1e9;
+Object.assign(P, { x: 19 * TILE + 8, y: 25 * TILE + 8, moving: false }); for (let i = 0; i < 150; i++) update(1 / 30);
+ok(S.unlocked.recep && !S.unlocked.maid1 && PADPOS.get('maid1') + '' === '19,25', 'chain tile: recep bought, maid1 waits on the same tile: ' + !!S.unlocked.recep + ' ' + !!S.unlocked.maid1 + ' ' + PADPOS.get('maid1'));
+ok(!(GUIDE && GUIDE.id === 'maid1') && infoPad() !== UNLOCK.maid1, 'locked: no arrow / info card for the pad under you');
+P.x = 18 * TILE + 8; update(1 / 30); P.x = 19 * TILE + 8; for (let i = 0; i < 45; i++) update(1 / 30);
+ok(S.unlocked.maid1, 'stepped off and back on: maid1 bought');
+// v2.0 audit BUG-1: a purchase that blocks a tile moves a cat standing on it (a VIP halted in follow where table4 goes)
+st(UNLOCKS.filter(u => !u.need5 && !['roten', 'table4', 'waiter2'].includes(u.id)).map(u => u.id)); S.tut.moved = true; go('play'); spawnT = 1e9;
+{ const b0 = BLOCK.slice(); S.unlocked.table4 = true; rebuildWorld(); let nb = -1; for (let i = 0; i < BLOCK.length; i++) if (BLOCK[i] && !b0[i]) { nb = i; break; }
+  delete S.unlocked.table4; rebuildWorld(); ok(nb >= 0, 'table4 blocks a tile');
+  vipArrive(); setSt(VIPG, 'follow'); VIPG.halt = true; VIPG.x = (nb % MW) * TILE + 8; VIPG.y = Math.floor(nb / MW) * TILE + 8;
+  P.x = 17 * TILE + 8; P.y = 27 * TILE + 8; S.money = 1000; unlock('table4');
+  const [vx, vy] = tileOf(VIPG); ok(!BLOCK[vy * MW + vx], 'the VIP stepped off the new table: ' + vx + ',' + vy); }
 console.log(errs.length ? 'SYS PADS FAIL\n  ' + errs.join('\n  ') : 'SYS PADS OK');
 if (errs.length) process.exitCode = 1;

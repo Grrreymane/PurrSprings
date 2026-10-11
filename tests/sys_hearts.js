@@ -1,6 +1,6 @@
 // SPEC_v2 4.9: hearts, the rival board, gold stars. Hearts only go up. Rank = 1 + rival inns whose threshold you have
 // not reached (10th at the start, 1st from 6,000). Passing one: banner [badge] "passed X! #n" (several within 10 s share
-// one), the rank-up horn, line P06. From star 5 the last five thresholds (800 / 1,500 / 3,000 / 6,000 / 10,000) light the
+// one), the rank-up horn, line P06. From star 5 the last five thresholds (1,100 / 2,000 / 3,000 / 6,000 / 10,000) light the
 // gold stars, those passed before star 5 all at once when star 5 comes; each: fees +5 %, guests 3 % sooner. The n-th
 // guest (100 / 500 / 1,000 / 5,000) is a small event: line G36, a banner, hearts +10 (4.13). HUD row 2: #rank from star 2.
 //   node D:/Minigame/_workflow/tools/headless.js D:/Minigame/Hotelgame tests/sys_hearts.js --seed 2
@@ -19,7 +19,7 @@ function setup(list, hearts) {
 const run = (sec, f) => { for (let i = 0, n = Math.round(sec / DT); i < n; i++) { update(DT); if (f && f()) return true; } return false; };
 const ranks = () => BANNER_Q.filter(b => b.kind === 'rank');
 // ---- the rank from hearts (the legend's 10,000 is not an inn: it only lights the 5th gold star)
-for (const [h, r] of [[0, 10], [29, 10], [30, 9], [79, 9], [80, 8], [150, 7], [250, 6], [400, 5], [800, 4], [1500, 3], [3000, 2], [5999, 2], [6000, 1], [99999, 1]]) eq(rankOf(h), r, 'rank at ' + h + ' hearts');
+for (const [h, r] of [[0, 10], [29, 10], [30, 9], [79, 9], [80, 8], [150, 7], [250, 6], [400, 5], [1099, 5], [1100, 4], [1999, 4], [2000, 3], [3000, 2], [5999, 2], [6000, 1], [99999, 1]]) eq(rankOf(h), r, 'rank at ' + h + ' hearts');
 // ---- overtaking: banner + horn + line; several within 10 s share one; later ones get their own
 setup([], 25);
 { addHearts(10); let b = ranks(); eq(b.length, 1, 'one rank banner'); ok(b[0] && b[0].id === 'panda' && b[0].rank === 9, 'passed panda, #9: ' + JSON.stringify(b[0]));
@@ -33,9 +33,9 @@ setup([], 25);
 // ---- hearts only go up
 setup([], 50); addHearts(-5); addHearts(0); addHearts(2.7); eq(S.hearts, 52, 'negative / zero ignored, integer');
 // ---- gold stars: none before star 5; at star 5 the ones already passed light together; then one per threshold
-setup(PRE4, 1600);
-{ eq(goldStars(), 0, 'star 4: no gold stars (1,600 hearts)'); S.money = 5000; const h0 = S.hearts; unlock('roten');
-  eq(star(), 5, 'star 5'); eq(S.hearts, h0 + UNLOCK.roten.hearts, 'roten hearts'); eq(goldStars(), 2, '1,625 hearts at star 5: gold x2 (rabbit + tanuki)');
+setup(PRE4, 2000);
+{ eq(goldStars(), 0, 'star 4: no gold stars (2,000 hearts)'); S.money = 5000; const h0 = S.hearts; unlock('roten');
+  eq(star(), 5, 'star 5'); eq(S.hearts, h0 + UNLOCK.roten.hearts, 'roten hearts'); eq(goldStars(), 2, '2,025 hearts at star 5: gold x2 (rabbit + tanuki)');
   const gb = BANNER_Q.find(b => b.kind === 'gold'); ok(gb && gb.id === 2, 'gold banner (2): ' + JSON.stringify(gb)); eq(goldPopAt, T, 'the newest gold star pops on the HUD');
   ok(RUN.news.some(n => n[1] === 'gold'), 'a "news" event');
   BANNER_Q.length = 0; addHearts(3000 - S.hearts); eq(goldStars(), 3, '3,000: gold x3'); ok(BANNER_Q.some(b => b.kind === 'gold' && b.id === 3), 'gold banner (3)');

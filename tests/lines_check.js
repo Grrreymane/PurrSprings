@@ -7,11 +7,11 @@ const errs = [], ok = (c, m) => { if (!c) errs.push(m); };
 const DT = 1 / 30, MIN = +(ARGS[0] || 25);
 // ---- static: the table
 const IDS = [];
-for (let i = 1; i <= 36; i++) IDS.push('G' + String(i).padStart(2, '0'));
+for (let i = 1; i <= 39; i++) IDS.push('G' + String(i).padStart(2, '0'));
 for (let i = 1; i <= 19; i++) IDS.push('S' + String(i).padStart(2, '0'));
 for (let i = 1; i <= 4; i++) IDS.push('K0' + i);
 for (let i = 1; i <= 12; i++) IDS.push('V' + String(i).padStart(2, '0'));
-for (let i = 1; i <= 6; i++) IDS.push('P0' + i);
+for (let i = 1; i <= 11; i++) IDS.push('P' + String(i).padStart(2, '0'));
 IDS.push('A01', 'A02');
 for (const id of IDS) ok(!!LINES[id], 'line ' + id + ' missing');
 ok(Object.keys(LINES).length === IDS.length, 'table has ' + Object.keys(LINES).length + ' lines (want ' + IDS.length + ')');
@@ -22,10 +22,14 @@ for (const id in LINES) {
   for (const t of all) { texts.push(t); ok([...t].length <= 8, id + ' "' + t + '" longer than 8'); }
   ok(L.p > 0 && L.p <= 1, id + ' odds ' + L.p);
 }
-// every line has a call site in the game (a lineSay / say key, the arrival table, or the VIP greeting 'V0' + n)
+// every line has a call site in the game (a lineSay / say key, the arrival table, the VIP greeting 'V0' + n, a key
+// buyLine() returns for the lineSay in unlock(), or a banner's line: said when that banner comes up)
 { const src = SCRIPT_TEXT;   // the game's own script (headless: the index.html under test)
-  const used = new Set();
-  for (const line of src.split('\n')) if (/lineSay\(|[^.\w]say\(|ARRIVE_LINE = /.test(line)) for (const m of line.matchAll(/'([A-Z]\d\d(?:\|[A-Z]\d\d)*)'/g)) m[1].split('|').forEach(k => used.add(k));
+  const used = new Set(); let inBuy = false;
+  for (const line of src.split('\n')) {
+    if (/^function buyLine\(/.test(line)) inBuy = true; else if (inBuy && /^}/.test(line)) inBuy = false;
+    if (inBuy || /lineSay\(|[^.\w]say\(|ARRIVE_LINE = |banner\(.*line: '[A-Z]\d\d'/.test(line)) for (const m of line.matchAll(/'([A-Z]\d\d(?:\|[A-Z]\d\d)*)'/g)) m[1].split('|').forEach(k => used.add(k));
+  }
   for (let i = 1; i <= 6; i++) if (/lineSay\(VIPG, 'V0' \+/.test(src)) used.add('V0' + i);
   for (const id of IDS) ok(used.has(id), 'line ' + id + ' is never said (no call site)'); }
 // ---- played: an eager bot follows the arrow; every line that shows is checked as it comes

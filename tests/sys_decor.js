@@ -2,7 +2,8 @@
 // then one every 1.2 s; order (1) completes a known combo with the other slot (2) not standing anywhere yet (3) the rest
 // in table order (4) empty; stops by itself on a combo (walk off and back to go on). Effects: >= 1 piece room x1.2, combo
 // room x1.6 + tip x2; the first time a combo appears ♥ +10 + album; later only the sparkle. Hidden combos are found by
-// trying and never pointed at; the arrow (rule 14) points at a slot that completes a hinted combo, else an empty room's A.
+// trying and not pointed at until gold star 3 / 4 hints them; the arrow (rule 14) points at a slot that completes a hinted
+// combo, else an empty room's A, else (no bare room) a re-dress slot; pieces of the rarest combo come first (v2.0 audit).
 //   node D:/Minigame/_workflow/tools/headless.js D:/Minigame/Hotelgame tests/sys_decor.js --seed 3
 const errs = [], ok = (c, m) => { if (!c) errs.push(m); };
 const eq = (a, b, m) => ok(a === b, m + ': ' + a + ' (want ' + b + ')');
@@ -67,6 +68,27 @@ st(['d_scroll', 'd_ikebana', 'd_bonsai', 'dining', 'd_tank'], 3); S.decor['room1
 { st(['d_scroll', 'd_bonsai'], 2); S.decor['room1:A'] = 'd_scroll'; away();
   const t = slotTarget(); ok(t && t.key === 'room2:A', 'hidden partner owned: the arrow goes to an empty room\'s A, not room1:B (' + (t && t.key) + ')');
   S.combos.s_tea = 1; eq(slotCycle(SL('room1:B'))[0], 'd_bonsai', 'once found, a hidden combo counts as known for the order'); }
+// ---- v2.0 audit ROOM-1 (room variety): the order and the arrow's piece prefer the combo the fewest rooms have
+st(['d_scroll', 'd_ikebana', 'd_bonsai', 'd_screen'], 2);
+{ for (const r of ['room1', 'room2']) { S.decor[r + ':A'] = 'd_scroll'; S.decor[r + ':B'] = 'd_ikebana'; }   // two 雅致和室 already
+  eq(slotPiece(SL('room3:A')), 'd_bonsai', 'empty room: the arrow shows a piece of the rarer combo (zen), not the scroll again');
+  eq(slotCycle(SL('room3:A')).slice(0, 2).join(','), 'd_bonsai,d_screen', 'empty room: zen pieces first in the swap order'); }
+// ---- v2.0 audit ROOM-2: the hidden combos are hinted from gold star 3 / 4 (a banner + P11); with no bare room left the
+// arrow re-dresses a room whose combo 2+ rooms share
+st(UNLOCKS.filter(u => !u.need5).map(u => u.id).concat(['d_maneki', 'd_daruma', 'd_tank']), 5);
+{ eq(star(), 5, 'star 5'); S.stats.time = 100; S.hearts = 2999; goldSeen = goldStars(); ok(!hinted(COMBO.s_fish), 'gold x2: s_fish still hidden');
+  BANNER_Q.length = 0; const said = []; const _ls = lineSay; lineSay = (w, k) => { said.push(k); return _ls(w, k); }; addHearts(1);
+  eq(goldStars(), 3, 'gold x3'); ok(hinted(COMBO.s_fish) && !hinted(COMBO.s_tea), 'gold x3: s_fish hinted, s_tea not yet');
+  ok(BANNER_Q.some(b => b.kind === 'hint' && b.id === 's_fish'), 'the reveal: hint banner (' + BANNER_Q.map(b => b.kind).join(',') + ')');
+  for (let i = 0; i < 30 * 12 && !said.includes('P11'); i++) update(DT); lineSay = _ls;
+  ok(said.includes('P11') && LINE && LINE.id === 'P11', 'P11 when the hint banner comes up, after the overtake P06 (' + said.join(',') + ')');
+  for (const rm of GUEST_ROOMS) if (roomOpen(rm)) { S.decor[rm.id + ':A'] = 'd_scroll'; S.decor[rm.id + ':B'] = 'd_ikebana'; }
+  for (const r of ['room1', 'room2']) { S.decor[r + ':A'] = 'd_maneki'; S.decor[r + ':B'] = 'd_daruma'; }
+  const c = slotCands(); ok(c.length && c[0].rm.id.match(/^room[12]$/) && c[0].k === 'B', 're-dress: a B slot of a 好运连连 room (' + (c[0] && c[0].key) + ')');
+  eq(slotPiece(c[0]), 'd_tank', 'its missing piece: the tank');
+  at(c[0]); run(.85); ok(S.combos.s_fish, 'standing there makes 招财进鱼'); away();
+  ok(!slotCands().length || !slotCands().some(sl => S.decor[otherSlot(sl).key] === 'd_maneki' && roomCombo(sl.rm)), 'made once: no more re-dressing for it');
+  S.hearts = 6000; ok(hinted(COMBO.s_tea), 'gold x4: s_tea hinted'); }
 // ---- fees (3.2): >= 1 piece x1.2, combo x1.6 (either, not both), cottage x1.5; tip x2 in a combo room
 st(['d_scroll', 'd_ikebana', 'dining', 'w1', 'room7', 'garden'], 4);
 { const rm = ROOM.room1, c1 = ROOM.c1, base = STARS[4].room;

@@ -31,8 +31,8 @@ S.clock = .3; eq(fee('bath', { slot: SLOTS[5] }), 18, 'roten by day x1.2');
 S.clock = .9; eq(fee('bath', { slot: SLOTS[5] }), 27, 'roten at night x1.8');
 eq(fee('bath', { slot: SLOTS[5], gu: { type: 'elder' } }), 41, 'roten night elder 15 x 1.8 x 1.5 = 40.5 -> 41');
 // gold stars: rivals 6-10 from star 5; +5 % each; statue +1 tip after rounding
-S.clock = .3; S.hearts = 799; eq(goldStars(), 0, 'gold stars below 800 hearts');
-S.hearts = 1500; eq(goldStars(), 2, 'gold stars at 1500');
+S.clock = .3; S.hearts = 1099; eq(goldStars(), 0, 'gold stars below 1,100 hearts');
+S.hearts = 2000; eq(goldStars(), 2, 'gold stars at 2,000');
 eq(fee('room', { rm: ROOM.room1 }), 28, 'room 25 x 1.1 = 27.5 -> 28');
 S.unlocked.statue = true; eq(fee('tip', { rm: ROOM.room1 }), 12, 'tip 10 x 1.1 + 1 (statue)');
 st(['onsen'], 4, { hearts: 9999 }); eq(goldStars(), 0, 'no gold stars before star 5');

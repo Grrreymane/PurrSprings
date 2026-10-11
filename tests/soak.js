@@ -52,6 +52,7 @@ function drive(dt) {
 }
 // ---------------------------------------------------------------- invariants
 const inv = {}, flag = (k, m) => { inv[k] = inv[k] || { n: 0, first: m }; inv[k].n++; };
+let soakStatueBad = 0;
 const sum = o => Object.values(o).reduce((a, b) => a + b, 0);
 let base = 0;   // fish that existed before tracking started (tips handed out by loadState on reload)
 const rebase = () => { base = S.earned + sum(S.piles) - generated; };
@@ -125,7 +126,10 @@ function checkSecond() {
   for (const k in S.staff) if (!Number.isInteger(S.staff[k]) || S.staff[k] < 0 || !STAFF_DEF[k]) flag('staff-xp', at + ' ' + k + '=' + S.staff[k]);
   if (PET && dist(P.x, P.y, PET.x, PET.y) > 200) flag('pet-far', at + ' ' + R(dist(P.x, P.y, PET.x, PET.y)));
   if (VIPG && SUITES.some(rm => RT[rm.id].guest && RT[rm.id].guest !== VIPG)) flag('suite-guest', at);
-  if (GUIDE && GUIDE.id === 'statue') flag('guide-statue', at);
+  // the statue only once every hat / pet is bought and >= 50,000 on hand (END-1); two checks in a row, since the arrow
+  // re-picks every 0.25 s and a pour empties the wallet in a frame
+  soakStatueBad = GUIDE && GUIDE.id === 'statue' && (S.money < 50000 || UNLOCKS.some(u => (u.hat || u.pet) && !S.unlocked[u.id])) ? soakStatueBad + 1 : 0;
+  if (soakStatueBad >= 2) flag('guide-statue', at);
   try { render(); } catch (e) { flag('render', String(e && e.message || e)); }
   if (LINE && LINE_NEXT && LINE_NEXT.q > LINE_WAIT + .1) flag('line-queue', at);   // one line on screen, one waiting <= 1 s (8.1)
   if (LIGHT_N > LIGHT_MAX) flag('lights>16', at + ' ' + LIGHT_N);

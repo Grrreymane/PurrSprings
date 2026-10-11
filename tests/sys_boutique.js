@@ -6,7 +6,8 @@
 // on your head hide the hat. Pets follow (crumbs); the duck quacks now and then on a fish pickup (A01, <= 1 / 20 s), the
 // shiba barks at a VIP (A02); the gold headband leaves gold glints. The covered statue (1,000,000): the cloth slides with the
 // money poured; bought: gold statue, every tip +1, hearts +100, a banner. The arrow points at a booth piece once (the first
-// time it is affordable) and never at the statue. After star 5 something is always buyable (the statue). The celebration
+// time it is affordable); at the statue only once every hat and pet is bought and you hold >= 50,000 (v2.0 audit END-1).
+// After star 5 something is always buyable (the statue). The celebration
 // panel shows the three "next" icons; the title and the share card wear the hat and bring the pet.
 //   node D:/Minigame/_workflow/tools/headless.js D:/Minigame/Hotelgame tests/sys_boutique.js --seed 4
 const errs = [], ok = (c, m) => { if (!c) errs.push(m); };
@@ -69,10 +70,10 @@ setup(true);
   ok(pets.includes('duck'), 'its ghost is drawn'); }
 // ---- buying = wearing / bringing along
 setup(true);
-{ S.money = 3000; walkTo(HAT_PAD[0], HAT_PAD[1]); run(4, () => !!S.unlocked.h_straw);
+{ S.money = 4000; walkTo(HAT_PAD[0], HAT_PAD[1]); run(4, () => !!S.unlocked.h_straw);
   ok(S.unlocked.h_straw, 'bought the straw hat by standing on the booth'); eq(S.equip.hat, 'h_straw', 'worn'); ok(LINES.some(([, k]) => k === 'K04') && LINES.some(([w, k]) => w === P && k === 'P05'), 'K04 + P05');
   ok(RUN.shop.some(x => x[1] === 'h_straw'), 'counted as a boutique buy'); at(17, 27); run(.1); eq(playerLook().hat, 'straw', 'wearing it anywhere');
-  S.money = 10000; walkTo(PET_PAD[0], PET_PAD[1]); run(4, () => !!S.unlocked.p_duck); eq(S.equip.pet, 'p_duck', 'the duck comes along');
+  S.money = 24000; walkTo(PET_PAD[0], PET_PAD[1]); run(4, () => !!S.unlocked.p_duck); eq(S.equip.pet, 'p_duck', 'the duck comes along');
   run(.1); ok(PET && PET.kind === 'duck', 'pet entity'); let far = 0; walkTo(17, 27, 40); run(1, () => { far = Math.max(far, dist(P.x, P.y, PET.x, PET.y)); return false; });
   ok(dist(P.x, P.y, PET.x, PET.y) < 30, 'the duck caught up (' + dist(P.x, P.y, PET.x, PET.y).toFixed(1) + ' px)'); }
 // ---- the mirror: the next owned hat, "none" included, every 1 s; walk off and it stays
@@ -106,13 +107,18 @@ setup(true);
   ok(BANNER_Q.some(b => b.kind === 'statue'), 'statue banner'); ps.length = 0; render(); statueArt = _sa; ok(ps.some(([s]) => s === 'gold'), 'the golden statue');
   ok(RUN.shop.some(x => x[1] === 'statue'), 'counted'); }
 setup(true);
-{ let pointed = 0; for (const m of [0, 5e5, 2e6]) { S.money = m; for (let i = 0; i < 40; i++) { update(DT); if (GUIDE && GUIDE.id === 'statue') pointed++; } } eq(pointed, 0, 'the arrow never points at the statue'); }
+{ let pointed = 0; for (const m of [0, 5e5, 2e6]) { S.money = m; for (let i = 0; i < 40; i++) { update(DT); if (GUIDE && GUIDE.id === 'statue') pointed++; } } eq(pointed, 0, 'the arrow never points at the statue while a hat or pet is unbought'); }
+setup(true, UNLOCKS.filter(u => u.hat || u.pet || u.id === 'maid4').map(u => u.id));
+{ S.money = 60000; at(17, 27); guideClock = 0; update(DT); ok(GUIDE && GUIDE.id === 'statue', 'everything else bought, 60,000 on hand: the arrow points at the statue (' + (GUIDE && GUIDE.key) + ')');
+  S.money = 40000; guideClock = 0; update(DT); ok(!(GUIDE && GUIDE.id === 'statue'), 'under 50,000: not');
+  S.money = 60000; walkTo(13, 33); run(.5); ok(S.money === 0 && S.paid.statue === 60000, 'poured in: money ' + S.money + ', paid ' + S.paid.statue);
+  guideClock = 0; update(DT); ok(!(GUIDE && GUIDE.id === 'statue'), 'poured: the arrow moves on'); }
 // ---- a booth piece is pointed at once: the first time it is affordable; after a look (walking off) or 60 s, never again
 setup(true);
-{ S.money = 3200; at(17, 27); guideClock = 0; update(DT); ok(GUIDE && GUIDE.kind === 'pad' && GUIDE.id === 'h_straw', 'affordable: the arrow points at the straw hat (' + (GUIDE && GUIDE.kind + ' ' + GUIDE.id) + ')');
+{ S.money = 4200; at(17, 27); guideClock = 0; update(DT); ok(GUIDE && GUIDE.kind === 'pad' && GUIDE.id === 'h_straw', 'affordable: the arrow points at the straw hat (' + (GUIDE && GUIDE.kind + ' ' + GUIDE.id) + ')');
   at(5, 31); run(.3); at(17, 27); run(.3); guideClock = 0; update(DT); ok(!(GUIDE && GUIDE.id === 'h_straw'), 'after a look: not again'); }
 setup(true);
-{ S.money = 3200; at(17, 27); run(BOOTH_HINT_T + 1); guideClock = 0; update(DT); ok(!(GUIDE && GUIDE.id === 'h_straw'), 'ignored for 60 s: not again'); ok(boothOf('h_straw').done, 'done'); }
+{ S.money = 4200; at(17, 27); run(BOOTH_HINT_T + 1); guideClock = 0; update(DT); ok(!(GUIDE && GUIDE.id === 'h_straw'), 'ignored for 60 s: not again'); ok(boothOf('h_straw').done, 'done'); }
 // ---- after star 5 something is always buyable (G4)
 setup(true, UNLOCKS.filter(u => u.need5 && u.id !== 'statue').map(u => u.id)); eq([...PADPOS.keys()].join(','), 'statue', 'everything else owned: the statue is still there');
 // ---- the celebration panel, the title, the share card

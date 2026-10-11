@@ -97,6 +97,7 @@ const bUnreachAt = [];
 let bPath = [], bKey = '', bThink = 0, bMode = 'follow', bEpisode = 0, bStuckT = 0, bLast = [P.x, P.y], bStuckN = 0, bRand = false, bCur = null, bTrack = 0, bUnreach = 0;
 let afkFrom = null, afkTo = null;
 const inv = {}, flag = (k, m) => { inv[k] = inv[k] || { n: 0, first: m }; inv[k].n++; };
+let bStatueBad = 0;
 function bRandomPath() {
   for (let k = 0; k < 200; k++) { const tx = Math.floor(Math.random() * MW), ty = Math.floor(Math.random() * MH); if (walkable(tx, ty)) { const [sx, sy] = tileOf(P), p = findPath(sx, sy, tx, ty); if (p) return p; } }
   return [];
@@ -271,7 +272,10 @@ function checkSecond() {
     if (e.y < MAPH && !e.moving && BLOCK[ty * MW + tx] && e.st !== 'bathing') flag('on-block', mmss(t) + ' ' + (e.st || e.role) + ' ' + tx + ',' + ty);
   }
   if (GUIDE && !GUIDE.here) { const [sx, sy] = tileOf(P); if (!findPath(sx, sy, GUIDE.tx, GUIDE.ty)) flag('guide-unreachable', mmss(t) + ' ' + GUIDE.kind + ' ' + GUIDE.tx + ',' + GUIDE.ty); }
-  if (GUIDE && GUIDE.id === 'statue') flag('guide-statue', mmss(t));
+  // the statue only once every hat / pet is bought and >= 50,000 on hand (END-1); two checks in a row, since the arrow
+  // re-picks every 0.25 s and a pour empties the wallet in a frame
+  bStatueBad = GUIDE && GUIDE.id === 'statue' && (S.money < 50000 || UNLOCKS.some(u => (u.hat || u.pet) && !S.unlocked[u.id])) ? bStatueBad + 1 : 0;
+  if (bStatueBad >= 2) flag('guide-statue', mmss(t));
   if (GUIDE && PROF.skip && (['deliver', 'urn', 'milk', 'vip', 'suite', 'tap', 'photo', 'slot'].includes(GUIDE.kind) && !(GUIDE.kind === 'deliver' && GUIDE.item === 'rice') || (GUIDE.kind === 'pad' && UNLOCK[GUIDE.id].decor))) flag('ignore-pointed', mmss(t) + ' ' + GUIDE.key);
   for (const k of ['hat', 'pet']) { const id = S.equip[k]; if (id !== null && !(S.unlocked[id] && UNLOCK[id][k])) flag('equip', mmss(t) + ' ' + k + '=' + id); }
   if (!(S.clock >= 0 && S.clock < 1) || !Number.isInteger(S.day) || S.day < 1) flag('clock', mmss(t) + ' ' + S.clock + ' day ' + S.day);

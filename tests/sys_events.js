@@ -24,7 +24,8 @@ setup();
   ok(AREA_FADE.some(f => f.a.id === 'onsen'), 'onsen: shade fades'); ok(BANNER_Q.some(b => b.kind === 'area' && b.id === 'onsen'), 'onsen: area banner');
   ok(SFXLOG.includes('areaOpen'), 'onsen: area chime'); ok(line('P04'), 'onsen adds a star: P04'); eq(newsOf('area'), 1, 'news: area');
   buy('recep'); LINES.length = 0; buy('shop'); ok(BANNER_Q.some(b => b.kind === 'area' && b.id === 'shop') && line('P03'), 'shop: banner + P03 (no star)');
-  LINES.length = 0; buy('basket1'); ok(line('P01') && !BANNER_Q.some(b => b.id === 'basket1' && b.kind === 'area') && BANNER_Q.some(b => b.id === 'basket1' && b.kind === 'buy'), 'a plain pad: P01, a buy banner (not an area one)');
+  LINES.length = 0; buy('basket1'); ok(line('P09') && !BANNER_Q.some(b => b.id === 'basket1' && b.kind === 'area') && BANNER_Q.some(b => b.id === 'basket1' && b.kind === 'buy'), 'a plain pad (a tool): P09, a buy banner (not an area one)');
+  LINES.length = 0; buy('room4'); ok(line('P07'), 'a room: P07'); LINES.length = 0; buy('d_scroll'); ok(line('P08'), 'decor: P08');
   LINES.length = 0; buy('maid1'); ok(line('P02'), 'staff: P02'); ok(newsOf('buy') >= 6, 'news: every buy'); }
 // ---- calls: ring + the guest's line + the first-time card
 setup(['room2', 'room3', 'onsen', 'recep', 'tea']);
@@ -32,11 +33,19 @@ setup(['room2', 'room3', 'onsen', 'recep', 'tea']);
   ok(gu.call && SFXLOG.includes('ring') && LINES.some(([w, k]) => w === gu && k === 'G22'), 'call: ring + G22'); ok(FIRST_Q.some(f => f.key === 'call'), 'call: first-time card'); eq(newsOf('first'), 1, 'news: first'); }
 // ---- a VIP arrives: the jingle (music ducks), its line, the card, news
 setup(UNLOCKS.filter(u => !u.need5 && UNLOCK.garden.req.concat(['dining', 'onsen', 'garden']).includes(u.id)).map(u => u.id));
-{ vipT = S.stats.time; run(.1); ok(!!VIPG, 'a VIP came'); ok(SFXLOG.includes('vip') && line('V01'), 'vip: jingle + V01'); ok(FIRST_Q.some(f => f.key === 'vip'), 'vip card'); eq(newsOf('vip'), 1, 'news: vip');
+{ vipT = S.stats.time; run(.1); ok(!!VIPG, 'a VIP came'); ok(SFXLOG.includes('vip') && !line('V01'), 'vip: jingle (its own line waits for the greeting)'); ok(FIRST_Q.some(f => f.key === 'vip'), 'vip card'); eq(newsOf('vip'), 1, 'news: vip');
+  run(30, () => VIPG.st === 'carpet'); P.x = VIPG.x; P.y = VIPG.y + 8; run(VIP_GREET_T + 1, () => VIPG.st === 'follow');
+  ok(VIPG.st === 'follow' && line('V01') && !line('V07'), 'greeted: its own line V01 (' + VIPG.st + ')');
   // the three wish cards (bath / kaiseki / photo) come with the wishes
   VIPG = null; S.vipNext = 1; vipArrive(); const v = VIPG; v.suite = 'c3'; RT.c3.guest = v; setSt(v, 'seated');
   for (let i = 0; i < 3; i++) { v.wi = i; vipWishStart(); }
   for (const k of ['kaiseki', 'bath', 'photo']) ok(FIRST_Q.some(f => f.key === k), 'card: ' + k); ok(line('V10'), 'photo wish: V10'); }
+// ---- v2.0 audit F5: a hire that reaches its post out of view says its first words once it is in view near you (<= 3 min)
+setup(['room2', 'room3', 'onsen', 'recep']);
+{ S.stats.time = 100; P.x = 17 * TILE + 8; P.y = 4 * TILE + 8; updCam(0, true); unlock('maid1'); const m = STAFF.find(s => s.id === 'maid1');
+  run(25, () => !m.arrive); ok(!m.arrive && m.hello === 'S04', 'maid1 reached her post out of view: S04 waits (' + m.arrive + ' ' + m.hello + ')');
+  const n0 = LINES.filter(([, k]) => k === 'S04').length; P.x = m.x; P.y = m.y + 24; updCam(0, true); run(1);
+  ok(!m.hello && LINES.filter(([, k]) => k === 'S04').length > n0, 'you came by: S04 said'); }
 // ---- a new combo: gong, gold banner, hearts +10, news
 setup(['room2', 'room3', 'onsen', 'recep', 'shop', 'd_scroll', 'd_ikebana']);
 { const h0 = S.hearts; S.decor['room1:A'] = 'd_scroll'; setDecor(DSLOT_AT[ROOM.room1.slotB[1] * MW + ROOM.room1.slotB[0]], 'd_ikebana');
