@@ -159,7 +159,7 @@ function drawBookKeep() {
   };
   const big = (c, x, y) => g.drawImage(c, R(x - c.width), R(y - c.height), c.width * 2, c.height * 2);
   row(84, '贵宾', S.gifts.map(id => VIP[id].gift), 6, (k, x, y) => big(giftArt(k), x, y));
-  row(121, '稀客', RARES.filter(r => rareSeen(r.id)).map(r => r.keep), 8, (k, x, y) => drawC(keepsakeArt(k), x, y));
+  row(121, '稀客', RARES.filter(r => rareSeen(r.id)).map(r => r.keep), 8, (k, x, y) => big(keepsakeArt(k), x, y));
   row(158, '奖杯', listOf(S.awards).slice(-8).map(kindOf), 8, (k, x, y) => drawC(trophyArt(k), x, y));
   row(195, '封面', listOf(S.covers).slice(-8).map(kindOf), 8, (k, x, y) => drawC(coverArt(k), x, y));
   row(232, '奖章', listOf(S.medals).slice(-8).map(kindOf), 8, (k, x, y) => drawC(medalArt(k), x, y));

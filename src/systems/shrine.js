@@ -39,5 +39,9 @@ function fadeArt(c, a) { const k = c; let m = FADED.get(k); if (!m) { m = mk(c.w
 // HUD otherwise (update.js updCam; the band above the map is the plain dark-green ground colour)
 const CAM_TOP_B = 30;
 const camTopB = () => { const a = areaAt(Math.floor(P.x / TILE), Math.floor(P.y / TILE)); return a && a.id === 'shrine' ? -CAM_TOP_B : 0; };
+// ... and up to CAM_BOT_B px below it in the shop: its last row (the outfit / uniform booths, the pet cushion) would sit
+// under the bottom card (CARD_Y) otherwise
+const CAM_BOT_B = 30;
+const camBotB = () => { const a = areaAt(Math.floor(P.x / TILE), Math.floor(P.y / TILE)); return a && a.id === 'shop' ? CAM_BOT_B : 0; };
 // winter: snow on a prop (the scenery art's snowCapArt, once it is there)
 const snowy = c => seasonB() === 3 && typeof snowCapArt === 'function' ? snowCapArt(c) : c;

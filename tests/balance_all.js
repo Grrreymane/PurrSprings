@@ -8,6 +8,9 @@
 // E1 fast share are printed only, E1 done counts the calls since the runner was hired, E3 takes 40-100 s (G1: the VIP
 // is led step by step and a quicker visit tips more), A4 45-80 % (G3: the calls - most of what playing added over idling
 // at star 2 - are the runner's now; cleaning, towels and the desk are what is left).
+// v2.1 core B (SPEC_v2 18.2): the shopper's G2 counts every star-5 purchase (boutique + shrine / garden / plaza / wardrobe +
+// fireworks; the boutique alone is printed only), G5 (first garden piece + its rare guest), G6 (2 h: rare kinds, shrine,
+// plaza) and G7 (income still grows) are new.
 const { execFile } = require('child_process'), path = require('path'), os = require('os');
 const GAME = path.resolve(__dirname, '..'), HEADLESS = 'D:/Minigame/_workflow/tools/headless.js';
 const argv = process.argv.slice(2), A = k => { const a = argv.find(s => s.startsWith(k + '=')); return a ? a.slice(k.length + 1) : null; };

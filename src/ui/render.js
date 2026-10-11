@@ -250,7 +250,7 @@ function bubbleTop(e) {
   if (!e) return null;
   if (e === VIPG) {
     if (e.st === 'seated' && vipWish()) return [R(e.x), R(e.y) - 20 - 25];   // the big wish bubble (G1)
-    const shows = e.st === 'arrive' || e.st === 'carpet' || (e.st === 'follow' && e.halt);
+    const shows = e.st === 'arrive' || e.st === 'carpet' || (e.st === 'follow' && e.halt) || e.st === 'show';   // v2.1: a rare guest you lead to its piece shows its wish (rare.js)
     return shows ? [R(e.x), R(e.y) - 20 - 12] : null;
   }
   if (e.gone || !GUESTS.includes(e)) return null;

@@ -473,6 +473,11 @@
       botMove = null; if (window.NEAR && VIPG) { const [vx, vy] = tileOf(VIPG); place(vx + window.NEAR[0], vy + window.NEAR[1], 'up'); }
       ff(window.MORE || .4, !!window.BOTMORE); GUIDE = guideTarget(); FREEZE_AT();
     },
+    b_rare_t() {   // a rare guest's visit, the arrow bot playing it: frozen window.SEC s after it came (a screenshot timeline)
+      const r = RARE[window.RID || 'r_kits']; b5([r.piece]); if (typeof r.when === 'number') S.day = 1 + 3 * r.when; if (r.when === 'night') S.clock = .85;
+      resetWorld(); go('play'); spawnT = 1e9; place(17, 27, 'up'); vipT = S.stats.time; RARE_DUE[r.id] = S.stats.time; ff(.1, false);
+      ff(window.SEC || 10, true); GUIDE = guideTarget(); FREEZE_AT();
+    },
     b_shrine() {   // the shrine at level window.LV (default 10), by day / night (window.CLOCK)
       const lv = window.LV === undefined ? 10 : window.LV; b5(['shrine'].concat(Array.from({ length: lv }, (_, i) => 'of' + (i + 1)))); S.clock = window.CLOCK || .3; S.money = window.MONEY || 0;
       resetWorld(); go('play'); spawnT = 1e9; ff(.5, false); place(window.PX || 7, window.PY || 4, 'up'); ff(.3, false); GUIDE = guideTarget(); FREEZE_AT();

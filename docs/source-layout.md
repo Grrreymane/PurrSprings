@@ -15,6 +15,7 @@
 | `src/core/constants.js` | 18 | 画面尺寸、字体、地图尺寸、小工具（`rand / clamp / fmt / mk / load / save`） |
 | `src/ui/pixel-painter.js` | 96 | 像素画板 `paint / Grid / rows / makeSpr / lit / eyeG …` |
 | `src/art/stubs.js` | 8 | ART 总说明 + `/*ART:stubs*/`（占位，12.4；现在是空的） |
+| `src/art/stubs-v21b.js` | 89 | v2.1 核心 B 的美术占位（神社件、屋台、烟花、庭院摆设、衣服 / 制服图标 …；同名真美术在后面会覆盖它，合并后删掉被覆盖的） |
 | `src/art/chars.js` | 702 | `/*ART:chars:BEGIN*/`：猫的头、帽子、服装、站 / 走 / 坐 / 泡澡 / 睡 / 鞠躬（`catSprite / catSit / catBathing / catSleepHead / catBow`） |
 | `src/art/chars-small.js` | 242 | 小猫、宠物、团成球的猫（`kittenSprite / kittenSit / petSprite / catCurl`）`/*ART:chars:END*/` |
 | `src/art/env.js` | 716 | `/*ART:env:BEGIN*/`：场景调色板、墙、地板（含 v2）、自然（私有 `_en*`） |
@@ -27,6 +28,7 @@
 | `src/audio/hooks.js` | 6 | 核心这边的 `sfx() / vib()`，切后台存档、pagehide 关 AudioContext |
 | `src/ui/drawing.js` | 78 | 文字队列 `txt`、`textW`、面板、按钮、飘字、`drawA / drawObj / ring` |
 | `src/data/map.js` | 143 | 地块图 `MAP`、区域、15 间客房、门、站位、取物圈、座位 |
+| `src/data/tables-v21b.js` | 125 | v2.1 核心 B 的数据：`UNLOCKS_V21B`（衣服、制服、宠物、金摆设、庭院摆设、神社、广场、烟花）、稀客表 `RARES`、物件 `PROPS_V21B`（由 `tables.js` / `pathfinding.js` 拼进去） |
 | `src/data/tables.js` | 179 | 解锁表 `UNLOCKS`、`STARS`、客人类型、组合、贵宾、对手旅馆、昼夜、全部常数 |
 | `src/core/state-save.js` | 184 | `defaults / migrateV1 / loadState / saveNow`、收费 `fee`、价格圈 `padsUpdate` |
 | `src/core/pathfinding.js` | 143 | `BLOCK`、物件 `PROPS`、BFS `findPath`、走路、碰撞 |
@@ -40,12 +42,18 @@
 | `src/systems/zones.js` | 144 | 站上去就干活的区域：接待、打扫、毛巾、鱼干、倒钱、托盘 |
 | `src/systems/unlock.js` | 63 | 买下（`unlock`）、买下后的台词与弹出 |
 | `src/systems/guide.js` | 281 | 箭头 `guideTarget()`（也是机器人的大脑）、气泡 |
+| `src/systems/wardrobe.js` | 97 | v2.1 百货完整版（16.6）：衣服 / 制服 / 宠物 / 金摆设、买下后的 `unlockB`、小狸的灯笼、招财猫招手 |
+| `src/systems/rare.js` | 184 | v2.1 稀客（16.7）：到期、占贵宾的位置、陪站 / 带去看、小猫三兄弟、愿望气泡、纪念品 |
+| `src/systems/shrine.js` | 47 | v2.1 猫神社（16.8）：等级、收费 +1%、鸟居变淡、神社 / 商店里的镜头边距 |
+| `src/systems/plaza.js` | 128 | v2.1 祭典广场（16.9）：烟花、屋台（夜市）、客人买屋台；核心 B 的 `tickB / resetB / loadStateB` |
 | `src/core/update.js` | 86 | 状态机 `go`、`update / gameUpdate`、镜头、`audioTick` |
 | `src/ui/render-world.js` | 250 | 静态层 `rebuildWorld`、猫、价格圈、被褥、`drawScene` |
 | `src/ui/render.js` | 303 | 夜间光照、覆盖层、箭头、HUD、`render()` |
 | `src/systems/lines.js` | 117 | 猫猫台词（SPEC_v2 第 8 节） |
 | `src/ui/cards.js` | 212 | 说明卡 + 预览、横幅、「新」标记、首次图示卡、`uiUpdate` |
 | `src/ui/menu.js` | 220 | 菜单、声音页、图鉴、已购、旅馆页 |
+| `src/ui/minimap.js` | 44 | v2.1 小地图（16.10，旅馆页的「地图」） |
+| `src/ui/menu-v21b.js` | 206 | v2.1 菜单「装扮」页、图鉴的稀客 / 纪念 / 装扮分页、核心画的图标、横幅、台词登记 |
 | `src/ui/title.js` | 64 | 点按 `onPress`、`resetWorld / newGame / continueGame`、标题、庆祝 |
 | `src/ui/share.js` | 66 | 分享卡、二维码 |
 | `src/ui/cover.js` | 59 | `#cover` 封面 `renderCover` |
