@@ -92,6 +92,28 @@ def analyze(x, sr, meta, music):
     return rep
 
 
+def seg_levels(x, sr, segs):
+    """Per-effect levels of the sfx reel: peak, RMS over the 0.3 s after the onset, spectral centroid (brightness) and the
+    loss through a 700 Hz 2nd-order highpass (a phone speaker, WORKFLOW 2)."""
+    m = x.mean(axis=1)
+    out = {}
+    for name, t0, t1 in segs:
+        a = m[int(t0 * sr):int(t1 * sr)]
+        if not len(a) or np.abs(a).max() < 1e-6:
+            out[name] = None
+            continue
+        on = int(np.argmax(np.abs(a) > np.abs(a).max() * .05))
+        b = a[on:on + int(.3 * sr)]
+        P = np.abs(np.fft.rfft(a)) ** 2
+        f = np.fft.rfftfreq(len(a), 1 / sr)
+        hp = (f / 700) ** 4 / (1 + (f / 700) ** 4)
+        out[name] = {'peak': round(db(np.abs(a).max()), 1), 'rms300': round(db(np.sqrt((b ** 2).mean())), 1),
+                     'centroid_hz': int((P * f).sum() / (P.sum() + 1e-20)),
+                     'phone_loss_db': round(float(-10 * np.log10((P * hp).sum() / (P.sum() + 1e-20))), 1),
+                     'len_s': round(float((np.abs(a) > 10 ** (-60 / 20)).nonzero()[0][-1] / sr), 2)}
+    return out
+
+
 def write_wav(path, x, sr):
     pcm = np.clip(x, -1, 1)
     pcm = (pcm * 32767).astype('<i2')
@@ -127,12 +149,18 @@ def main():
                 meta = json.loads(urllib.parse.parse_qs(u.query)['meta'][0])
                 x = np.frombuffer(body, dtype='<f4').reshape(-1, 2).astype(np.float64)
                 name = meta['name']
-                music = not name.startswith('sfx_reel')
+                music = not (name.startswith('sfx_reel') or name.endswith('_dry'))
                 game = analyze(x, meta['sr'], meta, music)
                 y = x * g
                 rep = analyze(y, meta['sr'], meta, music)
                 rep['in_game_peak_dbfs'] = game['peak_dbfs']; rep['in_game_rms_dbfs'] = game['rms_dbfs']
                 rep['switch_times'] = meta.get('switches'); rep['voices_max_per_s'] = meta.get('voicesMax')
+                if meta.get('segs'):
+                    rep['effects'] = seg_levels(x, meta['sr'], meta['segs'])
+                    for k, v in rep['effects'].items():
+                        if v:
+                            print(f"   {k:10s} peak {v['peak']:6.1f}  rms300 {v['rms300']:6.1f}  centroid {v['centroid_hz']:5d} Hz  "
+                                  f"phone loss {v['phone_loss_db']:5.1f} dB  len {v['len_s']}s", flush=True)
                 write_wav(out_dir / (name.replace('+', '_') + '.wav'), y, meta['sr'])
                 report[name] = rep
                 print(f"{name:14s} peak {rep['peak_dbfs']:6.1f} dBFS  rms {rep['rms_dbfs']:6.1f}  (in game {game['peak_dbfs']:.1f} / {game['rms_dbfs']:.1f})  "

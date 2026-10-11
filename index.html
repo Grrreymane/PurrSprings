@@ -4161,6 +4161,9 @@ function inputVec() {
 // MUSIC_DBG still advances; with a real AudioContext the audio clock is used.
 // The music never uses Math.random: every variation is a fixed table indexed by (pass, section, phrase).
 // SFX.unlock / vip / gong / areaOpen duck the music themselves (musicDuck). M key: setMusicOn(x); setSfxOn(x) together.
+// Effects (v2.0.1, feedback S1 "biubiubiu"): all of them go through one SFX bus (SFX_VOL, a notch under the music); the
+// frequent ones (tests/bot_balance.js: meow ~30 / min, pop / bell / sweep / tick / coin 10-15 / min, bursts of 8-14 / s)
+// are short low-mid sine / triangle with no upward slide, rate limited, and scaled down while many sound at once (_auBusy).
 // This block also suspends AC while the page is hidden (the core's pagehide handler closes it; initAudio() rebuilds).
 // Checks: audio/_preview.html (listen), audio/_render.py (offline WAV renders + level / click checks),
 //         audio/_music_check.js (switch rate, voice budget, repeat distance), audio/_theory_check.js (no minor-2nd rubs).
@@ -4199,6 +4202,8 @@ function _auBind() {   // AC changed (first tap, bfcache return, or a test swapp
   for (const k in _auAmb.lay) delete _auAmb.lay[k];
   for (const k in _auAmb.nx) delete _auAmb.nx[k];
   sfxCoinT = sfxPopT = sfxTickT = sfxTakeT = sfxSwapT = -1;
+  for (const k in _auLast) delete _auLast[k];
+  _auSB = null; _auK = 1; _auDen = 0; _auDenT = 0;
 }
 function _auNoise() {   // 2 s of white noise from a fixed xorshift seed (reproducible renders)
   if (!NB) {
@@ -4245,14 +4250,30 @@ function setMusicOn(b) { musicOn = !!b; try { if (typeof save === 'function') sa
 function setSfxOn(b) { sfxOn = !!b; try { if (typeof save === 'function') save('sfx', sfxOn); } catch (e) {} }
 
 // ------------------------------------------------------------ v1 one-shot helpers (signatures unchanged)
+// Every helper plays into the SFX bus (_auSfxBus: SFX_VOL, then a 7 kHz lowpass that takes the edge off) and starts from
+// silence with a few ms ramp: no hard square-wave edge, and no one-sample spike when a delayed start falls between two
+// samples (the gain was 1 until its first event). v is scaled by _auK (the busy-mix factor, 1 for everything but the
+// frequent effects; reset after every SFX call).
+const SFX_VOL = .72;
+let _auSB = null, _auK = 1;
+function _auSfxBus() {
+  if (_auSB) return _auSB;
+  const g = AC.createGain(), lp = AC.createBiquadFilter();
+  g.gain.value = SFX_VOL; lp.type = 'lowpass'; lp.frequency.value = 7000; lp.Q.value = .5;
+  g.connect(lp); lp.connect(AC.destination);
+  return (_auSB = g);
+}
+function _auEnv(p, t, v, d, att) {   // gain param: 0 before t, up to v in att, exponential decay to silence at t + d
+  p.value = 0; p.setValueAtTime(.0001, t); p.exponentialRampToValueAtTime(Math.max(.0002, v), t + (att || .004)); p.exponentialRampToValueAtTime(.0001, t + d);
+}
 function tone(f, d, type, v, f2, delay) {
   if (!AC || !sfxOn) return;
   try {
     if (AC !== _auCtx) _auBind();
     const t = AC.currentTime + (delay || 0), o = AC.createOscillator(), gn = AC.createGain();
     o.type = type || 'square'; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + d);
-    gn.gain.setValueAtTime(v || .06, t); gn.gain.exponentialRampToValueAtTime(.0001, t + d);
-    o.connect(gn); gn.connect(AC.destination); o.start(t); o.stop(t + d + .03);
+    _auEnv(gn.gain, t, (v || .06) * _auK, d);
+    o.connect(gn); gn.connect(_auSfxBus()); o.start(t); o.stop(t + d + .03);
   } catch (e) {}
 }
 function noise(d, v, freq, delay, ft) {
@@ -4261,85 +4282,117 @@ function noise(d, v, freq, delay, ft) {
     if (AC !== _auCtx) _auBind();
     const t = AC.currentTime + (delay || 0), s = AC.createBufferSource(), fl = AC.createBiquadFilter(), gn = AC.createGain();
     s.buffer = _auNoise(); fl.type = ft || 'lowpass'; fl.frequency.value = freq || 1000;
-    gn.gain.setValueAtTime(v || .1, t); gn.gain.exponentialRampToValueAtTime(.0001, t + d);
-    s.connect(fl); fl.connect(gn); gn.connect(AC.destination); s.start(t, _auNOff()); s.stop(t + d + .03);
+    _auEnv(gn.gain, t, (v || .1) * _auK, d, .003);
+    s.connect(fl); fl.connect(gn); gn.connect(_auSfxBus()); s.start(t, _auNOff()); s.stop(t + d + .03);
   } catch (e) {}
 }
-// pitch glide through several points (the guests' happy "meow")
-function glide(fs, ts, type, v) {
+// pitch glide through several points (the guests' "meow"); lp (optional) = a lowpass in Hz
+function glide(fs, ts, type, v, lp) {
   if (!AC || !sfxOn) return;
   try {
     if (AC !== _auCtx) _auBind();
     const t = AC.currentTime, o = AC.createOscillator(), gn = AC.createGain(), end = t + ts[ts.length - 1];
     o.type = type; o.frequency.setValueAtTime(fs[0], t); for (let i = 1; i < fs.length; i++) o.frequency.linearRampToValueAtTime(fs[i], t + ts[i]);
+    v *= _auK; gn.gain.value = 0;
     gn.gain.setValueAtTime(.0001, t); gn.gain.linearRampToValueAtTime(v, t + .03); gn.gain.setValueAtTime(v, end - .06); gn.gain.exponentialRampToValueAtTime(.0001, end + .06);
-    o.connect(gn); gn.connect(AC.destination); o.start(t); o.stop(end + .1);
+    let last = o;
+    if (lp) { const fl = AC.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = lp; o.connect(fl); last = fl; }
+    last.connect(gn); gn.connect(_auSfxBus()); o.start(t); o.stop(end + .1);
   } catch (e) {}
 }
 // tone through a lowpass (soft horn) / filtered noise with a moving cutoff (paper door)
 function _auTonF(f, d, type, v, f2, delay, lp) {
   if (!AC || !sfxOn) return;
   try {
+    if (AC !== _auCtx) _auBind();
     const t = AC.currentTime + (delay || 0), o = AC.createOscillator(), fl = AC.createBiquadFilter(), gn = AC.createGain();
     o.type = type; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + d);
     fl.type = 'lowpass'; fl.frequency.value = lp;
-    gn.gain.setValueAtTime(.0001, t); gn.gain.exponentialRampToValueAtTime(v, t + .012); gn.gain.exponentialRampToValueAtTime(.0001, t + d);
-    o.connect(fl); fl.connect(gn); gn.connect(AC.destination); o.start(t); o.stop(t + d + .03);
+    _auEnv(gn.gain, t, v * _auK, d, .012);
+    o.connect(fl); fl.connect(gn); gn.connect(_auSfxBus()); o.start(t); o.stop(t + d + .03);
   } catch (e) {}
 }
 function _auSweep(d, v, f0, f1, delay, ft) {
   if (!AC || !sfxOn) return;
   try {
+    if (AC !== _auCtx) _auBind();
     const t = AC.currentTime + (delay || 0), s = AC.createBufferSource(), fl = AC.createBiquadFilter(), gn = AC.createGain();
     s.buffer = _auNoise(); fl.type = ft || 'lowpass'; fl.frequency.setValueAtTime(f0, t); fl.frequency.exponentialRampToValueAtTime(f1, t + d);
-    gn.gain.setValueAtTime(.0001, t); gn.gain.linearRampToValueAtTime(v, t + d * .35); gn.gain.exponentialRampToValueAtTime(.0001, t + d);
-    s.connect(fl); fl.connect(gn); gn.connect(AC.destination); s.start(t, _auNOff()); s.stop(t + d + .03);
+    gn.gain.value = 0; gn.gain.setValueAtTime(.0001, t); gn.gain.linearRampToValueAtTime(v * _auK, t + d * .35); gn.gain.exponentialRampToValueAtTime(.0001, t + d);
+    s.connect(fl); fl.connect(gn); gn.connect(_auSfxBus()); s.start(t, _auNOff()); s.stop(t + d + .03);
   } catch (e) {}
 }
 function _auChirp(delay, v) {   // one small bird: 2-3 quick upward slides
   for (let i = 0; i < 3; i++) tone(2600 + i * 120, .07, 'sine', v * (1 - i * .2), 3400 + i * 150, delay + i * .11);
 }
 
+// rate limits: the v1 names for coin / pop / tick / take / swap (tests read them), _auLast for the rest; all restart with
+// a new AudioContext (_auBind)
 let sfxCoinT = -1, sfxPopT = -1, sfxTickT = -1, sfxTakeT = -1, sfxSwapT = -1;
 const actx = () => AC ? AC.currentTime : 0;
+const _auLast = {};
+let _auDen = 0, _auDenT = 0, _auN = 0;
+function _auGap(k, gap) { const now = actx(), l = _auLast[k]; if (l !== undefined && now - l < gap) return false; _auLast[k] = now; return true; }
+// busy mix: a decaying count (0.8 s) of the frequent effects; past 2 at once each new one is scaled by sqrt(2 / n)
+function _auBusy() {
+  const now = actx(); _auDen = _auDen * Math.exp(-Math.max(0, now - _auDenT) / .8) + 1; _auDenT = now;
+  _auK = _auDen > 2 ? Math.sqrt(2 / _auDen) : 1;
+}
 const SFX = {
-  // ---- v1 (unchanged)
-  click() { tone(660, .05, 'square', .035); },
-  coin(n) { if (actx() - sfxCoinT < .05) return; sfxCoinT = actx(); const f = 988 * Math.pow(2, Math.min(n, 12) / 12); tone(f, .06, 'square', .028); tone(f * 1.5, .12, 'triangle', .035, 0, .05); },
-  tick(p) { if (actx() - sfxTickT < .07) return; sfxTickT = actx(); tone(520 + p * 640, .035, 'square', .016); },
+  // ---- v1 names. Frequent ones softened in v2.0.1 (S1): no square waves, no upward slides, short and quiet
+  click() { tone(560, .04, 'triangle', .036, 500); },
+  coin(n) {   // a fish pile picked up: a soft sine ding; quick pick-ups climb a pentatonic step each (4 steps at most)
+    if (actx() - sfxCoinT < .08) return; sfxCoinT = actx(); _auBusy();
+    const f = 784 * Math.pow(2, [0, 2, 4, 7, 9][Math.max(0, Math.min(n | 0, 4))] / 12);
+    tone(f, .16, 'sine', .026); tone(f * 2, .07, 'sine', .005);
+  },
+  tick(p) {   // fish poured into a price pad (10 a second while you stand on it): a soft wooden patter, two alternating
+    if (actx() - sfxTickT < .1) return; sfxTickT = actx();   // pitches that rise only ~3 semitones over the whole price
+    tone((820 + (p || 0) * 160) * (++_auN & 1 ? 1 : 1.06), .03, 'triangle', .019);
+  },
   unlock() {
     musicDuck(1.2);
-    [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, .28, 'triangle', .05, 0, i * .07));
-    [2093, 2637, 3136, 2349, 2794].forEach((f, i) => tone(f, .7, 'sine', .016, 0, .4 + i * .08));
+    [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, .28, 'triangle', .045, 0, i * .07));
+    [2093, 2637, 3136, 2349, 2794].forEach((f, i) => tone(f, .7, 'sine', .012, 0, .4 + i * .08));
   },
-  bell() { tone(1568, 1.1, 'sine', .05); tone(2352, .5, 'sine', .018); tone(3136, .25, 'sine', .01); },
-  sweep() { noise(.22, .045, 2600, 0, 'highpass'); noise(.2, .035, 4200, .1, 'highpass'); },
-  pop() { if (actx() - sfxPopT < .06) return; sfxPopT = actx(); tone(480, .07, 'sine', .05, 880); },
-  splash() { noise(.5, .08, 800); noise(.3, .04, 1600, .06); },
-  milk() { tone(340, .1, 'sine', .07, 210); tone(310, .1, 'sine', .07, 190, .17); },
-  meow() { glide([600, 900, 500], [0, .12, .34], 'triangle', .04); },
-  hmph() { tone(170, .3, 'sawtooth', .03, 105); noise(.16, .025, 500); },
+  bell() {   // a guest at the desk (~13 a minute): a small, lower desk bell
+    if (!_auGap('bell', .5)) return; _auBusy();
+    tone(1319, .6, 'sine', .026); tone(1319 * 2.76, .18, 'sine', .004);
+  },
+  sweep() { if (!_auGap('sweep', .3)) return; _auBusy(); noise(.16, .026, 1800, 0, 'bandpass'); noise(.14, .018, 2600, .09, 'bandpass'); },
+  pop() {   // towels stacked / handed over, a tray item set down (bursts of 8-10 a second): a soft cloth tap
+    if (actx() - sfxPopT < .09) return; sfxPopT = actx(); _auBusy();
+    tone(700, .055, 'triangle', .032, 600); noise(.035, .016, 1400, 0, 'lowpass');
+  },
+  splash() { if (!_auGap('splash', .3)) return; _auBusy(); noise(.45, .05, 800); noise(.25, .022, 1500, .06); },
+  milk() { if (!_auGap('milk', .3)) return; _auBusy(); tone(520, .09, 'triangle', .022, 400); tone(480, .09, 'triangle', .02, 370, .15); },
+  meow() {   // every guest, anywhere (~30 a minute): short and soft, a small rise and fall, four voices in turn
+    if (!_auGap('meow', .45)) return; _auBusy();
+    const k = [1, 1.08, .93, 1.04][++_auN & 3];
+    glide([560 * k, 640 * k, 470 * k], [0, .08, .24], 'triangle', .014, 1400);
+  },
+  hmph() { _auTonF(180, .28, 'sawtooth', .03, 120, 0, 900); noise(.14, .02, 600); },
   // ---- v2 (SPEC 9.5)
-  ring() { [0, .08].forEach((d, i) => { tone(2093, .4, 'sine', i ? .024 : .03, 0, d); tone(3136, .3, 'sine', i ? .009 : .012, 0, d); }); },
-  take() { if (actx() - sfxTakeT < .05) return; sfxTakeT = actx(); noise(.025, .07, 1500, 0, 'bandpass'); tone(700, .045, 'sine', .035); },
-  serve() { tone(1760, .3, 'sine', .032); tone(2640, .22, 'sine', .013); },
-  eat() { tone(300, .12, 'sine', .05, 220); tone(300, .12, 'sine', .045, 220, .17); },
-  cook() { noise(.02, .07, 2500, 0, 'bandpass'); tone(1150, .03, 'triangle', .025); noise(.12, .022, 3000, .03, 'highpass'); },
+  ring() { if (!_auGap('ring', .4)) return; _auBusy(); [0, .1].forEach((d, i) => { tone(1568, .32, 'sine', i ? .016 : .02, 0, d); tone(2349, .2, 'sine', i ? .005 : .007, 0, d); }); },
+  take() { if (actx() - sfxTakeT < .08) return; sfxTakeT = actx(); _auBusy(); noise(.03, .05, 1500, 0, 'bandpass'); tone(660, .045, 'triangle', .028, 600); },
+  serve() { _auBusy(); tone(1568, .28, 'sine', .024); tone(2349, .18, 'sine', .008); },
+  eat() { if (!_auGap('eat', .3)) return; _auBusy(); tone(480, .1, 'triangle', .02, 380); tone(460, .1, 'triangle', .018, 360, .16); },
+  cook() { if (!_auGap('cook', .2)) return; _auBusy(); noise(.025, .035, 2200, 0, 'bandpass'); tone(1000, .03, 'triangle', .012); noise(.1, .012, 3200, .03, 'bandpass'); },
   vip() {
     musicDuck(1.2);
     [1319, 1568, 2093].forEach((f, i) => { tone(f, .8, 'sine', .032, 0, i * .12); tone(f * 2, .3, 'sine', .005, 0, i * .12); });
   },
-  shutter() { noise(.015, .06, 4000, 0, 'highpass'); noise(.03, .05, 2000, .06, 'bandpass'); },   // no flash, ever
+  shutter() { noise(.015, .05, 4000, 0, 'highpass'); noise(.03, .04, 2000, .06, 'bandpass'); },   // no flash, ever
   gong() {
     musicDuck(1.5);
     tone(392, 1.6, 'sine', .032); tone(588, 1.4, 'sine', .017); tone(784, 1.2, 'sine', .011); tone(395, 1.6, 'sine', .009);
     tone(2093, .9, 'sine', .012, 0, .06); tone(3136, .5, 'sine', .005, 0, .06);
   },
-  swap() { if (actx() - sfxSwapT < .05) return; sfxSwapT = actx(); tone(520, .06, 'sine', .045, 380); },
-  tryon() { noise(.09, .045, 1200); tone(660, .12, 'sine', .032, 990); },
+  swap() { if (actx() - sfxSwapT < .05) return; sfxSwapT = actx(); tone(560, .07, 'triangle', .032, 440); },
+  tryon() { noise(.09, .03, 1200); tone(660, .12, 'sine', .024, 880); },
   levelup() { [784, 988, 1319].forEach((f, i) => tone(f, i === 2 ? .3 : .14, 'triangle', .04, 0, i * .08)); },
   rankup() { [523, 659, 784].forEach((f, i) => _auTonF(f, i === 2 ? .32 : .13, 'square', .02, 0, i * .1, 2000)); },
-  dawn() { _auChirp(0, .028); _auChirp(.42, .024); },
+  dawn() { _auChirp(0, .024); _auChirp(.42, .02); },
   dusk() {   // distant temple bell
     tone(110, 3, 'sine', .03); tone(220, 2.6, 'sine', .02); tone(330, 2.2, 'sine', .012); tone(221.6, 2.8, 'sine', .008);
     noise(.05, .01, 600, 0, 'bandpass');
@@ -4350,12 +4403,14 @@ const SFX = {
     [4186, 3520, 3951, 3136, 4699, 3729].forEach((f, i) => tone(f, .9, 'sine', .008, 0, .42 + i * .09));   // wind chimes
   },
   menu(open) { _auSweep(.14, .05, open ? 600 : 1100, open ? 1100 : 600, 0, 'lowpass'); },
-  page() { tone(660, .05, 'square', .035); },
-  coinBig() { SFX.coin(4); for (let i = 0; i < 5; i++) noise(.05, .028 - i * .003, 2500, .05 + i * .035, 'highpass'); },
+  page() { noise(.04, .024, 1800, 0, 'bandpass'); tone(620, .04, 'triangle', .03, 560); },   // paper + a soft tap
+  coinBig() { SFX.coin(4); for (let i = 0; i < 4; i++) noise(.05, .02 - i * .003, 2200, .05 + i * .04, 'bandpass'); },
   // small extras for the pets (SPEC 4.11)
   quack() { _auTonF(560, .1, 'sawtooth', .03, 430, 0, 1500); noise(.08, .02, 900, 0, 'bandpass'); _auTonF(530, .09, 'sawtooth', .025, 420, .13, 1500); },
   woof() { tone(330, .12, 'triangle', .05, 200); noise(.07, .02, 700, 0, 'bandpass'); },
 };
+// _auK applies to the call that set it only (a rare effect right after a busy one plays at full level)
+for (const k of Object.keys(SFX)) { const f = SFX[k]; SFX[k] = function (a) { _auK = 1; try { return f.call(SFX, a); } finally { _auK = 1; } }; }
 
 // ------------------------------------------------------------ songs (SPEC 9.2; data as written there)
 // degree = index into the 5-note scale, +5 = one octave; null = rest; lengths in eighth notes; every motif = 2 bars
