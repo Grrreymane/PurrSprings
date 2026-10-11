@@ -7,19 +7,23 @@ function disc(x, y, r, col) {
 }
 // Text is queued (txt) and drawn crisp at device resolution on top of the pixel layer.
 const TQ = [];
-// a string with any character the display font (ZCOOL QingKe) lacks is drawn in the pixel font as a whole (WORKFLOW 6):
-// never half one font, half the other. textSprite() and textW() share this test. (Symbols: middle dot, arrows, shapes,
-// stars, hearts; U+8429 in case an old name comes back.)
-const NOQK = /[\u00b7\u2190-\u27bf\u8429]/;
-const fontFor = (s, size) => size >= 11 && !NOQK.test(s) ? FONT : PFONT;
-// the width of a string in logical px with the real font (measured once per character and size; cleared when fonts load)
+// One font for every string: the pixel font Fusion Pixel (v2.0.1 F1; the display font is gone). fontFor() stays for callers.
+const fontFor = () => PFONT;
+// Fusion Pixel is drawn on a 12 px grid, so at size * K device px one glyph pixel is s = size * K / 12 device px. txtPx()
+// snaps that to a whole number of device px (crisp edges, no blur): the nearest one if it is at most 20 % larger than
+// asked, else the next smaller one (never below 1 = the font's own 12 px). Only below that is the exact size used.
+// Snapped sizes: K = 3 (540 px wide): 6 -> 4, 7 -> 8, 8 -> 8, 9 -> 8, 11 -> 12, 13 -> 12, 21 -> 20;
+// K = 6.5 (390 px phone at 3x): 6 -> 5.5, 7 -> 7.4, 8 -> 7.4, 9 -> 9.2, 11 -> 11.1, 13 -> 12.9, 21 -> 20.3.
+function txtPx(size) { const s = size * K / 12; if (s < 1) return size * K; let n = Math.round(s); if (n > s * 1.2) n = Math.floor(s); return n * 12; }
+// the width of a string in logical px as drawn: glyph advances measured once at 12 px (whole pixels in this font) and
+// scaled to txtPx(size) (cleared when fonts load)
 const TW = new Map(); let twCtx = null;
 function textW(s, size) {
-  s = String(s); const f = fontFor(s, size), fk = f === FONT ? 'q' : 'p';
+  s = String(s);
   if (!twCtx) twCtx = mk(8, 8).getContext('2d');
   let w = 0;
-  for (const c of s) { const k = fk + size + c; let v = TW.get(k); if (v === undefined) { twCtx.font = size * 8 + 'px ' + f; v = twCtx.measureText(c).width / 8; TW.set(k, v); } w += v; }
-  return w;
+  for (const c of s) { let v = TW.get(c); if (v === undefined) { twCtx.font = '12px ' + PFONT; v = twCtx.measureText(c).width; TW.set(c, v); } w += v; }
+  return w * txtPx(size) / 12 / K;
 }
 function txt(s, x, y, size, col, align, stroke, alpha) { TQ.push({ s, x, y, size: size || 8, col: col || '#ffffff', align: align || 'center', stroke: stroke === undefined ? OUT : stroke, alpha: alpha === undefined ? 1 : alpha }); }
 function panel(x, y, w, h) {

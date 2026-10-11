@@ -51,9 +51,9 @@ function renderCover() {
   // title band over the fence and hedge
   g.fillStyle = '#0c081c'; g.globalAlpha = .5; g.fillRect(0, 0, CW, 36); for (let i = 0; i < 4; i++) { g.globalAlpha = .4 - i * .1; g.fillRect(0, 36 + i * 2, CW, 2); } g.globalAlpha = 1;
   const big = mk(CW * SC, CH * SC), bx = big.getContext('2d'); bx.imageSmoothingEnabled = false; bx.drawImage(c, 0, 0, CW * SC, CH * SC);
-  bx.textAlign = 'center'; bx.textBaseline = 'middle';
-  const stroke = (s, x, y, px, col, font) => { bx.font = px + 'px ' + (font || FONT); bx.fillStyle = OUT; for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; bx.fillText(s, x + Math.cos(a) * px * .08, y + Math.sin(a) * px * .08); } bx.fillStyle = col; bx.fillText(s, x, y); };
-  stroke('猫猫温泉旅馆', 960, 100, 116, '#ffe14a'); stroke('Purr Springs', 960, 194, 44, '#dff6ff', PFONT);
+  // pixel-font title (F1): 120 px = 10 device px per glyph pixel (crisp), the subtitle at 4 px per glyph pixel
+  const label = (s, x, y, px, col) => { const t = pixText(s, px, col, OUT), w = t.w - 2 * t.pad; bx.drawImage(t.cv, R(x - w / 2 - t.pad), R(y - t.h / 2)); };
+  label('猫猫温泉旅馆', 960, 98, 120, '#ffe14a'); label('Purr Springs', 960, 194, 48, '#dff6ff');
   document.body.innerHTML = ''; big.style.cssText = 'position:fixed;left:0;top:0;width:1920px;height:1080px'; document.body.appendChild(big);
   document.title = 'COVER READY';
 }

@@ -19,7 +19,7 @@ function makeShare() {
   { const ph = S.album.photos[S.album.photos.length - 1];   // the latest VIP photo, redrawn from data (7.8), pinned top right
     if (ph) { g.fillStyle = 'rgba(12,8,28,.35)'; g.fillRect(130, 36, 40, 46); g.drawImage(photoCanvas(ph), 128, 34); txt('第' + ph.d + '天', 148, 75.5, 6, '#5a3a1a', 'center', null); } }
   g.fillStyle = 'rgba(12,8,28,.55)'; g.fillRect(0, 0, W, 26);
-  txt('猫猫温泉旅馆', 90, 13, 14, '#ffe14a');
+  txt('猫猫温泉旅馆', 90, 13, 15, '#ffe14a');   // the card is drawn at 4x: pixel-font sizes in steps of 3 are crisp (F1)
   g.fillStyle = '#2a1e3a'; g.fillRect(0, 150, W, H - 150); g.fillStyle = OUT; g.fillRect(0, 150, W, 2);
   // middle: stars (gold ones too) + the rank, the title, three numbers
   panel(10, 158, 160, 106);
@@ -27,12 +27,12 @@ function makeShare() {
   for (let i = 0; i < 5; i++) g.drawImage(starIcon(i < star(), i < gs), 38 + i * 15, 165, 14, 14);
   g.drawImage(trophyIcon(), 120, 166, 14, 14); txt('#' + rankOf(S.hearts), 137, 173.5, 9, '#8a3a1a', 'left', null);
   txt(gs >= 5 ? '传说之汤' : star() >= 5 ? '五星旅馆' : star() + ' 星旅馆', 90, 191, 12, '#c0392b', 'center', null);
-  const rowT = (y, a, b) => { txt(a, 26, y, 8, '#6a4a2a', 'left', null); txt(b, 154, y, 8, '#8a3a1a', 'right', null); };
+  const rowT = (y, a, b) => { txt(a, 26, y, 9, '#6a4a2a', 'left', null); txt(b, 154, y, 9, '#8a3a1a', 'right', null); };
   const ac = albumCount();
   rowT(209, '接待客人', S.stats.guests + ' 位'); rowT(226, '总收入', fmt(S.earned) + ' 鱼干'); rowT(243, '图鉴', ac.n + '/' + ac.m);
   // ---- QR + link ----
   drawQR(12, 280);
-  txt('扫码，一起来开旅馆', 50, 289, 8.5, '#ffffff', 'left');
+  txt('扫码，一起来开旅馆', 50, 289, 9, '#ffffff', 'left');
   txt(SHARE_URL.replace(/^https?:\/\//, '').replace(/\/$/, ''), 50, 303, 6, '#9fe8ff', 'left');
   const S2 = 4, out = mk(W * S2, H * S2), o = out.getContext('2d'), k0 = K;
   o.imageSmoothingEnabled = false; o.drawImage(low, 0, 0, W * S2, H * S2);
@@ -45,13 +45,13 @@ let shareEl = null;
 function showShare(cvs, msg) {
   const url = cvs.toDataURL('image/png'), name = 'purr-springs-' + Date.now().toString(36) + '.png';
   const el = document.createElement('div');
-  el.style.cssText = 'position:fixed;inset:0;z-index:10;background:rgba(6,10,24,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;box-sizing:border-box;touch-action:auto;color:#fff;font:15px ' + FONT;
+  el.style.cssText = 'position:fixed;inset:0;z-index:10;background:rgba(6,10,24,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;box-sizing:border-box;touch-action:auto;color:#fff;font:12px ' + PFONT;
   const img = document.createElement('img');
   img.src = url; img.alt = '分享卡';
   img.style.cssText = 'max-width:100%;max-height:70vh;image-rendering:pixelated;border:3px solid #1b1b2f;border-radius:4px;-webkit-touch-callout:default;-webkit-user-select:auto;user-select:auto';
   const tip = document.createElement('div'); tip.textContent = '手机上可以长按图片保存'; tip.style.opacity = '.8';
   const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap;justify-content:center';
-  const btn = (label, bg, fn) => { const b = document.createElement('button'); b.textContent = label; b.style.cssText = 'font:16px ' + FONT + ';color:#fff;background:' + bg + ';border:2px solid #1b1b2f;border-radius:4px;padding:8px 18px;cursor:pointer'; b.onclick = fn; row.appendChild(b); };
+  const btn = (label, bg, fn) => { const b = document.createElement('button'); b.textContent = label; b.style.cssText = 'font:24px ' + PFONT + ';color:#fff;background:' + bg + ';border:2px solid #1b1b2f;border-radius:4px;padding:6px 14px;cursor:pointer'; b.onclick = fn; row.appendChild(b); };
   btn('保存图片', '#48b858', () => { const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); });
   try {
     cvs.toBlob(blob => {
