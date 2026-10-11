@@ -1,19 +1,22 @@
 // Composition check, standalone: node D:/Minigame/Hotelgame/tools/audio/theory_check.js
-// Compiles every section of every song for 12 passes x day / night x star 1-5 and looks for two notes sounding together
-// a minor second / minor ninth apart (the harsh interval; plucked notes count for their first 3 eighths only).
+// Compiles every section of every song for 12 passes x day / night x star 1-5 x the four seasons (v2.1; + the garden at
+// the shrine) and looks for two notes sounding together a minor second / minor ninth apart (the harsh interval; plucked
+// notes count for their first 3 eighths only).
 // Also prints the average new voices per second per arrangement and the number of distinct section signatures.
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const eng = require('./engine_from_index_node.js')();   // the engine block of index.html
 const test = `
-const SHORT = { koto: 1, shamisen: 1, musicbox: 1, glock: 1 };
+const SHORT = { koto: 1, shamisen: 1, musicbox: 1, glock: 1, koto17: 1 };
+const SEAS = ['spring', 'summer', 'autumn', 'winter'];
 let rubs = 0, examples = [], sigs = {}, dens = {};
 for (const id of ['lobby', 'onsen', 'dining', 'garden', 'fest', 'title']) {
   const sd = _auSong(id);
+  for (const [season, shrine] of [[0], [1], [2], [3]].concat(id === 'garden' ? [[0, 1], [1, 1], [2, 1], [3, 1]] : []))
   for (let si = 0; si < sd.form.length; si++) for (let pass = 0; pass < 12; pass++) for (const night of [false, true]) for (let star = 1; star <= 5; star++) {
-    const sec = _auCompile(id, si, pass, night, star);
+    const sec = _auCompile(id, si, pass, night, star, season, !!shrine);
     sigs[sec.sig] = 1;
-    const k = id + (sec.night ? ' night' : ' day') + ' *' + star, d = dens[k] = dens[k] || { v: 0, s: 0 };
+    const k = id + (shrine ? '@shrine' : '') + (sec.festN ? ' fest-night' : sec.night ? ' night' : ' day') + ' *' + star + (sec.season >= 0 ? ' ' + SEAS[sec.season] : ''), d = dens[k] = dens[k] || { v: 0, s: 0 };
     d.v += sec.ev.reduce((a, e) => a + e.n, 0); d.s += sec.len * sec.dt;
     const notes = [];
     for (const e of sec.ev) for (const m of (Array.isArray(e.m) ? e.m : [e.m])) if (m > 0) notes.push({ s: e.s, l: SHORT[e.i] ? Math.min(e.l, 3) : e.l, m, y: e.y });
@@ -34,6 +37,7 @@ const sb = { console, Math, RESULT, performance: { now: () => 0 }, window: {}, d
 vm.createContext(sb); vm.runInContext(eng + '\n' + test, sb);
 console.log('distinct section signatures:', RESULT.sigs);
 console.log('voices per second (one player):', JSON.stringify(RESULT.density));
+console.log('max voices per second:', Math.max(...Object.values(RESULT.density)));
 console.log('minor-2nd / minor-9th rubs:', RESULT.rubs, RESULT.examples.join(' | '));
 console.log(RESULT.rubs === 0 ? 'THEORY CHECK OK' : 'THEORY CHECK FAILED');
 process.exitCode = RESULT.rubs === 0 ? 0 : 1;

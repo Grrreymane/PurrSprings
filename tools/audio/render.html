@@ -16,18 +16,28 @@ const FPS = 30;
 const want = (o) => () => musicWant(o);
 const SONG40 = (song, area, night, extra) => ({ sec: 40, tl: [[0, want(Object.assign({ song, night, star: 5, area }, extra || {}))]] });
 const SFX_LIST = ['click', 'coin', 'coinBig', 'tick', 'pop', 'bell', 'sweep', 'splash', 'milk', 'meow', 'hmph', 'unlock', 'ring', 'take', 'serve', 'eat', 'cook',
-  'vip', 'shutter', 'gong', 'swap', 'tryon', 'levelup', 'rankup', 'dawn', 'dusk', 'areaOpen', 'menuOpen', 'menuClose', 'page', 'quack', 'woof'];
-function sfxReel() {   // every effect alone, one after another; segs = [name, from, to] for render.py's per-effect levels
+  'vip', 'shutter', 'gong', 'swap', 'tryon', 'levelup', 'rankup', 'dawn', 'dusk', 'areaOpen', 'menuOpen', 'menuClose', 'page', 'quack', 'woof',
+  'firework', 'bellShrine', 'stamp'];   // v2.1
+const SFX_V21 = ['firework', 'firework1', 'firework2', 'bellShrine', 'stamp'];
+function sfxReel(list) {   // every effect alone, one after another; segs = [name, from, to] for render.py's per-effect levels
   const tl = [[0, want({ song: null, area: null })]], segs = []; let t = .5;
-  for (const k of SFX_LIST) {
-    const f = k === 'menuOpen' ? () => SFX.menu(true) : k === 'menuClose' ? () => SFX.menu(false) : k === 'coin' ? () => SFX.coin(0) : k === 'tick' ? () => { SFX.tick(.2); } : () => SFX[k]();
+  for (const k of list || SFX_LIST) {
+    const fw = /^firework(\d?)$/.exec(k);
+    const f = k === 'menuOpen' ? () => SFX.menu(true) : k === 'menuClose' ? () => SFX.menu(false) : k === 'coin' ? () => SFX.coin(0) : k === 'tick' ? () => { SFX.tick(.2); }
+      : fw ? () => SFX.firework(+(fw[1] || 0)) : () => SFX[k]();
     tl.push([t, f]);
     if (k === 'tick') for (let i = 1; i < 8; i++) tl.push([t + i * .09, () => SFX.tick(i / 8)]);
     if (k === 'coin') for (let i = 1; i < 5; i++) tl.push([t + i * .12, () => SFX.coin(i)]);
-    const t1 = t + (k === 'dusk' ? 3.2 : k === 'unlock' || k === 'areaOpen' || k === 'gong' ? 1.9 : k === 'coin' || k === 'tick' ? 1.1 : 1.0);
+    const t1 = t + (k === 'dusk' ? 3.2 : k === 'unlock' || k === 'areaOpen' || k === 'gong' || k === 'bellShrine' ? 1.9 + (k === 'bellShrine' ? .9 : 0) : fw ? 2 : k === 'coin' || k === 'tick' ? 1.1 : 1.0);
     segs.push([k, t, t1]); t = t1;
   }
   return { sec: Math.ceil(t + 1), tl, segs };
+}
+// v2.1 (SPEC 16.11): a fireworks show over the festival-night music, ~1.6 shells a second for 24 s (the in-game mix)
+function fireworksShow() {
+  const tl = [[0, want({ song: 'lobby', night: 1, star: 5, area: 'front', fest: true, season: 1 })]];
+  for (let i = 0; i < 38; i++) tl.push([10 + i * .63 + (i % 3) * .07, () => SFX.firework()]);
+  return { sec: 40, tl };
 }
 // 45 s of real play (sfx_busy.json: every SFX call a bot run made, at its sim time) over the lobby song = the in-game mix
 function sfxBusy(dry) {   // dry: the sound effects alone (no song, no ambience)
@@ -53,6 +63,15 @@ const JOBS = {
   // the anti-repetition at work: lobby section A four times in a row = passes 0-3 (V0 / ornaments + swapped lead / echo / shifted phrase)
   lobby_A_x4: { sec: 102, tl: [[0, want({ song: 'lobby', night: 0, star: 5, area: 'lobby' })], [.2, () => { const p = _auCur(); p.sd = Object.assign({}, p.sd, { form: ['A'] }); }]] },
   sfx_reel: sfxReel(),
+  // v2.1 (SPEC 16.11): the lobby song in each season (day, star 5); festival night; the shrine; the new effects
+  lobby_spring: SONG40('lobby', 'lobby', 0, { season: 0 }),
+  lobby_summer: SONG40('lobby', 'lobby', 0, { season: 1 }),
+  lobby_autumn: SONG40('lobby', 'lobby', 0, { season: 2 }),
+  lobby_winter: SONG40('lobby', 'lobby', 0, { season: 3 }),
+  fest_night: SONG40('lobby', 'front', 1, { fest: true, season: 1 }),
+  shrine: SONG40('garden', 'shrine', 0, { season: 0 }),
+  sfx_reel_v21: sfxReel(SFX_V21),
+  fireworks_show: fireworksShow(),
   sfx_busy: sfxBusy(),
   sfx_busy_dry: sfxBusy(true),
   // ~2.5 min walk: lobby -> onsen -> dining -> garden -> lobby at night (switches land on the next bar line)

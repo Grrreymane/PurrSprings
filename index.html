@@ -4813,12 +4813,27 @@ function inputVec() {
 // Everything is synthesised with WebAudio, no files. SPEC_v2 sections 9 + 13.
 // Core interface: initAudio()  AC  tone/noise/glide (v1 signatures)  SFX.*  musicTick(dt)  musicWant(o)  musicDuck(sec)
 //                 setMusicOn(b)  setSfxOn(b)  musicOn  sfxOn  ambWant(area, o)  MUSIC_DBG
-// musicWant({ song, night, star, menu, area, shishi, shishiT }) every frame:
+// musicWant({ song, night, star, menu, area, shishi, shishiT, season, fest }) every frame:
 //   song  'title' | 'lobby' | 'onsen' | 'dining' | 'garden' | 'fest' | null (silence)
 //   night 0..1 (dayLight().night), star 1..5, menu true while the pause menu is open,
 //   area  AREAS id for the ambience bus (same as calling ambWant(area, o)),
 //   shishi true once g_shishi is bought; shishiT = the clock the core animates shishiArt with: the knock sounds
 //   whenever floor(shishiT / 20) changes; draw the fallen frame while (shishiT % 20) is in [0.3, 0.9).
+//   season (v2.1, SPEC 16.1 / 16.11) 0 spring | 1 summer | 2 autumn | 3 winter (or the names), default 0 (spring, also
+//         when the field is left out). Like night it lands on the next 8-bar section; only the area songs get the
+//         seasonal layer (title and fest do not):
+//           spring  every 16 bars (by day, the last bar of the 1st and 3rd section) a flute bush warbler: "hoo... ho-ke-kyo"
+//           summer  a glass wind chime on 25 % of bar starts (1 in each 4 bars, which one fixed per pass), tempo +4 bpm
+//           autumn  the tune an octave down on a deep koto (17-string), the counter on shakuhachi
+//           winter  the tune on the music box by day too, soft hand bells on the downbeats
+//   fest  (v2.1) true while a festival (16.2) or a fireworks show (16.9) is on where the player is: 'fest' plays in
+//         place of the area song, switching by the area rules (1.5 s stay, 15 s apart, crossfade on the bar line).
+//         Passing song 'fest' still works too (the star-5 celebration: switches at once, as before).
+// Automatic, from area (nothing to pass): 'plaza' at night plays 'fest' (area rules); 'shrine' plays 'garden' with its
+// night arrangement day and night, plus a small bell on the ambience bus every 15 s. 'fest' at night (festival
+// evenings, the plaza) uses its own festival-night arrangement: a bit slower, softer, distant taiko, night stars.
+// v2.1 effects: SFX.firework() (call at launch: a quiet whistle now, a soft low "pomp" FIREWORK_POP s later; at most
+// one per 0.3 s), SFX.bellShrine() (an offering at the shrine: one clear bell), SFX.stamp() (the year report's seal).
 // musicTick(dt) every frame. dt is only used without WebAudio (headless): the sequencer then runs "dry" so
 // MUSIC_DBG still advances; with a real AudioContext the audio clock is used.
 // The music never uses Math.random: every variation is a fixed table indexed by (pass, section, phrase).
@@ -4827,8 +4842,9 @@ function inputVec() {
 // frequent ones (tests/bot_balance.js: meow ~30 / min, pop / bell / sweep / tick / coin 10-15 / min, bursts of 8-14 / s)
 // are short low-mid sine / triangle with no upward slide, rate limited, and scaled down while many sound at once (_auBusy).
 // This block also suspends AC while the page is hidden (the core's pagehide handler closes it; initAudio() rebuilds).
-// Checks: audio/_preview.html (listen), audio/_render.py (offline WAV renders + level / click checks),
-//         audio/_music_check.js (switch rate, voice budget, repeat distance), audio/_theory_check.js (no minor-2nd rubs).
+// Checks: tools/audio/preview.html (listen), tools/audio/render.py (offline WAV renders + level / click checks),
+//         tools/audio/music_check.js (switch rate, voice budget, repeat distance, v2.1 calendar),
+//         tools/audio/theory_check.js (no minor-2nd rubs, all seasons); tests/music_check.js (in the real game).
 let AC = null, NB = null, MB = null;
 let musicOn = true, sfxOn = true;
 (function _auPrefs() {   // separate keys 'music' / 'sfx'; an old v1 'mute = true' turns both off once
@@ -4846,7 +4862,8 @@ let musicOn = true, sfxOn = true;
 })();
 const BGM_VOL = .05, AMB_VOL = .03, AU_LOOK = .3, AU_VMAX = 24, AU_MINGAP = 15;
 const _auACtor = (typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext)) || null;
-const MUSIC_DBG = { song: null, section: null, pass: 0, night: false, layers: [], voicesPerSec: 0, voicesMax: 0, sig: '', bar: 0, players: 0, switches: 0, amb: [], t: 0 };
+const MUSIC_DBG = { song: null, section: null, pass: 0, night: false, layers: [], voicesPerSec: 0, voicesMax: 0, sig: '', bar: 0, players: 0, switches: 0, amb: [], t: 0,
+  season: 0, want: null };
 let _auCtx = null, _auB = null, _auNo = 0;
 const _auOffline = () => !!AC && typeof OfflineAudioContext !== 'undefined' && AC instanceof OfflineAudioContext;
 function initAudio() {
@@ -4987,6 +5004,23 @@ function _auSweep(d, v, f0, f1, delay, ft) {
 function _auChirp(delay, v) {   // one small bird: 2-3 quick upward slides
   for (let i = 0; i < 3; i++) tone(2600 + i * 120, .07, 'sine', v * (1 - i * .2), 3400 + i * 150, delay + i * .11);
 }
+// a firework's whistle: a breathy narrow band of noise gliding up with a faint sine under it; slow swell, no attack edge
+function _auWhistle(d, v, f0, f1, delay) {
+  if (!AC || !sfxOn) return;
+  try {
+    if (AC !== _auCtx) _auBind();
+    const t = AC.currentTime + (delay || 0), o = AC.createOscillator(), g = AC.createGain(), s = AC.createBufferSource(), fl = AC.createBiquadFilter(), gn = AC.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + d);
+    s.buffer = _auNoise(); fl.type = 'bandpass'; fl.Q.value = 9; fl.frequency.setValueAtTime(f0, t); fl.frequency.exponentialRampToValueAtTime(f1, t + d);
+    for (const [p, k] of [[g.gain, .35], [gn.gain, 7]]) {
+      p.value = 0; p.setValueAtTime(0, t); p.linearRampToValueAtTime(v * k * _auK, t + d * .45); p.linearRampToValueAtTime(v * k * _auK * .6, t + d * .85); p.linearRampToValueAtTime(0, t + d);
+    }
+    o.connect(g); g.connect(_auSfxBus()); s.connect(fl); fl.connect(gn); gn.connect(_auSfxBus());
+    o.start(t); o.stop(t + d + .05); s.start(t, _auNOff()); s.stop(t + d + .05);
+  } catch (e) {}
+}
+const FIREWORK_POP = .75;   // SFX.firework(): seconds from the whistle (the launch) to the pomp (the burst)
+let _auFw = 0;
 
 // rate limits: the v1 names for coin / pop / tick / take / swap (tests read them), _auLast for the rest; all restart with
 // a new AudioContext (_auBind)
@@ -5070,6 +5104,25 @@ const SFX = {
   // small extras for the pets (SPEC 4.11)
   quack() { _auTonF(560, .1, 'sawtooth', .03, 430, 0, 1500); noise(.08, .02, 900, 0, 'bandpass'); _auTonF(530, .09, 'sawtooth', .025, 420, .13, 1500); },
   woof() { tone(330, .12, 'triangle', .05, 200); noise(.07, .02, 700, 0, 'bandpass'); },
+  // ---- v2.1 (SPEC 16.11), gentle like the v2.0.1 set
+  firework(k) {   // a firework far away (16.2 / 16.9, up to 2 a second): on two shells in three a soft rising whistle, then
+    if (!_auGap('firework', .3)) return; _auBusy();   // a low-passed "pomp" at FIREWORK_POP, never a bang; k picks the size
+    const i = typeof k === 'number' ? Math.abs(k | 0) : _auFw++, w = [1, .84, 1.19][i % 3], p = FIREWORK_POP;
+    if (i % 3 !== 2) _auWhistle(.68, .012, 620 * w, 1180 * w);
+    _auTonF(118 * w, .45, 'sine', .026, 52, p, 400);         // the thump
+    noise(.4, .026, 420, p + .005, 'lowpass');                // its air
+    tone(300 * w, .16, 'triangle', .01, 170, p);              // a little body for phone speakers
+    noise(.5, .005, 1600, p + .08, 'bandpass');               // a faint fizz as the stars open
+  },
+  bellShrine() {   // an offering at the cat shrine (16.8): one clear small bell, "ding---" (in E, the garden's key)
+    musicDuck(1.6);
+    tone(1318.5, 2.6, 'sine', .018); tone(1321.5, 2.2, 'sine', .007); tone(659.3, 1.6, 'sine', .006); tone(3639, .6, 'sine', .0025);
+    noise(.012, .008, 3200, 0, 'bandpass');
+  },
+  stamp() {   // the year report's seal (16.3): a soft wooden "ton" on paper (mid-heavy, so a phone speaker still has it)
+    tone(520, .07, 'sine', .028, 360); noise(.045, .05, 1100, 0, 'bandpass'); tone(190, .09, 'sine', .014, 120);
+    noise(.025, .01, 2400, .004, 'bandpass');
+  },
 };
 // _auK applies to the call that set it only (a rare effect right after a busy one plays at full level)
 for (const k of Object.keys(SFX)) { const f = SFX[k]; SFX[k] = function (a) { _auK = 1; try { return f.call(SFX, a); } finally { _auK = 1; } }; }
@@ -5131,6 +5184,7 @@ SONGS.fest = {    // star-5 celebration panel (v2.1 festivals)
   mot: { f1: [[3, 1], [3, 1], [4, 1], [3, 1], [2, 2], [0, 2], [1, 1], [2, 1], [3, 2], [3, 4]],
          f2: [[5, 2], [4, 1], [3, 1], [4, 2], [3, 2], [2, 1], [1, 1], [0, 2], [null, 4]] },
   lead: 'fue', counter: 'shamisen', perc: 'taiko', taiko: 'D.D.DdD.|D.dDD.d.',   // D = don, d = small hit, . = rest
+  taikoN: 'D...D.d.|D.d.D...',   // festival night (v2.1): the drums further away
 };
 SONGS.title = { base: 'lobby', sections: ['A'], bpm: 72, layers: ['lead', 'pad'] };
 
@@ -5146,11 +5200,13 @@ const _auVAR = {
   B: ['....', '.o.o', 'pppp', 'o...e'],
   B2: ['..s.e', 'o...e', '.os.e', 'pp..e'],
 };
-const _auPLUCK = { koto: 1, shamisen: 1 };
+const _auPLUCK = { koto: 1, shamisen: 1, koto17: 1 };
 const _auSHIFT = { musicbox: 5, fue: 5 };                                       // these sing an octave up
 const _auREG = { flute: [5, 9], fue: [6, 10], shakuhachi: [3, 7] };           // answer-phrase range (degrees)
 const _auTRIM = { koto: 1, shamisen: 1, flute: .47, shakuhachi: .47, fue: .44, musicbox: .85, glock: 1,   // equal loudness as melody (measured)
-  wood: 2.5, pon: 2.5, taiko: .75, taikoS: 1, rin: .75 };
+  wood: 2.5, pon: 2.5, taiko: .75, taikoS: 1, rin: .75,
+  koto17: 1, uguA: .7, uguB: .7, furin: 1, bellW: 1.3 };                      // v2.1 seasonal voices (measured: 4-8 dB under the tune)
+const _auSEASON = ['spring', 'summer', 'autumn', 'winter'];
 const _auSGAIN = { lobby: 1, onsen: 1, dining: 1, garden: 1, fest: .9, title: 1.15 };   // measured: every song's tune within 1 LU
 
 // ------------------------------------------------------------ tiny theory: note names, chords, scale degrees
@@ -5297,18 +5353,25 @@ function _auPadV(pcs, cc, night) {
   return v;
 }
 // One section -> events per eighth step. Pure function (no AudioContext), cached.
+// v2.1: season 0-3 adds that season's layer to the area songs (16.11); shrine = the garden song at the shrine (always
+// its night arrangement); 'fest' at night = the festival-night arrangement (slower, softer, distant taiko, stars).
 const _auCC = {}; let _auCCn = 0;
-function _auCompile(id, si, pass, night, star) {
-  const sd = _auSong(id), fixed = !!sd.fix, isN = !!night && !fixed && id !== 'fest';
-  star = fixed ? 0 : Math.max(1, Math.min(5, star | 0 || 1));
-  const key = id + '|' + si + '|' + (pass % 12) + '|' + (isN ? 1 : 0) + '|' + star;
+function _auCompile(id, si, pass, night, star, season, shrine) {
+  const sd = _auSong(id), fixed = !!sd.fix, fest = id === 'fest', sh = !!shrine && id === 'garden';
+  const isN = (!!night || sh) && !fixed && !fest, fN = fest && !!night && !fixed;
+  const se = fixed || fest ? -1 : ((season | 0) % 4 + 4) % 4, AUT = se === 2, WIN = se === 3;
+  star = fixed ? 0 : Math.max(fest ? 4 : 1, Math.min(5, star | 0 || 1));   // a festival always has its drums
+  const key = [id, si, pass % 12, isN ? 1 : fN ? 2 : 0, star, se, sh ? 1 : 0].join('|');
   if (_auCC[key]) return Object.assign({}, _auCC[key], { pass });
   if (++_auCCn > 300) { for (const k in _auCC) delete _auCC[k]; _auCCn = 0; }   // keep memory small on long sessions
   const name = sd.form[si], base = name[0], B = sd.bar8, LEN = 8 * B, k = pass % 4, cc = Math.floor(pass / 4) % 3;
-  const L = fixed ? { lead: 1, pad: 1 } : { lead: 1, bass: 1, pad: star >= 2, counter: star >= 3, perc: star >= 4 && !isN, sparkle: star >= 5, star: isN };
-  const chords = sd.ch[base], E = [];
+  const L = fixed ? { lead: 1, pad: 1 } : { lead: 1, bass: 1, pad: star >= 2, counter: star >= 3, perc: star >= 4 && !isN, sparkle: star >= 5 && !fN, star: isN || fN };
+  const chords = sd.ch[base], E = [], fv = fN ? .85 : 1;   // festival night: the tune a touch softer
   const add = (s, i, m, l, v, y) => { if (s >= 0 && s < LEN) E.push({ s, i, m, l, v, y }); };
-  const mel = _auMel(sd, name, k), leadI = sd.lead, cntI = sd.cnt, swap = !!L.counter && !isN && (k & 1) === 1;
+  let leadI = sd.lead, cntI = sd.cnt;
+  if (AUT) { if (!_auPLUCK[leadI]) leadI = 'koto'; cntI = 'shakuhachi'; }   // autumn: a low koto (or shamisen) tune, shakuhachi answers
+  if (WIN) leadI = 'musicbox';                                            // winter: the music box by day too
+  const mel = _auMel(sd, name, k), swap = !!L.counter && !isN && (k & 1) === 1;
   const callResp = name === 'A3' || name === 'B2', inst = [];
   // 1) the tune
   for (let pi = 0; pi < 4; pi++) {
@@ -5319,23 +5382,41 @@ function _auCompile(id, si, pass, night, star) {
     inst.push(mi === leadI ? cntI : leadI);
     let ph = mel.notes.filter(n => n.ph === pi);
     if (isN) ph = _auThin(sd, ph);
-    const sh = _auSHIFT[mi] || 0;
-    for (const n of ph) if (n.d !== null) add(n.s, mi, _auDeg(sd, n.d + sh), n.l, .8, 'lead');
+    let shf = _auSHIFT[mi] || 0, ii = mi;
+    if (AUT && (mi === leadI || mi === 'musicbox')) { shf -= 5; if (mi === 'koto') ii = 'koto17'; }   // autumn: an octave down
+    for (const n of ph) if (n.d !== null) add(n.s, ii, _auDeg(sd, n.d + shf), n.l, .8 * fv, 'lead');
   }
   let bp = _auBarPcs(E, B, ['lead']), safe = chords.map((ch, b) => _auSafe(sd, ch, bp[b]));
   // 2) the counter line: answers / echoes (winds, pentatonic) or broken chords (plucked, filtered)
   if (L.counter) {
-    const st = {}, stN = {};
+    const st = {}, stN = {}, cv = fN ? .75 : 1;
     for (let pi = 0; pi < 4; pi++) {
       const oi = inst[pi];
       let ns;
       if (isN) ns = (_auPLUCK[cntI] ? _auArp(sd, base, pi, cntI, cc, true, safe) : _auLong(sd, base, pi, stN)).map(n => Object.assign(n, { i: cntI, v: .3 * (n.v || 1) }));
       else ns = (mel.echo ? _auEcho(sd, mel.notes, pi) : _auPLUCK[oi] ? _auArp(sd, base, pi, oi, cc, false, safe).map(n => Object.assign(n, { v: 1.4 * n.v })) : _auFill(sd, base, mel.notes, pi, oi, cc, st).map(n => Object.assign(n, { v: .85 }))).map(n => Object.assign(n, { i: oi, v: .5 * (n.v || 1) }));
-      for (const n of ns) { let m = n.m !== undefined ? n.m : _auDeg(sd, n.d); if (m > (_auPLUCK[n.i] ? 81 : 88)) m -= 12; add(n.s, n.i, m, n.l, n.v, 'counter'); }   // never shrill
+      for (const n of ns) { let m = n.m !== undefined ? n.m : _auDeg(sd, n.d); if (m > (_auPLUCK[n.i] ? 81 : 88)) m -= 12; add(n.s, n.i, m, n.l, n.v * cv, 'counter'); }   // never shrill
     }
     bp = _auBarPcs(E, B, ['lead', 'counter']); safe = chords.map((ch, b) => _auSafe(sd, ch, bp[b]));
   }
-  // 3) bass: the root (or the lowest safe chord tone) + the koto answering it, as in v1
+  // 2b) the season's layer (16.11): chord tones that are safe against the tune in their bar (and the next where they ring on)
+  const tones = b => { const ch = chords[b], p = safe[b].filter(pc => ch.pcs.indexOf(pc) >= 0); return p.length ? p : safe[b]; };
+  const keep = b => { const p = tones(b), nx = b < 7 ? p.filter(pc => safe[b + 1].indexOf(pc) >= 0) : p; return nx.length ? nx : p; };
+  const inR = (pcs, lo, hi) => { const r = []; for (let m = lo; m < hi; m++) if (pcs.indexOf(m % 12) >= 0) r.push(m); return r; };
+  if (se === 0 && !isN && !(si & 1)) {   // spring, every 16 bars (by day): a flute bush warbler in the section's last bar
+    for (let i = E.length - 1; i >= 0; i--) if (E[i].y === 'counter' && E[i].s + E[i].l > 7 * B) E.splice(i, 1);   // the counter rests for it
+    bp = _auBarPcs(E, B, ['lead', 'counter']); safe = chords.map((ch, b) => _auSafe(sd, ch, bp[b]));
+    const ms = inR(tones(7), 76, 96), hoo = ms[0], ke = ms.find(m => m >= hoo + 5) || ms[ms.length - 1], kyo = ms.filter(m => m > hoo && m < ke).pop() || ke;
+    add(7 * B + 1, 'uguA', hoo, 2, .3, 'season'); add(7 * B + 4, 'uguB', [hoo, ke, kyo], 2, .3, 'season');   // "hoo..." "ho-ke-kyo"
+  }
+  if (se === 1) for (const h of [0, 4]) {   // summer: a glass wind chime on 1 bar start in 4 (which one: fixed per pass / section)
+    const b = h + Math.floor(_auH(pass, si * 2 + h, 9137) * 4), r = inR(keep(b), 81, 93);
+    add(b * B, 'furin', r[(pass + b) % r.length], 2, isN ? .14 : .2, 'season');
+  }
+  if (WIN) for (let b = 0; b < 8; b++) if (!isN || !(b & 1)) {   // winter: a soft hand bell on the downbeats (every other bar at night)
+    const r = inR(keep(b), 67, 79); add(b * B, 'bellW', r[(2 * b + pass) % r.length], B, isN ? .12 : .16, 'season');
+  }
+  // 3) bass: the root (or the lowest safe chord tone) + the koto answering it, as in v1 (autumn: the bass alone, the low koto has the tune)
   if (L.bass) {
     const busy = id === 'dining' || id === 'fest';
     for (let b = 0; b < 8; b++) {
@@ -5344,7 +5425,8 @@ function _auCompile(id, si, pass, night, star) {
       const t = _auStack(pcs, 45), third = t.length > 1 ? t[1] : t[0] + 12;
       const fifth = pcs.indexOf(ch.fifth) >= 0 ? _auIn(ch.fifth, t[0] + 1) : third;
       add(s, busy ? 'bass5' : 'bass', t[0], B, (busy ? .45 : .3) * (isN ? .75 : 1), 'bass');   // sustained bass: measured, .3 sits ~6 LU under the tune
-      if (busy) { add(s + 4, 'bass5', fifth, 2, .3, 'bass'); add(s, 'koto', t[0] + 12, 2, .22 * nv, 'bass'); continue; }
+      if (busy) { add(s + 4, 'bass5', fifth, 2, .3, 'bass'); if (!AUT) add(s, 'koto', t[0] + 12, 2, .22 * nv, 'bass'); continue; }
+      if (AUT) continue;
       const pl = id === 'garden' ? [[0, t[0] + 12, .25]]
         : cc === 1 ? [[0, t[0] + 12, .3], [3, third + 12, .16], [6, fifth + 12, .14]]
         : cc === 2 ? [[0, fifth + 12, .22], [2, t[0] + 12, .18], [4, third + 12, .15]]
@@ -5353,9 +5435,10 @@ function _auCompile(id, si, pass, night, star) {
     }
   }
   if (L.pad) {
+    const dark = isN || fN;
     for (let b = 0; b < 8;) {
       let e = b + 1; while (e < 8 && chords[e].name === chords[b].name && safe[e].join() === safe[b].join()) e++;
-      add(b * B, isN ? 'padN' : 'pad', _auPadV(safe[b], cc, isN), (e - b) * B, isN ? .085 : .095, 'pad');
+      add(b * B, dark ? 'padN' : 'pad', _auPadV(safe[b], cc, dark), (e - b) * B, dark ? .085 : .095, 'pad');
       b = e;
     }
   }
@@ -5365,7 +5448,7 @@ function _auCompile(id, si, pass, night, star) {
       const s = b * B;
       if (pk === 'woodblock') { add(s + 2, 'wood', 0, 1, .25, 'perc'); add(s + 6, 'wood', 0, 1, .2, 'perc'); if (!(b & 1)) add(s, 'pon', 0, 1, .25, 'perc'); }
       else if (pk === 'woodblock-offbeat') { [1, 3, 5, 7].forEach((p, j) => add(s + p, 'wood', 0, 1, j & 1 ? .24 : .14, 'perc')); if (!(b & 1)) add(s, 'pon', 0, 1, .25, 'perc'); }
-      else if (pk === 'taiko') { const pat = sd.taiko.split('|')[b & 1]; for (let j = 0; j < 8; j++) if (pat[j] !== '.') add(s + j, pat[j] === 'D' ? 'taiko' : 'taikoS', 0, 1, .25, 'perc'); }
+      else if (pk === 'taiko') { const pat = (fN ? sd.taikoN : sd.taiko).split('|')[b & 1]; for (let j = 0; j < 8; j++) if (pat[j] !== '.') add(s + j, pat[j] === 'D' ? 'taiko' : 'taikoS', 0, 1, fN ? .18 : .25, 'perc'); }
       else if (!(b & 3)) { const both = safe[b].filter(pc => safe[b + 1].indexOf(pc) >= 0); add(s, 'rin', _auIn((both.length ? both : safe[b])[0], 88), B, .25, 'perc'); }
     }
   }
@@ -5379,9 +5462,11 @@ function _auCompile(id, si, pass, night, star) {
   }
   const at = [];
   for (const e of E) { e.n = Array.isArray(e.m) ? e.m.length : 1; (at[e.s] || (at[e.s] = [])).push(e); }
-  const layers = Object.keys(L).filter(x => L[x]);
-  const sec = { id, si, name, len: LEN, bar8: B, dt: 60 / sd.bpm / 2 / (isN ? .88 : 1), at, ev: E, layers, night: isN, k, cc, pass,
-    sig: [id, name, k + '.' + cc, isN ? 'n' : 'd', layers.join('+')].join('|') };
+  const layers = Object.keys(L).filter(x => L[x]).concat(se >= 0 ? [_auSEASON[se]] : []);
+  const bpm = sd.bpm + (se === 1 ? 4 : 0);   // summer: a little livelier
+  const sec = { id, si, name, len: LEN, bar8: B, dt: 60 / bpm / 2 / (isN ? .88 : fN ? .94 : 1), at, ev: E, layers, night: isN || fN, k, cc, pass,
+    season: se, shrine: sh, festN: fN,
+    sig: [id, name, k + '.' + cc, sh ? 'sh' : isN ? 'n' : fN ? 'fn' : 'd', layers.join('+')].join('|') };
   return (_auCC[key] = sec);
 }
 
@@ -5455,6 +5540,48 @@ function _auPad(out, ms, t, dur, v, lpf) {
     o.connect(og); og.connect(lp); o.start(t); o.stop(end + 1.6);
   }
 }
+// ---- v2.1 seasonal voices (16.11)
+function _auKoto17(out, f, t, v, dec) {   // autumn: the 17-string bass koto, an octave down; more 2nd / 3rd partial so a phone still hears it
+  _auKoto(out, f, t, v, dec);
+  _auSine(out, f * 2, t, v * .3, .005, Math.min(dec, 1.1));
+  _auSine(out, f * 3, t, v * .1, .004, .45);
+}
+function _auBird(out, t, f0, f1, d, v, att) {   // one whistled note: sine (+ a breath of 2f), pitch f0 -> f1, no vibrato (a bird)
+  const o = AC.createOscillator(), o2 = AC.createOscillator(), gn = AC.createGain(), g2 = AC.createGain(), te = t + d * .75;
+  o.type = o2.type = 'sine';
+  o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, te);
+  o2.frequency.setValueAtTime(f0 * 2, t); o2.frequency.exponentialRampToValueAtTime(f1 * 2, te);
+  g2.gain.value = .05;
+  gn.gain.setValueAtTime(0, t); gn.gain.linearRampToValueAtTime(v, t + att); gn.gain.linearRampToValueAtTime(v * .85, t + d - .03); gn.gain.linearRampToValueAtTime(0, t + d);
+  o.connect(gn); o2.connect(g2); g2.connect(gn); gn.connect(out); o.start(t); o2.start(t); o.stop(t + d + .02); o2.stop(t + d + .02);
+}
+function _auUgu(out, m, t, len, v, part) {   // spring: the bush warbler, played on the flute. A = "hoo..." B = "ho-ke-kyo"
+  if (part === 'A') {
+    const f = _auHz(m), d = Math.max(.5, Math.min(1, len * .95));
+    _auBird(out, t, f * .955, f, d, v, .14);   // a long note that scoops up into its pitch
+    _auNz(out, t, .1, v * .9, f * 2, 'bandpass', 6);
+    return;
+  }
+  const [a, b, c] = m.map(_auHz);
+  _auBird(out, t, a * .97, a, .09, v * .7, .012);              // ho
+  _auBird(out, t + .14, b * .96, b, .07, v * .85, .008);       // ke
+  _auBird(out, t + .25, b * 1.02, c, .26, v, .008);            // kyo: from above, falling onto its note
+}
+function _auFurin(out, f, t, v) {   // summer: a glass wind chime: the clapper's tick, then a glassy ring, struck twice
+  for (const [dt, k] of [[0, 1], [.13, .5]]) {
+    const s = t + dt;
+    _auSine(out, f, s, v * k, .002, 1.4);
+    _auSine(out, f * 2.32, s, v * k * .2, .002, .45);
+    _auSine(out, f * 4.17, s, v * k * .06, .002, .18);
+  }
+  _auNz(out, t, .008, v * .25, 4500, 'bandpass', 3);
+}
+function _auHandbell(out, f, t, v) {   // winter: a soft hand bell (fundamental + its twelfth), a slow shimmer
+  _auSine(out, f, t, v, .004, 2.2);
+  _auSine(out, f * 1.0025, t, v * .3, .004, 1.8);
+  _auSine(out, f * 3, t, v * .1, .002, .5);
+  _auSine(out, f * 2, t, v * .06, .002, .7);
+}
 let _auSolo = null;   // debug (preview / renders): array of layer names to hear alone
 function _auPlay(p, e, t) {
   if (_auSolo && _auSolo.indexOf(e.y) < 0) return;
@@ -5465,6 +5592,11 @@ function _auPlay(p, e, t) {
   const m = e.m, f = typeof m === 'number' ? _auHz(m) : 0, len = e.l * dt;
   switch (e.i) {
     case 'koto': _auKoto(out, f, Math.max(t, tt), v, len > 1.2 ? 2.8 : len > .8 ? 2 : 1.5); break;
+    case 'koto17': _auKoto17(out, f, Math.max(t, tt), v, len > 1.2 ? 2.8 : len > .8 ? 2.2 : 1.7); break;
+    case 'uguA': _auUgu(out, m, t, len, v, 'A'); break;
+    case 'uguB': _auUgu(out, m, t, len, v, 'B'); break;
+    case 'furin': _auFurin(out, f, t, v); break;
+    case 'bellW': _auHandbell(out, f, t, v); break;
     case 'shamisen': _auShami(out, f, Math.max(t, tt), v); break;
     case 'flute': case 'shakuhachi': case 'fue': _auWind(out, f, t, len * .94, v, e.i); break;
     case 'musicbox': _auMbox(out, f, t, v); break;
@@ -5500,12 +5632,12 @@ const _auPass = {};  // song -> passes started so far
 const _auPos = {};   // song -> where it resumes when re-entered (18.2): the section after the one it left once half of
                      // that was heard, else the same section again with a fresh pass (a new variation, never a repeat)
 const _auVQ = [];    // start times of recent voices (budget: 24 per second)
-const _auW = { song: 'title', night: 0, star: 1, menu: false };
+const _auW = { song: 'title', night: 0, star: 1, menu: false, season: 0, fest: false };
 let _auNight = false, _auPend = null, _auPendT = 0, _auSwT = -1e9, _auDryT = 0, _auPerf = -1;
 function _auNextPass(song) { const n = _auPass[song] || 0; _auPass[song] = n + 1; return n; }
 function _auNewPlayer(song, t0) {
   const rp = _auPos[song]; delete _auPos[song];
-  const p = { song, sd: _auSong(song), secIdx: rp ? rp.secIdx : 0, pass: rp ? rp.pass : _auNextPass(song), step: 0, t: t0, sec: null, g: null, send: null, stopAt: Infinity, killAt: Infinity, start: t0 };
+  const p = { song, sd: _auSong(song), secIdx: rp ? rp.secIdx : 0, pass: rp ? rp.pass : _auNextPass(song), step: 0, t: t0, sec: null, g: null, send: null, stopAt: Infinity, killAt: Infinity, start: t0, fast: false };
   if (AC) {
     const b = _auBuses();
     p.g = AC.createGain(); p.g.gain.setValueAtTime(.0001, Math.max(AC.currentTime, t0 - .01)); p.g.gain.linearRampToValueAtTime(1, t0 + 1.5); p.g.connect(MB);
@@ -5526,17 +5658,27 @@ function _auStop(p, t, tau) {
   p.stopAt = t; p.killAt = t + tau * 10;
   if (p.g) { try { const g = p.g.gain; g.setTargetAtTime(0, _auHold(g, t), tau); } catch (e) {} }
 }
+// the song to play now: the core's song, or (v2.1) 'fest' while the core's fest flag is on or in the plaza at night.
+// fast = the core asked for title / fest / silence itself (the celebration panel): those switch at once, as in v2.0;
+// the festival / plaza 'fest' follows the area rules like any area song (no flapping at the plaza's edge).
+function _auWant() {
+  const s = _auW.song || null;
+  if (!s || s === 'title' || s === 'fest') return { song: s, fast: true };
+  if (_auW.fest || (_auAmb.area === 'plaza' && _auNight)) return { song: 'fest', fast: false };
+  return { song: s, fast: false };
+}
 function _auSwitch(now) {
-  const want = _auW.song || null, cur = _auCur(), cs = cur ? cur.song : null;
+  const w = _auWant(), want = w.song, cur = _auCur(), cs = cur ? cur.song : null;
+  MUSIC_DBG.want = want;
   if (want === cs) { _auPend = null; return; }
   if (_auPend !== want) { _auPend = want; _auPendT = now; }
   // areas: stay 1.5 s, and at least AU_MINGAP s between switches (so at most 4 a minute); title / fest / silence react fast
-  const areaSw = cs && want && cs !== 'title' && cs !== 'fest' && want !== 'title' && want !== 'fest';
+  const areaSw = cs && want && !cur.fast && !w.fast;
   if (cs && (now - _auPendT < (areaSw ? 1.5 : .25) || (areaSw && now - _auSwT < AU_MINGAP))) return;
   let tb = now + .05;
   if (cur) {
     tb = Math.max(now + .02, _auNextBar(cur));
-    if (cur.song !== 'title' && cur.song !== 'fest') {   // an area song left: remember where it resumes (see _auPos)
+    if (!cur.fast) {   // an area song left: remember where it resumes (see _auPos)
       let si = cur.secIdx, ps = cur.pass;
       if (cur.sec && cur.step >= cur.sec.len / 2) { si++; if (si >= cur.sd.form.length) { si = 0; ps = _auNextPass(cur.song); } }
       else ps = _auNextPass(cur.song);
@@ -5545,7 +5687,7 @@ function _auSwitch(now) {
     _auStop(cur, tb, .6); cur.stopAt = tb + 2.5; cur.killAt = tb + 6;
   }
   for (const p of _auPl) if (p !== cur && p.stopAt > now) _auStop(p, now, .05);   // never more than 2 scheduling
-  if (want) _auPl.push(_auNewPlayer(want, tb));
+  if (want) { const p = _auNewPlayer(want, tb); p.fast = w.fast; _auPl.push(p); }
   _auPend = null; _auSwT = now; if (cs) MUSIC_DBG.switches++;
 }
 function _auVoiceOK(t, n, y) {   // every 1-second window that contains t must stay within the budget
@@ -5561,7 +5703,7 @@ function _auVoiceOK(t, n, y) {   // every 1-second window that contains t must s
   return true;
 }
 function _auEnter(p) {
-  p.sec = _auCompile(p.song, p.secIdx, p.pass, _auNight, _auW.star);
+  p.sec = _auCompile(p.song, p.secIdx, p.pass, _auNight, _auW.star, _auW.season, _auAmb.area === 'shrine');
   p.secT = p.t;
 }
 function _auRun(p, now, horizon) {
@@ -5584,6 +5726,11 @@ function musicWant(o) {
   }
   if (o.star) _auW.star = o.star | 0;
   _auW.menu = !!o.menu;
+  if (o.season !== undefined) {   // v2.1: 0-3 or a name; anything else = spring (lands on the next section, like night)
+    const sn = typeof o.season === 'string' ? _auSEASON.indexOf(o.season === 'fall' ? 'autumn' : o.season) : o.season;
+    _auW.season = sn > 0 ? (sn | 0) % 4 : 0;
+  }
+  if (o.fest !== undefined) _auW.fest = !!o.fest;
   if (o.area !== undefined) ambWant(o.area, o);
 }
 function musicTick(dt) {
@@ -5610,7 +5757,7 @@ function musicTick(dt) {
     }
     _auAmbTick(now);
     const c = _auCur(), D = MUSIC_DBG;
-    D.t = now; D.players = _auPl.length;
+    D.t = now; D.players = _auPl.length; D.season = _auW.season;
     let n = 0; for (const x of _auVQ) if (x > now - 1 && x <= now) n++;
     D.voicesPerSec = n; if (n > D.voicesMax) D.voicesMax = n;
     if (c && c.sec) { D.song = c.song; D.section = c.sec.name; D.pass = c.pass; D.night = c.sec.night; D.layers = c.sec.layers; D.sig = c.sec.sig; D.bar = Math.floor(c.step / c.sec.bar8); }
@@ -5619,7 +5766,8 @@ function musicTick(dt) {
 }
 
 // ------------------------------------------------------------ ambience bus AB (SPEC 9.4)
-const _auAMBS = { onsen: { water: 1 }, roten: { water: 1, falls: 1 }, front: { wind: 1, birds: 1 }, garden: { birds: 1, insects: 1, shishi: 1 }, dining: { fire: 1 } };
+const _auAMBS = { onsen: { water: 1 }, roten: { water: 1, falls: 1 }, front: { wind: 1, birds: 1 }, garden: { birds: 1, insects: 1, shishi: 1 }, dining: { fire: 1 },
+  shrine: { birds: 1, insects: 1, sbell: 1 } };   // v2.1 cat shrine: the garden's birds / insects + a small bell every 15 s
 const _auAmb = { area: null, shishi: false, shT: null, shK: null, lay: {}, nx: {}, buf: null, r: 0x9E3779B9 };
 function ambWant(area, o) {
   _auAmb.area = area || null;
@@ -5667,6 +5815,11 @@ function _auAmbOne(t, kind) {   // one-shot ambience events, all into AB
     s.connect(fl); fl.connect(gn); gn.connect(out); s.start(t, _auNOff()); s.stop(t + .35);
     _auNz(out, t + .3, .05, 3, 700, 'bandpass', 4); _auSine(out, 320, t + .3, .9, .002, .09);
   }
+  else if (kind === 'sbell') {   // the shrine's small bell, in E (the garden's key: never a semitone off its chords)
+    const f = 1318.5;
+    _auSine(out, f, t, .3, .003, 2.2); _auSine(out, f * 1.003, t, .11, .003, 1.9); _auSine(out, f * 2.76, t, .035, .002, .5);
+    _auNz(out, t, .01, .08, 4000, 'bandpass', 2);
+  }
 }
 function _auAmbTick(now) {
   const A = _auAmb, live = musicOn && (!_auSolo || _auSolo.indexOf('amb') >= 0), S = live ? (_auAMBS[A.area] || {}) : {}, night = _auW.night > .5, hor = now + AU_LOOK;
@@ -5690,6 +5843,7 @@ function _auAmbTick(now) {
   ev('bird', S.birds && !night, () => 6 + _auR() * 6);
   ev('insect', S.insects && night, () => 1.5 + _auR() * 2.5);
   ev('fire', S.fire, () => .2 + _auR() * .9);
+  ev('sbell', S.sbell, () => 15);   // the shrine: first one 7.5 s after you arrive, then every 15 s
   if (S.shishi && A.shishi) {
     act.push('shishi');
     if (A.shT !== null) { const k = Math.floor(A.shT / 20); if (A.shK !== null && k !== A.shK && AC) { try { _auAmbOne(now, 'shishi'); } catch (e) {} } A.shK = k; }
