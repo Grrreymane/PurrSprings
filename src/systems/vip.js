@@ -9,6 +9,7 @@
 let VIPG = null, vipT = 1e9, lastVip = null;
 const SUITES = ROOMS.filter(r => r.vip);
 const suiteFree = rm => roomOpen(rm) && S.rooms[rm.id] === 'clean' && !RT[rm.id].guest;
+const suiteAvail = rm => roomOpen(rm) && !RT[rm.id].guest;   // v2.4: nobody asleep in it (it may still need cleaning)
 const cleanSuite = () => SUITES.find(suiteFree) || null;   // suite A first, B when A is dirty or taken
 const vipNeedsSuite = () => !!VIPG && (VIPG.st === 'arrive' || VIPG.st === 'carpet') && !cleanSuite();
 const vipGift = () => R(20 * STARS[star()].room * qualityQ() * (1 + .05 * goldStars()));
@@ -67,7 +68,55 @@ function vipWishDone() {
     else if (!S.gifts.includes(v.id)) { S.gifts.push(v.id); if (S.gifts.length > 6) S.gifts.shift(); }
   }
   S.stats.vips++; RUN.vipDone++; RUN.vipF.push(f); RUN.vipUsed.push(used); RUN.vipPaid += v.paid;
-  vipLeave(true);
+  vipBed(v);   // v2.4: it stays the night (was: vipLeave(true) - straight out of the door after the photo)
+}
+// ---- v2.4 (player feedback "the guests of honour run off right after the photo"): after the photo a VIP / rare guest /
+// mom goes to bed in its suite (futon, Zzz, a warm andon) and sleeps until the next dawn - at least VIP_SLEEP_MIN s, else
+// the dawn after - then says goodbye at the door of its suite and walks out; the suite is messy after it. The VIP slot
+// (VIPG) is free at once (the next one's gap starts at the photo, as before), but a guest of honour only comes while a
+// suite has nobody asleep in it (suiteAvail). Saved: S.vsleep = [{ r: suite, id, w: the day it wakes, y: mom's year }].
+const VIP_SLEEP_MIN = 45;
+let VSLEEP = [];   // the sleepers (runtime entities, rebuilt from S.vsleep on resetWorld)
+function vipBed(v) {
+  firstDone('vip');
+  S.vipOwe = 0; vipT = S.stats.time + vipGap(); S.vipAt = Math.ceil(vipT);
+  if (v.rare) rareLeave(v, true);   // when it may come again (counted from the photo, as before)
+  const toDawn = (((DAWN_AT - S.clock) % 1) + 1) % 1 * DAY_LEN;
+  const rec = { r: v.suite, id: v.id, w: S.day + (toDawn < VIP_SLEEP_MIN ? 2 : 1) }; if (v.mom) rec.y = v.momYear || 1;
+  S.vsleep.push(rec);
+  const e = sleeperOf(rec, v); setSt(e, 'toBed'); VSLEEP.push(e); RT[v.suite].guest = e;
+  VIPG = null; markDirty();
+}
+// a sleeper entity from its saved record (after the photo: from the guest itself, where it stands)
+function sleeperOf(rec, v) {
+  const rm = ROOM[rec.r], d = VIP[rec.id] || {}, look = v ? v.look : rec.id === 'mom' ? MOM_DEF.look : RARE_LOOK[rec.id] || VIP_LOOK[rec.id] || { fur: d.fur || 'orange', outfit: 'robe', robe: d.robe || null };
+  const e = { id: rec.id, sleeper: true, mom: rec.id === 'mom', momYear: rec.y, look, room: rec.r, x: v ? v.x : tcx(rm.cleanT), y: v ? v.y : tcy(rm.cleanT), ox: 0, dir: 'down', moving: false, walkT: 0, path: [], goal: null, q: [], st: 'sleep', t: 0, rec };
+  const r = RARE[rec.id]; if (r && r.kits) e.kits = (v && v.kits) || r.kits.slice(1).map((fur, i) => ({ fur, x: e.x + (i ? 6 : -6), y: e.y + 3, dir: 'down', moving: false, walkT: 0, q: [] }));
+  return v ? Object.assign(v, e, { vip: false }) : e;   // the same object (a line it is still saying stays its own)
+}
+function sleepReset() {   // resetWorld: the saved sleepers back in their futons
+  VSLEEP = S.vsleep.map(rec => sleeperOf(rec));
+  for (const e of VSLEEP) { RT[e.room].guest = e; S.rooms[e.room] = 'occupied'; }
+}
+function sleepTick(dt) {
+  for (const e of VSLEEP) {
+    e.t += dt;
+    if (e.st === 'toBed') {
+      const rm = ROOM[e.room]; goTo(e, rm.cleanT[0], rm.cleanT[1]);
+      if (stepPath(e, dt, G_SPEED) || e.lost || e.t > 20) { e.x = tcx(rm.cleanT); e.y = tcy(rm.cleanT); e.moving = false; setSt(e, 'sleep'); S.rooms[e.room] = 'occupied'; lineSay(e, 'G33|G07'); markDirty(); }
+    } else if (e.st === 'sleep') { if (S.day >= e.rec.w) vipWake(e); }
+    else if (e.st === 'leave') { if (stepPath(e, dt, G_SPEED)) e.gone = true; }
+    if (e.kits && e.st !== 'sleep') kitsFollow(e, dt);
+  }
+  if (VSLEEP.some(e => e.gone)) VSLEEP = VSLEEP.filter(e => !e.gone);
+}
+function vipWake(e) {
+  const id = e.room; RT[id].guest = null; S.rooms[id] = 'messy'; RT[id].vipMess = true; RT[id].cleanP = 0;   // the long clean (4.4)
+  S.vsleep = S.vsleep.filter(r => r !== e.rec);
+  const rm = ROOM[id]; e.x = tcx(rm.cleanT); e.y = tcy(rm.cleanT); if (e.kits) e.kits.forEach((k, i) => { k.x = e.x + (i ? 6 : -6); k.y = e.y + 3; });
+  setSt(e, 'leave'); e.goal = null; goTo(e, EXIT_TILE[0], EXIT_TILE[1], EXIT.slice());
+  if (e.mom) momLeaveLine(e); else lineSay(e, 'V11');   // its goodbye
+  markDirty();
 }
 function vipPhoto() {   // "click" (no flash): a polaroid flies from its head to the menu button
   sfx('shutter'); FX.push({ k: 'polaroid', id: VIPG.id, x0: R(VIPG.x) - R(cam.x), y0: R(VIPG.y) - 26 - R(cam.y), t: 0, life: .9 });
@@ -75,7 +124,8 @@ function vipPhoto() {   // "click" (no flash): a polaroid flies from its head to
 }
 function updVip(dt) {
   const v = VIPG;
-  if (!v) { if (S.unlocked.garden && S.stats.time >= vipT && SUITES.some(rm => roomOpen(rm)) && !rareArrive()) vipArrive(); return; }   // v2.1: a rare guest due comes in its place
+  sleepTick(dt);   // v2.4: the guests of honour asleep in their suites
+  if (!v) { if (S.unlocked.garden && S.stats.time >= vipT && SUITES.some(suiteAvail) && !momDue() && !rareArrive()) vipArrive(); return; }   // v2.1: a rare guest due comes in its place; v2.4: only while a suite has nobody asleep in it, never on mom's day before she came
   v.t += dt;
   const walk = spd => stepPath(v, dt, spd);
   switch (v.st) {

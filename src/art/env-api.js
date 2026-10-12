@@ -58,30 +58,36 @@ function waterArt(frame, tx, ty) {
 // floor (and the west hall's parquet); without it the floors come from the crest (_EN_DOORFLOOR) as before
 // season (v2.1, optional; pass it for every door): the gates stand outdoors, so their ground and top rail follow the
 // season; the onsen door gets the winter snow line of the outer wall it sits in. Room doors ignore it.
-function doorArt(kind, open, col, emb, gold, tx, ty, floor, season) {
+// v2.4: span 'w' = a door 2 tiles wide (32 x 16: onsen / hdoor / gateH), 'h' = 2 tiles tall (16 x 32: left / right /
+// gate); anchor = its top-left tile. beyond (hdoor): what the doorway shows past the noren - 'din' the dining floor,
+// 'sand' the shrine's raked sand, else the west wing hall.
+function doorArt(kind, open, col, emb, gold, tx, ty, floor, season, span, beyond) {
   open = !!open;
   const gate = kind === 'gate' || kind === 'gateH';
+  const DW = span === 'w' ? 32 : 16, DH = span === 'h' ? 32 : 16;
   let sty = !gate && kind !== 'onsen' && open && !!(col || emb || gold);   // a closed door is the same shoji in every style
   if (kind === 'hdoor') sty = open;
   if (gate) { tx = tx == null ? (kind === 'gate' ? 24 : 25) : tx | 0; ty = ty == null ? (kind === 'gate' ? 4 : 29) : ty | 0; }
   const fl = sty && Array.isArray(floor) ? floor : null, sea = gate || kind === 'onsen' ? (season | 0) & 3 : 0;
-  const k = 'en:d:' + kind + ':' + (open ? 1 : 0) + (sty ? ':' + (col || '') + ':' + (emb || '') + ':' + (gold ? 1 : 0) : '') + (gate ? ':' + tx + ',' + ty + ':' + (emb || '') + ':' + sea : '') + (fl ? ':' + fl.join('/') : '') + (kind === 'onsen' && sea === 3 ? ':w' : '');
+  const k = 'en:d:' + kind + ':' + (open ? 1 : 0) + (sty ? ':' + (col || '') + ':' + (emb || '') + ':' + (gold ? 1 : 0) : '') + (gate ? ':' + tx + ',' + ty + ':' + (emb || '') + ':' + sea : '') + (fl ? ':' + fl.join('/') : '') + (kind === 'onsen' && sea === 3 ? ':w' : '') + ':' + DW + 'x' + DH + (beyond ? ':' + beyond : '');
   return art(k, () => {
-    if (kind === 'onsen') return _enMake(16, 16, G => { _enOnsenDoor(G, open); if (sea === 3) _enCapSnow(G, tx | 0); });   // winter: the snow line on the outer wall's top runs over it
-    if (kind === 'hdoor') return _enMake(16, 16, G => _enHDoor(G, open, col, emb, gold));
-    if (gate) return _enMake(16, 16, G => _enGate(G, open, tx, ty, kind === 'gateH', emb === 'star' || (kind === 'gate' && tx === 24 && ty === 4), sea));
+    if (kind === 'onsen') return _enMake(DW, DH, G => { _enOnsenDoor(G, open); if (sea === 3) _enCapSnow(G, tx | 0); });   // winter: the snow line on the outer wall's top runs over it
+    if (kind === 'hdoor') return _enMake(DW, DH, G => _enHDoor(G, open, col, emb, gold, beyond));
+    if (gate) return _enMake(DW, DH, G => _enGate(G, open, tx, ty, kind === 'gateH', emb === 'star' || (kind === 'gate' && tx === 24 && ty === 4), sea));
     if (!sty) {
-      if (kind === 'right') return flipC(doorArt('left', open));
-      return _enMake(16, 16, G => _enRoomDoor(G, open));
+      if (kind === 'right') return flipC(doorArt('left', open, null, null, false, null, null, null, 0, span));
+      return _enMake(DW, DH, G => _enRoomDoor(G, open));
     }
     const right = kind === 'right', dfl = _EN_DOORFLOOR[emb];
-    return _enMake(16, 16, G => {
+    return _enMake(DW, DH, G => {
       _enRoomDoor(G, open, { col, gold, floor: fl ? [_enLook(fl[0]).id, fl[1] === 'p' ? 'grav' : fl[1] === 'hall' ? 'hall' : (dfl ? dfl[1] : null)] : dfl });
       if (right) _enFlipG(G);
       if (emb) _enEmblem(G, emb, right ? 5 : 6, 3, col || _EN.ind);
     });
   });
 }
+// v2.4: paint a 16 x 16 tile painter into a bigger grid at (ox, oy) (the wide gates' paving, tile by tile)
+function _enSub(G, ox, oy, fn) { const T = new Grid(16, 16); fn(T); for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const c = T.get(x, y); if (c) G.set(ox + x, oy + y, c); } }
 const _EN_HDOOR_TEA = '#7a5a3a';   // tea-brown noren for the west wing door (pass as col)
 function _enFlipG(G) { for (let y = 0; y < G.h; y++) { const r = G.d.slice(y * G.w, y * G.w + G.w).reverse(); for (let x = 0; x < G.w; x++) G.d[y * G.w + x] = r[x]; } }
 // what you see through an open styled door: [room side, corridor side] (before mirroring a 'right' door)
@@ -120,6 +126,7 @@ const _EN_EMB = {
   kotatsu:    ['.....', 'XXXXX', 'XoXoX', 'XXXXX', 'X...X'],
   yume:       ['X.X..', 'XXXX.', 'XoXXX', '.XXXX', '..XX.'],
   shinnen:    ['..o..', '.XXX.', 'XXXXX', '.XXX.', 'XXXXX'],
+  torii:      ['XXXXX', '.X.X.', 'XXXXX', '.X.X.', '.X.X.'],   // v2.4: the west wing's gate to the shrine
 };
 function _enLum(hex) { const n = parseInt(hex.slice(1), 16); return ((n >> 16) * .299 + ((n >> 8) & 255) * .587 + (n & 255) * .114) / 255; }
 function _enEmblem(G, emb, x0, y0, cloth) {
@@ -140,10 +147,11 @@ function _enShoji(G, x0, y0, x1, y1, kick) {   // a pair of sliding paper doors 
   G.set(mid - 1, (y0 + y1) >> 1, _EN.dwD); G.set(mid + 2, (y0 + y1) >> 1, _EN.dwD);   // finger pulls (hikite)
 }
 function _enRoomDoor(G, open, sty) {   // left room's door; its room (tatami) is to the left, the corridor to the right
-  for (let y = 0; y < 16; y++) { G.set(0, y, _EN.dwH); G.set(1, y, _EN.dw); G.set(14, y, _EN.dw); G.set(15, y, _EN.dwD); }
-  if (!open) { _enShoji(G, 2, 0, 13, 14, 2); for (let x = 1; x < 15; x++) G.set(x, 15, _EN.dwH); return; }
+  const DH = G.h;   // v2.4: 32 for a door 2 tiles tall (the noren hangs at the top, the doorway goes on below)
+  for (let y = 0; y < DH; y++) { G.set(0, y, _EN.dwH); G.set(1, y, _EN.dw); G.set(14, y, _EN.dw); G.set(15, y, _EN.dwD); }
+  if (!open) { _enShoji(G, 2, 0, 13, DH - 2, 2); for (let x = 1; x < 15; x++) G.set(x, DH - 1, _EN.dwH); return; }
   const fl = sty && sty.floor;
-  for (let y = 0; y < 16; y++) for (let x = 2; x < 14; x++) {   // floor seen through the doorway: tatami | wooden sill | corridor boards
+  for (let y = 0; y < DH; y++) for (let x = 2; x < 14; x++) {   // floor seen through the doorway: tatami | wooden sill | corridor boards
     let c = x < 6 ? ((y & 1) ? _enM(_EN.tat, _EN.tatW, .55) : _EN.tat) : x < 8 ? (x === 6 ? _EN.dwH : _EN.dw) : ((y % 4 === 0) ? _enM(_EN.woodS, _EN.dw, .25) : y % 4 === 1 ? _enM(_EN.wood, _EN.woodH, .45) : _EN.wood);
     if (x === 2) c = _EN.heri;
     if (fl) {   // v2: the right floors for doors that are not between a room and the corridor
@@ -157,7 +165,7 @@ function _enRoomDoor(G, open, sty) {   // left room's door; its room (tatami) is
     }
     G.set(x, y, _enM(c, OUT, y < 11 ? .45 : y === 11 ? .3 : .1));
   }
-  for (let x = 1; x < 15; x++) G.set(x, 15, _EN.dwH);
+  for (let x = 1; x < 15; x++) G.set(x, DH - 1, _EN.dwH);
   for (let x = 1; x < 15; x++) G.set(x, 0, _EN.dwD);
   if (sty) {   // v2: noren in the room's colour; a short split under the crest; gold edge for suites
     const base = sty.col || _EN.ind, L = _enM(base, '#ffffff', .2), Lm = _enM(base, '#ffffff', .1), D = _enM(base, OUT, .32), Dm = _enM(base, OUT, .16);
@@ -188,83 +196,90 @@ function _enRoomDoor(G, open, sty) {   // left room's door; its room (tatami) is
 // v2: door in a horizontal wall (west wing, (8,18)): same geometry as the onsen door; open = a short three-tongue
 // noren over the corridor boards beyond: colour col (null = v1 indigo; SPEC_v2 2.3 wants tea brown _EN_HDOOR_TEA for
 // (8,18)), crest emb or else a white ring
-function _enHDoor(G, open, col, emb, gold) {
+function _enHDoor(G, open, col, emb, gold, beyond) {   // v2.4: G.w = 32 for a door 2 tiles wide; beyond: 'din' | 'sand' | the hall
+  const W = G.w, t1 = Math.floor(W / 3), t2 = Math.floor(2 * W / 3);   // the two slits between the noren's tongues
   _enCap(G, false);
-  G.rect(0, 5, 16, 1, _EN.dwD);
-  if (!open) { _enShoji(G, 0, 6, 15, 14, 2); for (let x = 0; x < 16; x++) G.set(x, 15, _EN.dwH); return; }
-  for (let y = 6; y < 16; y++) for (let x = 0; x < 16; x++) {   // v2.0.1: the west hall's parquet and runner beyond
-    const c = _enHallPx(8 * 16 + x, 17 * 16 + y);
+  G.rect(0, 5, W, 1, _EN.dwD);
+  if (!open) { _enShoji(G, 0, 6, W - 1, 14, 2); for (let x = 0; x < W; x++) G.set(x, 15, _EN.dwH); return; }
+  for (let y = 6; y < 16; y++) for (let x = 0; x < W; x++) {   // v2.0.1: the west hall's parquet and runner beyond (v2.4: or the dining boards / the shrine's sand)
+    const c = beyond === 'din' ? (y % 6 === 0 ? _EN.dinS : y % 6 === 1 ? _EN.dinH : _EN.din) : beyond === 'sand' ? ((y + (x >> 3)) % 3 === 0 ? '#cfc8b4' : '#e0dccf') : _enHallPx(8 * 16 + x, 17 * 16 + y);
     G.set(x, y, _enM(c, OUT, y < 12 ? .42 : .14));
   }
-  for (let x = 0; x < 16; x++) G.set(x, 15, _EN.dwH);
+  for (let x = 0; x < W; x++) G.set(x, 15, _EN.dwH);
   const base = col || _EN.ind, L = _enM(base, '#ffffff', .2), D = _enM(base, OUT, .32), Dm = _enM(base, OUT, .16);
-  for (let x = 0; x < 16; x++) G.set(x, 2, _EN.dwD);
-  G.set(0, 2, '#3a2418'); G.set(15, 2, '#3a2418');
-  for (let y = 3; y < 12; y++) for (let x = 1; x < 15; x++) {
-    if ((x === 5 || x === 10) && y > 8) continue;   // three tongues
+  for (let x = 0; x < W; x++) G.set(x, 2, _EN.dwD);
+  G.set(0, 2, '#3a2418'); G.set(W - 1, 2, '#3a2418');
+  for (let y = 3; y < 12; y++) for (let x = 1; x < W - 1; x++) {
+    if ((x === t1 || x === t2) && y > 8) continue;   // three tongues
     let c = base;
-    if (y === 3) c = L; else if (y === 11 || x === 14 || ((x === 4 || x === 9) && y > 8)) c = D; else if (x === 1 || ((x === 6 || x === 11) && y > 8)) c = _enM(base, '#ffffff', .1);
-    else if ((x === 3 || x === 12) && y > 5) c = Dm;
+    if (y === 3) c = L; else if (y === 11 || x === W - 2 || ((x === t1 - 1 || x === t2 - 1) && y > 8)) c = D; else if (x === 1 || ((x === t1 + 1 || x === t2 + 1) && y > 8)) c = _enM(base, '#ffffff', .1);
+    else if ((x === 3 || x === W - 4) && y > 5) c = Dm;
     G.set(x, y, c);
   }
-  if (gold) for (let y = 3; y < 12; y++) { G.set(1, y, '#f2d478'); G.set(14, y, '#c8962e'); }
-  if (emb) _enEmblem(G, emb, 5, 4, base);
-  else [[6, 4], [7, 4], [8, 4], [5, 5], [9, 5], [5, 6], [9, 6], [6, 7], [7, 7], [8, 7]].forEach(([x, y]) => G.set(x, y, _EN.wht));
+  if (gold) for (let y = 3; y < 12; y++) { G.set(1, y, '#f2d478'); G.set(W - 2, y, '#c8962e'); }
+  const ox = (W - 16) >> 1;
+  if (emb) _enEmblem(G, emb, ox + 5, 4, base);
+  else [[6, 4], [7, 4], [8, 4], [5, 5], [9, 5], [5, 6], [9, 6], [6, 7], [7, 7], [8, 7]].forEach(([x, y]) => G.set(ox + x, y, _EN.wht));
 }
 // v2: bamboo wicket gate (shiorido), seen from the front: cedar posts, a capped top rail, a woven dried-bamboo leaf.
 // It paints its own paving (slate for 'gate', the gravel walk for 'gateH') lined up with tile (tx, ty).
-function _enGate(G, open, tx, ty, horiz, lamp, season) {
-  if (horiz) _enGardenPath(G, tx, ty, { u: 'p', d: 'p', l: 'f', r: 'f' }, season); else _enSlate(G, tx, ty, {}, season);   // v2.0.1: the gravel walk between the two gardens
+function _enGate(G, open, tx, ty, horiz, lamp, season) {   // v2.4: G.w = 32 (gateH 2 wide) or G.h = 32 (gate 2 tall): one wide / tall gate
+  const W = G.w, H = G.h, nx = W >> 4, ny = H >> 4;
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) _enSub(G, i * 16, j * 16, T => {
+    if (horiz) _enGardenPath(T, tx + i, ty + j, { u: 'p', d: 'p', l: i ? 'D' : 'f', r: i < nx - 1 ? 'D' : 'f' }, season); else _enSlate(T, tx + i, ty + j, {}, season);   // v2.0.1: the gravel walk between the two gardens
+  });
   const post = x0 => {
-    for (let y = 0; y < 15; y++) { G.set(x0, y, _EN.cedarH); G.set(x0 + 1, y, _EN.cedar); G.set(x0 + 2, y, _EN.cedarD); }
+    for (let y = 0; y < H - 1; y++) { G.set(x0, y, _EN.cedarH); G.set(x0 + 1, y, _EN.cedar); G.set(x0 + 2, y, _EN.cedarD); }
     G.set(x0, 0, _EN.dryH); G.set(x0 + 1, 0, _EN.dry); G.set(x0 + 2, 0, _EN.dryD);
-    for (let x = x0 - 1; x <= x0 + 3; x++) G.set(x, 15, _enM(G.get(x, 15) || '#888888', '#2a2430', .4));   // contact shadow
+    for (let x = x0 - 1; x <= x0 + 3; x++) G.set(x, H - 1, _enM(G.get(x, H - 1) || '#888888', '#2a2430', .4));   // contact shadow
   };
   if (!open) {   // the leaf: diamond-woven dried bamboo in a thin frame
-    for (let y = 4; y < 14; y++) for (let x = 3; x < 13; x++) {
-      const a = (x + y) & 3, b = (x - y + 32) & 3;
+    for (let y = 4; y < H - 2; y++) for (let x = 3; x < W - 3; x++) {
+      const a = (x + y) & 3, b = (x - y + 64) & 3;
       let c = (a === 0 || b === 0) ? _EN.dryD : ((x + y) & 1) ? _EN.dry : _enM(_EN.dry, _EN.dryH, .5);
       if (a === 0 && b === 0) c = _enM(_EN.dryD, OUT, .3);
-      if (x === 3 || y === 4) c = _EN.dryH; else if (x === 12 || y === 13) c = _enM(_EN.dryD, OUT, .2);
+      if (x === 3 || y === 4) c = _EN.dryH; else if (x === W - 4 || y === H - 3) c = _enM(_EN.dryD, OUT, .2);
       G.set(x, y, c);
     }
-    for (let x = 3; x < 13; x++) G.set(x, 14, _enM(G.get(x, 14), '#2a2430', .45));
-    G.set(11, 8, _EN.cedarD); G.set(11, 9, _EN.cedarD);   // latch
+    for (let x = 3; x < W - 3; x++) G.set(x, H - 2, _enM(G.get(x, H - 2), '#2a2430', .45));
+    G.set(W - 5, H >> 1, _EN.cedarD); G.set(W - 5, (H >> 1) + 1, _EN.cedarD);   // latch
   } else {   // swung back against the right post: only its edge shows, with its shadow on the ground
-    for (let y = 4; y < 14; y++) { G.set(11, y, _EN.dryH); G.set(12, y, _EN.dryD); }
-    for (let y = 5; y < 15; y++) G.set(10, y, _enM(G.get(10, y), '#2a2430', .3));
-    for (let x = 3; x < 11; x++) G.set(x, 4, _enM(G.get(x, 4), '#2a2430', .35));
+    for (let y = 4; y < H - 2; y++) { G.set(W - 5, y, _EN.dryH); G.set(W - 4, y, _EN.dryD); }
+    for (let y = 5; y < H - 1; y++) G.set(W - 6, y, _enM(G.get(W - 6, y), '#2a2430', .3));
+    for (let x = 3; x < W - 5; x++) G.set(x, 4, _enM(G.get(x, 4), '#2a2430', .35));
   }
-  post(0); post(13);
-  for (let x = 0; x < 16; x++) {   // the top rail (kasagi) with a little cap
-    G.set(x, 1, x === 0 || x === 15 ? _EN.cedarD : _EN.cedarH); G.set(x, 2, _EN.cedar); G.set(x, 3, _EN.cedarD);
+  post(0); post(W - 3);
+  for (let x = 0; x < W; x++) {   // the top rail (kasagi) with a little cap
+    G.set(x, 1, x === 0 || x === W - 1 ? _EN.cedarD : _EN.cedarH); G.set(x, 2, _EN.cedar); G.set(x, 3, _EN.cedarD);
   }
-  for (let x = 1; x < 15; x++) G.set(x, 0, x === 1 || x === 14 ? _EN.cedarD : '#6a4428');
-  if (season === 3) { for (let x = 1; x < 15; x++) G.set(x, 0, x < 4 ? _EN_SN.w : _EN_SN.h); for (let x = 2; x < 14; x++) if (_enH(x, ty, 641) < .5) G.set(x, 1, _EN_SN.s); for (const x of [0, 1, 13, 14, 15]) G.set(x, 0, _EN_SN.b); }   // winter: snow along the top rail
+  for (let x = 1; x < W - 1; x++) G.set(x, 0, x === 1 || x === W - 2 ? _EN.cedarD : '#6a4428');
+  if (season === 3) { for (let x = 1; x < W - 1; x++) G.set(x, 0, x < 4 ? _EN_SN.w : _EN_SN.h); for (let x = 2; x < W - 2; x++) if (_enH(x, ty, 641) < .5) G.set(x, 1, _EN_SN.s); for (const x of [0, 1, W - 3, W - 2, W - 1]) G.set(x, 0, _EN_SN.b); }   // winter: snow along the top rail
   if (lamp) {   // a small star lantern hanging from the rail (the roten gate)
-    G.set(9, 4, '#3a2418');
+    const ox = (W - 16) >> 1;
+    G.set(ox + 9, 4, '#3a2418');
     const ST = ['..X..', 'XXXXX', '.XXX.', 'X...X'];
-    ST.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === 'X') G.set(7 + i, 5 + j, j === 0 || (j === 1 && i < 3) ? '#fff2a8' : j === 3 ? '#e0a020' : '#ffd23a'); }));
-    G.set(9, 6, '#fffbe0');
+    ST.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === 'X') G.set(ox + 7 + i, 5 + j, j === 0 || (j === 1 && i < 3) ? '#fff2a8' : j === 3 ? '#e0a020' : '#ffd23a'); }));
+    G.set(ox + 9, 6, '#fffbe0');
   }
 }
-function _enOnsenDoor(G, open) {   // sits in a wall-face row: cap + beam continue from the neighbours
+function _enOnsenDoor(G, open) {   // sits in a wall-face row: cap + beam continue from the neighbours (v2.4: G.w 32 = 2 tiles wide)
+  const W = G.w, t1 = Math.floor(W / 3), t2 = Math.floor(2 * W / 3), ox = (W - 16) >> 1;
   _enCap(G, false);
-  G.rect(0, 5, 16, 1, _EN.dwD);
-  if (!open) { _enShoji(G, 0, 6, 15, 14, 2); for (let x = 0; x < 16; x++) G.set(x, 15, _EN.dwH); return; }
-  for (let y = 6; y < 16; y++) for (let x = 0; x < 16; x++) {   // steamy bath floor beyond the doorway
+  G.rect(0, 5, W, 1, _EN.dwD);
+  if (!open) { _enShoji(G, 0, 6, W - 1, 14, 2); for (let x = 0; x < W; x++) G.set(x, 15, _EN.dwH); return; }
+  for (let y = 6; y < 16; y++) for (let x = 0; x < W; x++) {   // steamy bath floor beyond the doorway
     let c = (x + (y >> 2) * 5) % 8 === 0 || y % 4 === 0 ? _EN.slD : _EN.sl;
     G.set(x, y, _enM(c, OUT, y < 13 ? .4 : .15));
   }
-  for (let x = 0; x < 16; x++) G.set(x, 15, _EN.dwH);
+  for (let x = 0; x < W; x++) G.set(x, 15, _EN.dwH);
   // red noren hung in front of the beam; white yu (hot water) glyph; the hem is cut into three tongues
   const RD = _EN.red, RDd = '#9a2e2a', RDl = '#de6450';
-  for (let x = 0; x < 16; x++) G.set(x, 2, _EN.dwD);
-  G.set(0, 2, '#3a2418'); G.set(15, 2, '#3a2418');
-  for (let y = 3; y < 15; y++) for (let x = 1; x < 15; x++) {
-    if ((x === 5 || x === 10) && y > 13) continue;
+  for (let x = 0; x < W; x++) G.set(x, 2, _EN.dwD);
+  G.set(0, 2, '#3a2418'); G.set(W - 1, 2, '#3a2418');
+  for (let y = 3; y < 15; y++) for (let x = 1; x < W - 1; x++) {
+    if ((x === t1 || x === t2) && y > 13) continue;
     let c = RD;
-    if (y === 3) c = RDl; else if (y === 14 || x === 14) c = RDd; else if (x === 1) c = '#d65846';
+    if (y === 3) c = RDl; else if (y === 14 || x === W - 2) c = RDd; else if (x === 1) c = '#d65846';
     G.set(x, y, c);
   }
   const GLY = [
@@ -279,7 +294,7 @@ function _enOnsenDoor(G, open) {   // sits in a wall-face row: cap + beam contin
     '.X.X..X..X',
     'X.X..X..X.',
   ];
-  GLY.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === 'X') G.set(3 + i, 4 + j, _EN.wht); }));
+  GLY.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === 'X') G.set(ox + 3 + i, 4 + j, _EN.wht); }));
 }
 // the indigo noren over the main entrance: 48x14, anchor (0,0) at (6*16, 29*16-6); drawn over the cats
 function entranceNoren() {

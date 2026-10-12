@@ -14,14 +14,19 @@ const PROPS = [
   { k: 'shelf', at: [22, 23], fw: 2, need: 'onsen', img: () => shelfArt() },
   { k: 'basket', at: [15, 5], need: 'onsen', img: () => basketArt(S.basket, BASKET_MAX) },
   { k: 'milk', at: [22, 4], need: 'milk', img: () => milkArt(Math.floor(T * 1.25) & 1) },
+  { k: 'milk', at: MILK2_AT, need: 'milk2', img: () => milkArt(Math.floor(T * 1.25 + .5) & 1), light: [10, -6, 'lamp'] },   // v2.4: by the front door (its lit panel glows at night)
   { k: 'urn', at: [11, 24], need: 'tea', img: () => urnArt() },
   // shop (west of the front garden)
   { k: 'display', at: [1, 30], fw: 4, need: 'shop', img: () => displayShelfArt() },
   { k: 'counter', at: [6, 31], fw: 2, need: 'shop', img: () => shopCounterArt() },
-  { k: 'curtain', at: [5, 33], fw: 4, need: () => !!S.unlocked.shop && star() < 5, ground: true, block: false, img: () => curtainArt() },
-  { k: 'mirror', at: [1, 33], uid: 'boutique', need: () => !!S.unlocked.shop && star() >= 5, img: () => mirrorArt() },
-  { k: 'petcushion', at: [8, 34], uid: 'boutique', need: () => !!S.unlocked.shop && star() >= 5, ground: true, block: false, img: () => petCushionArt() },
+  { k: 'curtain', at: [3, 35], fw: 4, need: () => !!S.unlocked.shop && star() < 5, ground: true, block: false, img: () => curtainArt() },
+  { k: 'mirror', at: [1, 35], uid: 'boutique', need: () => !!S.unlocked.shop && star() >= 5, img: () => mirrorArt() },
+  { k: 'petcushion', at: [8, 35], uid: 'boutique', need: () => !!S.unlocked.shop && star() >= 5, ground: true, block: false, img: () => petCushionArt() },
   { k: 'statue', at: [11, 33], fw: 2, fh: 2, uid: () => S.unlocked.statue ? 'statue' : 'boutique', need: () => star() >= 5 && !!S.unlocked.shop, img: () => S.unlocked.statue ? statueArt('gold', 1) : statueArt('covered', clamp((S.paid.statue || 0) / UNLOCK.statue.price, 0, 1)) },
+  // v2.4 (nights too dark): paper andons in the shop's back corners, path lamps either side of the front walk
+  { k: 'andon', at: [1, 37], need: 'shop', img: () => andonArt(), light: [18, 6, 'lamp'] }, { k: 'andon', at: [9, 37], need: 'shop', img: () => andonArt(), light: [18, 6, 'lamp'] },
+  { k: 'lamp', at: [14, 35], img: () => gardenLampArt(lampLit()), light: [18, -3, 'lamp'] }, { k: 'lamp', at: [20, 35], img: () => gardenLampArt(lampLit()), light: [18, -3, 'lamp'] },
+  { k: 'lamp', at: [27, 35], need: 'plaza', img: () => gardenLampArt(lampLit()), light: [18, -3, 'lamp'] }, { k: 'lamp', at: [36, 35], need: 'plaza', img: () => gardenLampArt(lampLit()), light: [18, -3, 'lamp'] },
   // dining + kitchen
   { k: 'stove', at: [2, 19], fw: 2, need: 'dining', img: () => stoveArt(stoveBusy() ? Math.floor(T * 2) & 1 : 0) },   // fire + steam only while cooking
   { k: 'ricepot', at: [4, 19], need: 'dining', img: () => ricePotArt(stoveBusy() ? Math.floor(T * 1.5) & 1 : 0) },

@@ -182,13 +182,13 @@ function updClerk(s, dt, walk) {
 // now; within DELIVER_R it hands it over and the tip goes into the cash box at the desk (serveCall). A call that ends on
 // the way (timed out, the guest got it by itself) is let go; what is left on its tray just goes back.
 function teaSource(k, s) {
-  if (k === 'milk') return 'milk';
+  if (k === 'milk') return !S.unlocked.milk2 || dist(s.x, s.y, ZONE.milk.c[0], ZONE.milk.c[1]) <= dist(s.x, s.y, ZONE.milk2.c[0], ZONE.milk2.c[1]) ? 'milk' : 'milk2';   // v2.4: the nearer machine
   if (k === 'rice') return PASS.n > 0 ? 'pass' : 'stove';
   const a = !!S.unlocked.tea, b = !!S.unlocked.garden;
   if (!a || !b) return a ? 'urn1' : 'urn2';
   return dist(s.x, s.y, ZONE.urn1.c[0], ZONE.urn1.c[1]) <= dist(s.x, s.y, ZONE.urn2.c[0], ZONE.urn2.c[1]) ? 'urn1' : 'urn2';
 }
-const TEA_SRC_TILE = { urn1: SPOT.urn1, urn2: SPOT.urn2, milk: MILK_SPOT, pass: [3, 22], stove: [2, 20] };
+const TEA_SRC_TILE = { urn1: SPOT.urn1, urn2: SPOT.urn2, milk: MILK_SPOT, milk2: MILK2_SPOT, pass: [3, 22], stove: [2, 20] };
 function updTeaboy(s, dt, walk) {
   s.jobs = s.jobs.filter(gu => gu.call && gu.callBy === s && GUESTS.includes(gu) && !gu.gone);
   s.cooking = false; s.working = false;

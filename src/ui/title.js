@@ -27,6 +27,7 @@ function resetWorld() {
   PASS.n = 0; BROWSE.occ = null; TEA_AT.occ = null; netPullAt = -9; TABLE_EATEN.fill(-9); FIRST_Q.length = 0; BANNER_Q.length = 0; lastCallAt = -99; comboRushAt = NUL(); lastBuyAt = S.stats.time;
   for (const k in PILE_AGE) delete PILE_AGE[k];
   // the VIP is not saved (10.1): after a load the next one comes soon - unless half a gift was just refunded (no shortcut)
+  sleepReset();   // v2.4: guests of honour asleep in the suites (vip.js)
   VIPG = null; lastVip = null; vipT = !S.unlocked.garden ? 1e9 : Math.max(S.stats.time + (S.vipRefunded ? vipGap() : S.vipNext ? VIP_RELOAD : VIP_FIRST), S.vipAt || 0);
   for (const k in RUN) RUN[k] = Array.isArray(RUN[k]) ? [] : 0;
   // stage 2C runtime: no replayed gold-star / boutique events after a load; the pet starts at your feet

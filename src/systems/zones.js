@@ -6,6 +6,15 @@ function deskManned() { const rc = STAFF.find(s => s.role === 'recep'); return P
 // receptionist checks in twice as fast (two at work)
 function checkinT() { const rc = STAFF.find(s => s.role === 'recep' && s.atDesk); return rc ? CHECKIN_T * lvMul(rc, .92) / repStaff() / (P.atDesk ? 2 : 1) : CHECKIN_T; }
 function inShelfZone() { return S.unlocked.onsen && dist(P.x, P.y, SHELF_C[0], SHELF_C[1]) <= 22; }
+// v2.4: towels the innkeeper has a use for - room in the basket less what the porter / a maid already carry to it, plus the
+// rush guests' towel wishes (so it never fights the porter over the basket, and never ends up with towels nobody takes)
+const TOWEL_BACK_T = .15;
+function towelUse() {
+  let carried = 0, ex = 0;
+  for (const s of STAFF) if ((s.role === 'porter' || s.role === 'maid') && s.carry > 0) carried += s.carry;
+  for (const gu of GUESTS) if (gu.ex && gu.ex.k === 'towel') ex++;
+  return Math.max(0, BASKET_MAX - S.basket - carried) + ex;
+}
 function inBasketZone() { return S.unlocked.onsen && dist(P.x, P.y, BASKET_C[0], BASKET_C[1]) <= 20; }
 function inCleanZone(rm) { return dist(P.x, P.y, rm.cleanC[0], rm.cleanC[1]) <= rm.cleanR; }
 // pulled: the net reached it from further than a step (G5) - its fish fly over to the innkeeper (not straight to the HUD)
@@ -32,7 +41,10 @@ function collect(id, pulled) {
 }
 function pour(u, dt) {
   if (P.padOn !== u.id) { P.padOn = u.id; P.padT = 0; }
-  P.padT += dt; if (P.padT < PAD_DELAY) return;   // walking across a pad doesn't spend; stand on it for a moment
+  // walking across a pad doesn't spend: stand still on it for a moment (v2.4: 0.4 -> 0.8 s and only while standing still -
+  // "I keep stepping on things I didn't want"); once the fish flow, a nudge on the pad doesn't stop them
+  if (P.moving && P.pouring !== u.id) { P.padT = 0; return; }
+  P.padT += dt; if (P.padT < PAD_DELAY) return;
   if (padNeed(u) <= 0) { unlock(u.id); return; }   // an old save already paid more than a price that was lowered later
   if (S.money <= 0) { P.pouring = null; P.pourAcc = 0; return; }   // out of fish: no pouring look (the frame stays white)
   if (P.pouring !== u.id) { P.pouring = u.id; P.pourAcc = 0; }
@@ -72,6 +84,7 @@ const PICKUPS = [
   { id: 'urn1', k: 'tea', t: .3, on: () => !!S.unlocked.tea },
   { id: 'urn2', k: 'tea', t: .3, on: () => !!S.unlocked.garden },
   { id: 'milk', k: 'milk', t: .3, on: () => !!S.unlocked.milk },
+  { id: 'milk2', k: 'milk', t: .3, on: () => !!S.unlocked.milk2 },   // v2.4: the machine by the front door
   { id: 'pass', k: 'rice', t: .15, on: () => !!S.unlocked.dining },
 ];
 const inZone = z => dist(P.x, P.y, z.c[0], z.c[1]) <= z.r;
@@ -147,8 +160,12 @@ function zones(dt) {
   // towels: shelf -> head stack -> basket
   if (S.unlocked.onsen) {
     const cap = towelCap();
-    if (inShelfZone() && P.towels < cap) { P.shelfT += dt; while (P.shelfT >= .12 && P.towels < cap) { P.shelfT -= .12; P.towels++; SFX.pop(); } } else P.shelfT = 0;
+    // v2.4 ("I picked up towels by accident and the basket was full"): only as many as there is a use for (towelUse)
+    const want = Math.min(cap, towelUse());
+    if (inShelfZone() && P.towels < want) { P.shelfT += dt; while (P.shelfT >= .12 && P.towels < want) { P.shelfT -= .12; P.towels++; SFX.pop(); } } else P.shelfT = 0;
     if (inBasketZone() && P.towels > 0 && S.basket < BASKET_MAX) { P.basketT += dt; while (P.basketT >= .1 && P.towels > 0 && S.basket < BASKET_MAX) { P.basketT -= .1; P.towels--; S.basket++; SFX.pop(); markDirty(); } } else P.basketT = 0;
+    // ... and what is left over goes back by itself at the shelf or the basket, one every TOWEL_BACK_T s (the stack shrinks)
+    if (P.towels > towelUse() && (inShelfZone() || inBasketZone())) { P.towelBackT = (P.towelBackT || 0) + dt; if (P.towelBackT >= TOWEL_BACK_T) { P.towelBackT = 0; P.towels--; SFX.pop(); } } else P.towelBackT = 0;
   }
   // decor slots: stand still on one to swap in the next piece (4.5)
   slotZone(dt, ptx, pty);

@@ -9,6 +9,7 @@ function defaults() {
     equip: { hat: null, pet: null }, staff: {}, vipNext: 0, opts: { lines: true }, gift: false,
     vipOwe: 0,   // the unpaid gift of a VIP seated in a suite right now (10.1: half of it goes to the cash box on load)
     vipAt: 0,    // when the next VIP is due after one left (game seconds, stats.time): a reload must not bring it sooner (18.2)
+    vsleep: [],  // v2.4: guests of honour asleep in a suite after their photo [{ r: suite, id, w: wake day, y: mom's year }]
     // v2.1 core A (16.13; seasons.js loadV21a cleans them): the year's starting totals, trophies, magazine covers,
     // festival medals, mom's visits, the reporter's / festival's last season, festivals held per season, "popular" left
     year: { g: 0, e: 0, h: 0, combos: 0, n: 1 }, awards: [], covers: [], medals: [], mom: 0, momY: 1,
@@ -60,12 +61,22 @@ function loadState(rawIn) {
     }
     s.piles = pl;
   }
+  {   // v2.4: a guest of honour asleep in an open suite (one each, a known VIP / rare guest / mom) sleeps on after a load
+    const vs = [], seen = new Set();
+    for (const r of Array.isArray(raw.vsleep) ? raw.vsleep : []) {
+      const rm = r && typeof r === 'object' ? ROOM[r.r] : null;
+      if (!rm || !rm.vip || !roomOpen(rm, s) || seen.has(rm.id) || typeof r.id !== 'string' || !VIP[r.id]) continue;
+      seen.add(rm.id); vs.push(Object.assign({ r: rm.id, id: r.id, w: clamp(int0(r.w), 1, s.day + 2) }, r.id === 'mom' ? { y: Math.max(1, int0(r.y)) } : {}));
+    }
+    s.vsleep = vs;
+  }
   {   // guests are not saved: a reserved room is free again, a slept-in room is messy and its guest left a tip
-    const rs = {};
+    const rs = {}, asleep = new Set(s.vsleep.map(r => r.r));
     for (const rm of ROOMS) {
       if (!roomOpen(rm, s)) continue;
       const st = s.rooms[rm.id];
-      if (st === 'occupied') { rs[rm.id] = 'messy'; s.piles[rm.id] = (s.piles[rm.id] || 0) + STARS[s.peak].tip; }
+      if (asleep.has(rm.id)) rs[rm.id] = 'occupied';   // v2.4: its sleeper is back in the futon (vip.js sleepReset)
+      else if (st === 'occupied') { rs[rm.id] = 'messy'; s.piles[rm.id] = (s.piles[rm.id] || 0) + STARS[s.peak].tip; }
       else rs[rm.id] = st === 'messy' ? 'messy' : 'clean';
     }
     s.rooms = rs;

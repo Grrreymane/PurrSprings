@@ -6,6 +6,7 @@
 //   tileArt(ch, tx, ty, nb, season)          16x16, tile top-left. New chars k m z x q o; season 0..3 is in the cache key
 //                                             (v2.0 always 0, drawn the same). 'o' = static pond tile (frame 0 of pondArt).
 //   doorArt(kind, open, col, emb, gold, tx, ty)  16x16, opaque. kind: left | right | onsen | hdoor | gate | gateH.
+//   v2.4: + floor, season, span ('w' 32x16 / 'h' 16x32: a door 2 tiles wide / tall), beyond (hdoor: 'din' | 'sand').
 //                                             left/right/hdoor open: noren in colour col (null = v1 indigo / hdoor tea
 //                                             brown), 5x5 crest emb (see _EN_EMB), gold = 1px gold edge (suites).
 //                                             gate / gateH paint their own paving: pass tx, ty so it lines up
@@ -161,9 +162,10 @@ function _enScatter(G, tx, ty, season, base, ok) {
 }
 
 // ------------------------------------------------------------ walls
-function _enCap(G, under) {   // top 5 rows of every wall face: rim + wall-top cap, then the beam (nageshi)
-  G.rect(0, 0, 16, 1, under ? _EN.top : '#8a7470'); G.rect(0, 1, 16, 1, _EN.topD);
-  G.rect(0, 2, 16, 1, _EN.dwH); G.rect(0, 3, 16, 1, _EN.dw); G.rect(0, 4, 16, 1, _EN.dwD);
+function _enCap(G, under) {   // top 5 rows of every wall face: rim + wall-top cap, then the beam (nageshi) (v2.4: G.w wide)
+  const W = G.w;
+  G.rect(0, 0, W, 1, under ? _EN.top : '#8a7470'); G.rect(0, 1, W, 1, _EN.topD);
+  G.rect(0, 2, W, 1, _EN.dwH); G.rect(0, 3, W, 1, _EN.dw); G.rect(0, 4, W, 1, _EN.dwD);
 }
 function _enWallFace(G, tx, ty, nb, season) {
   const lintel = nb.d === 'D', facade = _EN_FACADE.has(nb.d);
@@ -265,7 +267,7 @@ function _enWallTop(G, tx, ty, nb, season) {
 }
 // winter, a wall face with the outside right above it: a line of snow on the wall's top edge (rows 0-1, the cap)
 function _enCapSnow(G, tx) {
-  for (let x = 0; x < 16; x++) {
+  for (let x = 0; x < G.w; x++) {
     const wx = tx * 16 + x;
     G.set(x, 0, _EN_SN.w); G.set(x, 1, _enH(wx, 1, 524) < .6 ? _EN_SN.b : _EN_SN.s);
     if (_enH(wx >> 1, 2, 525) < .25) G.set(x, 2, _EN_SN.s);

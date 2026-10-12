@@ -5,7 +5,7 @@ const SAVE = 'purr-springs-';                       // localStorage key prefix â
 // FONT is the same font under its old name
 const PFONT = '"Fusion Pixel","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif';
 const FONT = PFONT;
-const TILE = 16, MW = 40, MH = 36, MAPW = MW * TILE, MAPH = MH * TILE;   // world: 40 x 36 tiles = 640 x 576 px (SPEC_v2 2)
+const TILE = 16, MW = 40, MH = 39, MAPW = MW * TILE, MAPH = MH * TILE;   // world: 40 x 39 tiles = 640 x 624 px (SPEC_v2 2; v2.4: 39 rows, was 36)
 const rand = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const lerp = (a, b, t) => a + (b - a) * t;

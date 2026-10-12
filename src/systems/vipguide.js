@@ -13,13 +13,13 @@
 const WISH_MAKE = { tea: () => !!(S.unlocked.tea || S.unlocked.garden), milk: () => !!S.unlocked.milk, rice: () => !!S.unlocked.dining, kaiseki: () => !!S.unlocked.dining };
 const wishOk = k => !WISH_MAKE[k] || WISH_MAKE[k]();
 function vipWs(v) { if (!v) return []; if (!v.ws) v.ws = (VIP[v.id] ? VIP[v.id].wishes : ['tea', 'bath', 'photo']).map(k => wishOk(k) ? k : 'tea'); return v.ws; }
-const STATION_ICON = { urn1: 'urn', urn2: 'urn', milk: 'milk', stove: 'stove', pass: 'pass', tap: 'tub' };
+const STATION_ICON = { urn1: 'urn', urn2: 'urn', milk: 'milk', milk2: 'milk', stove: 'stove', pass: 'pass', tap: 'tub' };
 const WISH_VERB = { tea: '泡茶', kaiseki: '做饭', milk: '拿奶', rice: '拿饭', bath: '放水', photo: '合影' };
 const TRAY_WISH = new Set(['tea', 'kaiseki', 'milk', 'rice']);
 // the stations that make wish k right now: pick-up zone ids (ZONE / PICK_TILE) or 'tap' (the suite's tub)
 function wishStations(k) {
   if (k === 'tea') return [S.unlocked.tea ? 'urn1' : null, S.unlocked.garden ? 'urn2' : null].filter(Boolean);
-  if (k === 'milk') return S.unlocked.milk ? ['milk'] : [];
+  if (k === 'milk') return [S.unlocked.milk ? 'milk' : null, S.unlocked.milk2 ? 'milk2' : null].filter(Boolean);   // v2.4: + the machine by the front door
   if (k === 'kaiseki') return S.unlocked.dining ? ['stove'] : [];
   if (k === 'rice') return !S.unlocked.dining ? [] : PASS.n > 0 || hasChef() ? ['pass'] : ['stove'];
   if (k === 'bath') return VIPG && VIPG.suite ? ['tap'] : [];
@@ -36,7 +36,7 @@ function wishGlow() {
 // where a station is: g = the spot to stand on (the glow ring: centre, radii), tag = over the station's sprite (world px)
 function stationAt(id) {
   if (id === 'tap') { const rm = ROOM[VIPG.suite], tp = rm.tap, tb = rm.tub; return { gx: tcx(tp), gy: tcy(tp) + 3, rx: 9, ry: 5, tx: tcx(tb), ty: (tb[1] + 1) * TILE - 24, tile: tp }; }
-  const z = ZONE[id], dy = { urn1: 30, urn2: 30, milk: 46, stove: 30, pass: 24 }[id] || 28;
+  const z = ZONE[id], dy = { urn1: 30, urn2: 30, milk: 46, milk2: 46, stove: 30, pass: 24 }[id] || 28;
   return { gx: z.c[0], gy: z.c[1] + 4, rx: z.r, ry: R(z.r * .55), tx: z.c[0], ty: z.c[1] - dy, tile: PICK_TILE[id] };
 }
 // ---- pictures

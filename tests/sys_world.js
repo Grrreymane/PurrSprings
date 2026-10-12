@@ -1,11 +1,11 @@
-// SPEC_v2 2: the 40x36 world - areas, doors, rooms, props, camera, staff posts - and the v1 loop on it.
+// SPEC_v2 2: the 40x39 world (v2.4; was 40x36) - areas, doors, rooms, props, camera, staff posts - and the v1 loop on it.
 //   node D:/Minigame/_workflow/tools/headless.js D:/Minigame/Hotelgame tests/sys_world.js --seed 2
 const errs = [], ok = (c, m) => { if (!c) errs.push(m); };
 const DT = 1 / 30;
 function st(list, peak) { S = defaults(); for (const id of list) S.unlocked[id] = true; for (const rm of ROOMS) if (roomOpen(rm)) S.rooms[rm.id] = 'clean'; S.peak = Math.max(starOf(S), peak || 1); S.tut.moved = true; resetWorld(); go('play'); }
 const blockedRect = r => { for (let y = r[1]; y <= r[3]; y++) for (let x = r[0]; x <= r[2]; x++) if (!BLOCK[y * MW + x]) return false; return true; };
 // ---- tables
-ok(MW === 40 && MH === 36 && MAPW === 640 && MAPH === 576 && QBUF.length === 1440, 'world size');
+ok(MW === 40 && MH === 39 && MAPW === 640 && MAPH === 624 && QBUF.length === 1560, 'world size (v2.4: 39 rows)');
 ok(ROOMS.length === 15 && GUEST_ROOMS.length === 13 && ROOMS.filter(r => r.vip).map(r => r.id).join() === 'c3,c4', 'rooms: 13 guest rooms + 2 suites');
 ok(AREAS.length === 11, 'areas');
 for (const rm of ROOMS) { const d = DOOR_AT[rm.door[1] * MW + rm.door[0]]; ok(d && d.room === rm.id && d.col === rm.col && d.emb === rm.emb && !!d.gold === rm.vip, rm.id + ' door / noren'); }
@@ -33,10 +33,10 @@ ok(S.rooms.c1 === 'clean' && S.rooms.c3 === 'clean', 'garden rooms ready');
 st(['room2', 'room3']); S.money = 999; unlock('onsen');
 ok(AREA_FADE.length === 1 && AREA_FADE[0].a.id === 'onsen' && S.basket === BASKET_MAX && star() === 2 && S.peak === 2, 'onsen unlock: fade, basket, star');
 for (let i = 0; i < 30; i++) update(DT); ok(AREA_FADE.length === 0, 'fade gone after 0.8 s');
-// ---- camera (2.7): follows, clamps to 0..460 / 0..256, never moves by itself
+// ---- camera (2.7): follows, clamps to 0..460 / 0..304 (v2.4), never moves by itself
 st([]);
 Object.assign(P, { x: 8, y: 8 }); updCam(0, true); ok(cam.x === 0 && cam.y === 0, 'camera clamps top-left');
-Object.assign(P, { x: MAPW - 8, y: MAPH - 8 }); updCam(0, true); ok(cam.x === 460 && cam.y === 256, 'camera clamps bottom-right ' + cam.x + ',' + cam.y);
+Object.assign(P, { x: MAPW - 8, y: MAPH - 8 }); updCam(0, true); ok(cam.x === 460 && cam.y === 304, 'camera clamps bottom-right ' + cam.x + ',' + cam.y);
 Object.assign(P, { x: 13 * 16 + 8, y: 24 * 16 + 8 }); updCam(0, true); ok(Math.abs(cam.x / 16 - 7.9) < .05 && Math.abs((cam.x + W) / 16 - 19.1) < .05, 'desk view cols ' + (cam.x / 16).toFixed(2) + '-' + ((cam.x + W) / 16).toFixed(2));
 go('title'); update(DT); ok(cam.x === TITLE_CAM[0] && cam.y === TITLE_CAM[1], 'title camera');
 // ---- staff posts

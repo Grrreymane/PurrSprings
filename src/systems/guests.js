@@ -262,10 +262,15 @@ function updGuest(gu, dt) {
         if (S.unlocked.milk) { setSt(gu, 'toMilk'); gu.goal = null; } else guestNext(gu, 'bath');
       }
       break;
-    case 'toMilk': goTo(gu, MILK_SPOT[0], MILK_SPOT[1]); if (walk()) { setSt(gu, 'milk'); gu.tt = MILK_T; gu.dir = 'up'; SFX.milk(); lineSay(gu, 'G13'); } break;
+    case 'toMilk': {   // v2.4: the nearer machine nobody else is buying at (the onsen's, else the one by the front door)
+      if (!gu.milkAt) gu.milkAt = !S.unlocked.milk2 || !GUESTS.some(o => o !== gu && (o.st === 'toMilk' || o.st === 'milk') && o.milkAt === 'milk') ? 'milk' : 'milk2';
+      const sp = gu.milkAt === 'milk2' ? MILK2_SPOT : MILK_SPOT;
+      goTo(gu, sp[0], sp[1]); if (walk()) { setSt(gu, 'milk'); gu.tt = MILK_T; gu.dir = 'up'; SFX.milk(); lineSay(gu, 'G13'); }
+      break;
+    }
     case 'milk':   // G3: nobody waits at the machine for the innkeeper any more - it buys its milk and goes
       gu.tt -= dt;
-      if (gu.tt <= 0) { deposit('milk', fee('milk', { gu })); callSelf(gu, 'milk'); markDirty(); gu.heart = 1; SFX.meow(); guestNext(gu, 'bath'); }
+      if (gu.tt <= 0) { deposit(gu.milkAt === 'milk2' ? 'milk2' : 'milk', fee('milk', { gu })); callSelf(gu, 'milk'); markDirty(); gu.heart = 1; SFX.meow(); gu.milkAt = null; guestNext(gu, 'bath'); }
       break;
     case 'toTea': goTo(gu, TEA_SPOT[0], TEA_SPOT[1]); if (walk()) { setSt(gu, 'tea'); gu.tt = TEA_T; gu.dir = 'left'; SFX.milk(); lineSay(gu, 'G13'); } break;
     case 'tea':    // a cup at the lobby urn (G3): pays into the tea pile, like milk at the machine

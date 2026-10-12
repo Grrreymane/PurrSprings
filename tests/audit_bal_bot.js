@@ -347,7 +347,7 @@ function checkSecond() {
   for (const k in perRoom) if (perRoom[k] > 1) flag('room-shared', mmss(t) + ' ' + k);
   for (const k in perSlot) if (perSlot[k] > 1) flag('slot-shared', mmss(t) + ' ' + k);
   for (let i = 0; i < SLOT_OCC.length; i++) if (SLOT_OCC[i] && !GUESTS.includes(SLOT_OCC[i])) flag('slot-leak', mmss(t) + ' slot ' + i);
-  for (const rm of ROOMS) if (RT[rm.id].guest && !GUESTS.includes(RT[rm.id].guest) && RT[rm.id].guest !== VIPG) flag('room-leak', mmss(t) + ' ' + rm.id);
+  for (const rm of ROOMS) if (RT[rm.id].guest && !GUESTS.includes(RT[rm.id].guest) && RT[rm.id].guest !== VIPG && !VSLEEP.includes(RT[rm.id].guest)) flag('room-leak', mmss(t) + ' ' + rm.id);
   for (const k in S.decor) { const [rid] = k.split(':'); if (!S.unlocked[S.decor[k]] || !UNLOCK[S.decor[k]].decor || !roomOpen(ROOM[rid]) || ROOM[rid].vip) flag('decor', mmss(t) + ' ' + k + '=' + S.decor[k]); }
   if (VIPG) {
     const v = VIPG, k = v.st + ':' + v.wi; if (k !== vipStK) { vipStK = k; vipStT = t; }
@@ -359,7 +359,7 @@ function checkSecond() {
     if (v.y < MAPH && !v.moving && BLOCK[ty * MW + tx] && v.st !== 'soak') flag('vip-on-block', mmss(t) + ' ' + v.st + ' ' + tx + ',' + ty);
     if (v.suite && RT[v.suite].guest !== v && v.st !== 'leave') flag('vip-suite', mmss(t) + ' ' + v.st);
   } else vipStK = '';
-  for (const rm of SUITES) { const o = RT[rm.id].guest; if (o && o !== VIPG) flag('suite-not-vip', mmss(t) + ' ' + rm.id); }
+  for (const rm of SUITES) { const o = RT[rm.id].guest; if (o && o !== VIPG && !VSLEEP.includes(o)) flag('suite-not-vip', mmss(t) + ' ' + rm.id); }
   if (GUIDE && !KNOWN.has(GUIDE.kind)) flag('unknown-kind', mmss(t) + ' ' + GUIDE.kind);
   if (firstCombo === null && Object.keys(S.combos).length) firstCombo = t;
   if (S.basket < 0 || S.basket > BASKET_MAX || S.basket !== Math.floor(S.basket)) flag('basket', mmss(t) + ' ' + S.basket);
@@ -392,7 +392,7 @@ function checkSecond() {
   if (PET && dist(P.x, P.y, PET.x, PET.y) > 200) flag('pet-far', mmss(t) + ' ' + R(dist(P.x, P.y, PET.x, PET.y)));
   if (goldStars() > 5 || (star() < 5 && goldStars() > 0)) flag('gold', mmss(t) + ' ' + goldStars());
   { const rk = rankOf(S.hearts); if (rk < 1 || rk > 10) flag('rank', mmss(t) + ' ' + rk); }
-  if (LINE && !(LINE.e === P || GUESTS.includes(LINE.e) || GUESTS.some(gu => gu.mate === LINE.e) || STAFF.includes(LINE.e) || LINE.e === VIPG || LINE.e === PET)) flag('line-speaker', mmss(t) + ' ' + LINE.id);
+  if (LINE && !(LINE.e === P || GUESTS.includes(LINE.e) || GUESTS.some(gu => gu.mate === LINE.e) || STAFF.includes(LINE.e) || LINE.e === VIPG || VSLEEP.includes(LINE.e) || LINE.e === PET)) flag('line-speaker', mmss(t) + ' ' + LINE.id);
   try { render(); } catch (e) { flag('render', String(e && e.message || e)); }
   if (LIGHT_N > LIGHT_MAX) flag('lights>16', mmss(t) + ' ' + LIGHT_N);
   if (t >= nextMenu) { nextMenu += 300; menuCheck(t); }

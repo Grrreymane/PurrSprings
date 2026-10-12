@@ -1,6 +1,6 @@
 // ============================================================ update(dt)
 let state = 'title', st = 0, T = 0;
-const TITLE_CAM = [190, MAPH - H - 32];   // the entrance noren + the bowing innkeeper below the start button (v1: x 30)
+const TITLE_CAM = [190, 29 * TILE - 240];   // v2.4: fixed (the map grew below the entrance; was MAPH - H - 32 = 224)   // the entrance noren + the bowing innkeeper below the start button (v1: x 30)
 const cam = { x: TITLE_CAM[0], y: TITLE_CAM[1] };
 let DISP = 0, hudBump = 0;
 const FX = [];

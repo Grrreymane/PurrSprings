@@ -63,7 +63,7 @@ const SAVE = 'purr-springs-';                       // localStorage key prefix �
 // FONT is the same font under its old name
 const PFONT = '"Fusion Pixel","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif';
 const FONT = PFONT;
-const TILE = 16, MW = 40, MH = 36, MAPW = MW * TILE, MAPH = MH * TILE;   // world: 40 x 36 tiles = 640 x 576 px (SPEC_v2 2)
+const TILE = 16, MW = 40, MH = 39, MAPW = MW * TILE, MAPH = MH * TILE;   // world: 40 x 39 tiles = 640 x 624 px (SPEC_v2 2; v2.4: 39 rows, was 36)
 const rand = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -1812,6 +1812,7 @@ function catCurl(fur) {
 //   tileArt(ch, tx, ty, nb, season)          16x16, tile top-left. New chars k m z x q o; season 0..3 is in the cache key
 //                                             (v2.0 always 0, drawn the same). 'o' = static pond tile (frame 0 of pondArt).
 //   doorArt(kind, open, col, emb, gold, tx, ty)  16x16, opaque. kind: left | right | onsen | hdoor | gate | gateH.
+//   v2.4: + floor, season, span ('w' 32x16 / 'h' 16x32: a door 2 tiles wide / tall), beyond (hdoor: 'din' | 'sand').
 //                                             left/right/hdoor open: noren in colour col (null = v1 indigo / hdoor tea
 //                                             brown), 5x5 crest emb (see _EN_EMB), gold = 1px gold edge (suites).
 //                                             gate / gateH paint their own paving: pass tx, ty so it lines up
@@ -1967,9 +1968,10 @@ function _enScatter(G, tx, ty, season, base, ok) {
 }
 
 // ------------------------------------------------------------ walls
-function _enCap(G, under) {   // top 5 rows of every wall face: rim + wall-top cap, then the beam (nageshi)
-  G.rect(0, 0, 16, 1, under ? _EN.top : '#8a7470'); G.rect(0, 1, 16, 1, _EN.topD);
-  G.rect(0, 2, 16, 1, _EN.dwH); G.rect(0, 3, 16, 1, _EN.dw); G.rect(0, 4, 16, 1, _EN.dwD);
+function _enCap(G, under) {   // top 5 rows of every wall face: rim + wall-top cap, then the beam (nageshi) (v2.4: G.w wide)
+  const W = G.w;
+  G.rect(0, 0, W, 1, under ? _EN.top : '#8a7470'); G.rect(0, 1, W, 1, _EN.topD);
+  G.rect(0, 2, W, 1, _EN.dwH); G.rect(0, 3, W, 1, _EN.dw); G.rect(0, 4, W, 1, _EN.dwD);
 }
 function _enWallFace(G, tx, ty, nb, season) {
   const lintel = nb.d === 'D', facade = _EN_FACADE.has(nb.d);
@@ -2071,7 +2073,7 @@ function _enWallTop(G, tx, ty, nb, season) {
 }
 // winter, a wall face with the outside right above it: a line of snow on the wall's top edge (rows 0-1, the cap)
 function _enCapSnow(G, tx) {
-  for (let x = 0; x < 16; x++) {
+  for (let x = 0; x < G.w; x++) {
     const wx = tx * 16 + x;
     G.set(x, 0, _EN_SN.w); G.set(x, 1, _enH(wx, 1, 524) < .6 ? _EN_SN.b : _EN_SN.s);
     if (_enH(wx >> 1, 2, 525) < .25) G.set(x, 2, _EN_SN.s);
@@ -3517,30 +3519,36 @@ function waterArt(frame, tx, ty) {
 // floor (and the west hall's parquet); without it the floors come from the crest (_EN_DOORFLOOR) as before
 // season (v2.1, optional; pass it for every door): the gates stand outdoors, so their ground and top rail follow the
 // season; the onsen door gets the winter snow line of the outer wall it sits in. Room doors ignore it.
-function doorArt(kind, open, col, emb, gold, tx, ty, floor, season) {
+// v2.4: span 'w' = a door 2 tiles wide (32 x 16: onsen / hdoor / gateH), 'h' = 2 tiles tall (16 x 32: left / right /
+// gate); anchor = its top-left tile. beyond (hdoor): what the doorway shows past the noren - 'din' the dining floor,
+// 'sand' the shrine's raked sand, else the west wing hall.
+function doorArt(kind, open, col, emb, gold, tx, ty, floor, season, span, beyond) {
   open = !!open;
   const gate = kind === 'gate' || kind === 'gateH';
+  const DW = span === 'w' ? 32 : 16, DH = span === 'h' ? 32 : 16;
   let sty = !gate && kind !== 'onsen' && open && !!(col || emb || gold);   // a closed door is the same shoji in every style
   if (kind === 'hdoor') sty = open;
   if (gate) { tx = tx == null ? (kind === 'gate' ? 24 : 25) : tx | 0; ty = ty == null ? (kind === 'gate' ? 4 : 29) : ty | 0; }
   const fl = sty && Array.isArray(floor) ? floor : null, sea = gate || kind === 'onsen' ? (season | 0) & 3 : 0;
-  const k = 'en:d:' + kind + ':' + (open ? 1 : 0) + (sty ? ':' + (col || '') + ':' + (emb || '') + ':' + (gold ? 1 : 0) : '') + (gate ? ':' + tx + ',' + ty + ':' + (emb || '') + ':' + sea : '') + (fl ? ':' + fl.join('/') : '') + (kind === 'onsen' && sea === 3 ? ':w' : '');
+  const k = 'en:d:' + kind + ':' + (open ? 1 : 0) + (sty ? ':' + (col || '') + ':' + (emb || '') + ':' + (gold ? 1 : 0) : '') + (gate ? ':' + tx + ',' + ty + ':' + (emb || '') + ':' + sea : '') + (fl ? ':' + fl.join('/') : '') + (kind === 'onsen' && sea === 3 ? ':w' : '') + ':' + DW + 'x' + DH + (beyond ? ':' + beyond : '');
   return art(k, () => {
-    if (kind === 'onsen') return _enMake(16, 16, G => { _enOnsenDoor(G, open); if (sea === 3) _enCapSnow(G, tx | 0); });   // winter: the snow line on the outer wall's top runs over it
-    if (kind === 'hdoor') return _enMake(16, 16, G => _enHDoor(G, open, col, emb, gold));
-    if (gate) return _enMake(16, 16, G => _enGate(G, open, tx, ty, kind === 'gateH', emb === 'star' || (kind === 'gate' && tx === 24 && ty === 4), sea));
+    if (kind === 'onsen') return _enMake(DW, DH, G => { _enOnsenDoor(G, open); if (sea === 3) _enCapSnow(G, tx | 0); });   // winter: the snow line on the outer wall's top runs over it
+    if (kind === 'hdoor') return _enMake(DW, DH, G => _enHDoor(G, open, col, emb, gold, beyond));
+    if (gate) return _enMake(DW, DH, G => _enGate(G, open, tx, ty, kind === 'gateH', emb === 'star' || (kind === 'gate' && tx === 24 && ty === 4), sea));
     if (!sty) {
-      if (kind === 'right') return flipC(doorArt('left', open));
-      return _enMake(16, 16, G => _enRoomDoor(G, open));
+      if (kind === 'right') return flipC(doorArt('left', open, null, null, false, null, null, null, 0, span));
+      return _enMake(DW, DH, G => _enRoomDoor(G, open));
     }
     const right = kind === 'right', dfl = _EN_DOORFLOOR[emb];
-    return _enMake(16, 16, G => {
+    return _enMake(DW, DH, G => {
       _enRoomDoor(G, open, { col, gold, floor: fl ? [_enLook(fl[0]).id, fl[1] === 'p' ? 'grav' : fl[1] === 'hall' ? 'hall' : (dfl ? dfl[1] : null)] : dfl });
       if (right) _enFlipG(G);
       if (emb) _enEmblem(G, emb, right ? 5 : 6, 3, col || _EN.ind);
     });
   });
 }
+// v2.4: paint a 16 x 16 tile painter into a bigger grid at (ox, oy) (the wide gates' paving, tile by tile)
+function _enSub(G, ox, oy, fn) { const T = new Grid(16, 16); fn(T); for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const c = T.get(x, y); if (c) G.set(ox + x, oy + y, c); } }
 const _EN_HDOOR_TEA = '#7a5a3a';   // tea-brown noren for the west wing door (pass as col)
 function _enFlipG(G) { for (let y = 0; y < G.h; y++) { const r = G.d.slice(y * G.w, y * G.w + G.w).reverse(); for (let x = 0; x < G.w; x++) G.d[y * G.w + x] = r[x]; } }
 // what you see through an open styled door: [room side, corridor side] (before mirroring a 'right' door)
@@ -3579,6 +3587,7 @@ const _EN_EMB = {
   kotatsu:    ['.....', 'XXXXX', 'XoXoX', 'XXXXX', 'X...X'],
   yume:       ['X.X..', 'XXXX.', 'XoXXX', '.XXXX', '..XX.'],
   shinnen:    ['..o..', '.XXX.', 'XXXXX', '.XXX.', 'XXXXX'],
+  torii:      ['XXXXX', '.X.X.', 'XXXXX', '.X.X.', '.X.X.'],   // v2.4: the west wing's gate to the shrine
 };
 function _enLum(hex) { const n = parseInt(hex.slice(1), 16); return ((n >> 16) * .299 + ((n >> 8) & 255) * .587 + (n & 255) * .114) / 255; }
 function _enEmblem(G, emb, x0, y0, cloth) {
@@ -3599,10 +3608,11 @@ function _enShoji(G, x0, y0, x1, y1, kick) {   // a pair of sliding paper doors 
   G.set(mid - 1, (y0 + y1) >> 1, _EN.dwD); G.set(mid + 2, (y0 + y1) >> 1, _EN.dwD);   // finger pulls (hikite)
 }
 function _enRoomDoor(G, open, sty) {   // left room's door; its room (tatami) is to the left, the corridor to the right
-  for (let y = 0; y < 16; y++) { G.set(0, y, _EN.dwH); G.set(1, y, _EN.dw); G.set(14, y, _EN.dw); G.set(15, y, _EN.dwD); }
-  if (!open) { _enShoji(G, 2, 0, 13, 14, 2); for (let x = 1; x < 15; x++) G.set(x, 15, _EN.dwH); return; }
+  const DH = G.h;   // v2.4: 32 for a door 2 tiles tall (the noren hangs at the top, the doorway goes on below)
+  for (let y = 0; y < DH; y++) { G.set(0, y, _EN.dwH); G.set(1, y, _EN.dw); G.set(14, y, _EN.dw); G.set(15, y, _EN.dwD); }
+  if (!open) { _enShoji(G, 2, 0, 13, DH - 2, 2); for (let x = 1; x < 15; x++) G.set(x, DH - 1, _EN.dwH); return; }
   const fl = sty && sty.floor;
-  for (let y = 0; y < 16; y++) for (let x = 2; x < 14; x++) {   // floor seen through the doorway: tatami | wooden sill | corridor boards
+  for (let y = 0; y < DH; y++) for (let x = 2; x < 14; x++) {   // floor seen through the doorway: tatami | wooden sill | corridor boards
     let c = x < 6 ? ((y & 1) ? _enM(_EN.tat, _EN.tatW, .55) : _EN.tat) : x < 8 ? (x === 6 ? _EN.dwH : _EN.dw) : ((y % 4 === 0) ? _enM(_EN.woodS, _EN.dw, .25) : y % 4 === 1 ? _enM(_EN.wood, _EN.woodH, .45) : _EN.wood);
     if (x === 2) c = _EN.heri;
     if (fl) {   // v2: the right floors for doors that are not between a room and the corridor
@@ -3616,7 +3626,7 @@ function _enRoomDoor(G, open, sty) {   // left room's door; its room (tatami) is
     }
     G.set(x, y, _enM(c, OUT, y < 11 ? .45 : y === 11 ? .3 : .1));
   }
-  for (let x = 1; x < 15; x++) G.set(x, 15, _EN.dwH);
+  for (let x = 1; x < 15; x++) G.set(x, DH - 1, _EN.dwH);
   for (let x = 1; x < 15; x++) G.set(x, 0, _EN.dwD);
   if (sty) {   // v2: noren in the room's colour; a short split under the crest; gold edge for suites
     const base = sty.col || _EN.ind, L = _enM(base, '#ffffff', .2), Lm = _enM(base, '#ffffff', .1), D = _enM(base, OUT, .32), Dm = _enM(base, OUT, .16);
@@ -3647,83 +3657,90 @@ function _enRoomDoor(G, open, sty) {   // left room's door; its room (tatami) is
 // v2: door in a horizontal wall (west wing, (8,18)): same geometry as the onsen door; open = a short three-tongue
 // noren over the corridor boards beyond: colour col (null = v1 indigo; SPEC_v2 2.3 wants tea brown _EN_HDOOR_TEA for
 // (8,18)), crest emb or else a white ring
-function _enHDoor(G, open, col, emb, gold) {
+function _enHDoor(G, open, col, emb, gold, beyond) {   // v2.4: G.w = 32 for a door 2 tiles wide; beyond: 'din' | 'sand' | the hall
+  const W = G.w, t1 = Math.floor(W / 3), t2 = Math.floor(2 * W / 3);   // the two slits between the noren's tongues
   _enCap(G, false);
-  G.rect(0, 5, 16, 1, _EN.dwD);
-  if (!open) { _enShoji(G, 0, 6, 15, 14, 2); for (let x = 0; x < 16; x++) G.set(x, 15, _EN.dwH); return; }
-  for (let y = 6; y < 16; y++) for (let x = 0; x < 16; x++) {   // v2.0.1: the west hall's parquet and runner beyond
-    const c = _enHallPx(8 * 16 + x, 17 * 16 + y);
+  G.rect(0, 5, W, 1, _EN.dwD);
+  if (!open) { _enShoji(G, 0, 6, W - 1, 14, 2); for (let x = 0; x < W; x++) G.set(x, 15, _EN.dwH); return; }
+  for (let y = 6; y < 16; y++) for (let x = 0; x < W; x++) {   // v2.0.1: the west hall's parquet and runner beyond (v2.4: or the dining boards / the shrine's sand)
+    const c = beyond === 'din' ? (y % 6 === 0 ? _EN.dinS : y % 6 === 1 ? _EN.dinH : _EN.din) : beyond === 'sand' ? ((y + (x >> 3)) % 3 === 0 ? '#cfc8b4' : '#e0dccf') : _enHallPx(8 * 16 + x, 17 * 16 + y);
     G.set(x, y, _enM(c, OUT, y < 12 ? .42 : .14));
   }
-  for (let x = 0; x < 16; x++) G.set(x, 15, _EN.dwH);
+  for (let x = 0; x < W; x++) G.set(x, 15, _EN.dwH);
   const base = col || _EN.ind, L = _enM(base, '#ffffff', .2), D = _enM(base, OUT, .32), Dm = _enM(base, OUT, .16);
-  for (let x = 0; x < 16; x++) G.set(x, 2, _EN.dwD);
-  G.set(0, 2, '#3a2418'); G.set(15, 2, '#3a2418');
-  for (let y = 3; y < 12; y++) for (let x = 1; x < 15; x++) {
-    if ((x === 5 || x === 10) && y > 8) continue;   // three tongues
+  for (let x = 0; x < W; x++) G.set(x, 2, _EN.dwD);
+  G.set(0, 2, '#3a2418'); G.set(W - 1, 2, '#3a2418');
+  for (let y = 3; y < 12; y++) for (let x = 1; x < W - 1; x++) {
+    if ((x === t1 || x === t2) && y > 8) continue;   // three tongues
     let c = base;
-    if (y === 3) c = L; else if (y === 11 || x === 14 || ((x === 4 || x === 9) && y > 8)) c = D; else if (x === 1 || ((x === 6 || x === 11) && y > 8)) c = _enM(base, '#ffffff', .1);
-    else if ((x === 3 || x === 12) && y > 5) c = Dm;
+    if (y === 3) c = L; else if (y === 11 || x === W - 2 || ((x === t1 - 1 || x === t2 - 1) && y > 8)) c = D; else if (x === 1 || ((x === t1 + 1 || x === t2 + 1) && y > 8)) c = _enM(base, '#ffffff', .1);
+    else if ((x === 3 || x === W - 4) && y > 5) c = Dm;
     G.set(x, y, c);
   }
-  if (gold) for (let y = 3; y < 12; y++) { G.set(1, y, '#f2d478'); G.set(14, y, '#c8962e'); }
-  if (emb) _enEmblem(G, emb, 5, 4, base);
-  else [[6, 4], [7, 4], [8, 4], [5, 5], [9, 5], [5, 6], [9, 6], [6, 7], [7, 7], [8, 7]].forEach(([x, y]) => G.set(x, y, _EN.wht));
+  if (gold) for (let y = 3; y < 12; y++) { G.set(1, y, '#f2d478'); G.set(W - 2, y, '#c8962e'); }
+  const ox = (W - 16) >> 1;
+  if (emb) _enEmblem(G, emb, ox + 5, 4, base);
+  else [[6, 4], [7, 4], [8, 4], [5, 5], [9, 5], [5, 6], [9, 6], [6, 7], [7, 7], [8, 7]].forEach(([x, y]) => G.set(ox + x, y, _EN.wht));
 }
 // v2: bamboo wicket gate (shiorido), seen from the front: cedar posts, a capped top rail, a woven dried-bamboo leaf.
 // It paints its own paving (slate for 'gate', the gravel walk for 'gateH') lined up with tile (tx, ty).
-function _enGate(G, open, tx, ty, horiz, lamp, season) {
-  if (horiz) _enGardenPath(G, tx, ty, { u: 'p', d: 'p', l: 'f', r: 'f' }, season); else _enSlate(G, tx, ty, {}, season);   // v2.0.1: the gravel walk between the two gardens
+function _enGate(G, open, tx, ty, horiz, lamp, season) {   // v2.4: G.w = 32 (gateH 2 wide) or G.h = 32 (gate 2 tall): one wide / tall gate
+  const W = G.w, H = G.h, nx = W >> 4, ny = H >> 4;
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) _enSub(G, i * 16, j * 16, T => {
+    if (horiz) _enGardenPath(T, tx + i, ty + j, { u: 'p', d: 'p', l: i ? 'D' : 'f', r: i < nx - 1 ? 'D' : 'f' }, season); else _enSlate(T, tx + i, ty + j, {}, season);   // v2.0.1: the gravel walk between the two gardens
+  });
   const post = x0 => {
-    for (let y = 0; y < 15; y++) { G.set(x0, y, _EN.cedarH); G.set(x0 + 1, y, _EN.cedar); G.set(x0 + 2, y, _EN.cedarD); }
+    for (let y = 0; y < H - 1; y++) { G.set(x0, y, _EN.cedarH); G.set(x0 + 1, y, _EN.cedar); G.set(x0 + 2, y, _EN.cedarD); }
     G.set(x0, 0, _EN.dryH); G.set(x0 + 1, 0, _EN.dry); G.set(x0 + 2, 0, _EN.dryD);
-    for (let x = x0 - 1; x <= x0 + 3; x++) G.set(x, 15, _enM(G.get(x, 15) || '#888888', '#2a2430', .4));   // contact shadow
+    for (let x = x0 - 1; x <= x0 + 3; x++) G.set(x, H - 1, _enM(G.get(x, H - 1) || '#888888', '#2a2430', .4));   // contact shadow
   };
   if (!open) {   // the leaf: diamond-woven dried bamboo in a thin frame
-    for (let y = 4; y < 14; y++) for (let x = 3; x < 13; x++) {
-      const a = (x + y) & 3, b = (x - y + 32) & 3;
+    for (let y = 4; y < H - 2; y++) for (let x = 3; x < W - 3; x++) {
+      const a = (x + y) & 3, b = (x - y + 64) & 3;
       let c = (a === 0 || b === 0) ? _EN.dryD : ((x + y) & 1) ? _EN.dry : _enM(_EN.dry, _EN.dryH, .5);
       if (a === 0 && b === 0) c = _enM(_EN.dryD, OUT, .3);
-      if (x === 3 || y === 4) c = _EN.dryH; else if (x === 12 || y === 13) c = _enM(_EN.dryD, OUT, .2);
+      if (x === 3 || y === 4) c = _EN.dryH; else if (x === W - 4 || y === H - 3) c = _enM(_EN.dryD, OUT, .2);
       G.set(x, y, c);
     }
-    for (let x = 3; x < 13; x++) G.set(x, 14, _enM(G.get(x, 14), '#2a2430', .45));
-    G.set(11, 8, _EN.cedarD); G.set(11, 9, _EN.cedarD);   // latch
+    for (let x = 3; x < W - 3; x++) G.set(x, H - 2, _enM(G.get(x, H - 2), '#2a2430', .45));
+    G.set(W - 5, H >> 1, _EN.cedarD); G.set(W - 5, (H >> 1) + 1, _EN.cedarD);   // latch
   } else {   // swung back against the right post: only its edge shows, with its shadow on the ground
-    for (let y = 4; y < 14; y++) { G.set(11, y, _EN.dryH); G.set(12, y, _EN.dryD); }
-    for (let y = 5; y < 15; y++) G.set(10, y, _enM(G.get(10, y), '#2a2430', .3));
-    for (let x = 3; x < 11; x++) G.set(x, 4, _enM(G.get(x, 4), '#2a2430', .35));
+    for (let y = 4; y < H - 2; y++) { G.set(W - 5, y, _EN.dryH); G.set(W - 4, y, _EN.dryD); }
+    for (let y = 5; y < H - 1; y++) G.set(W - 6, y, _enM(G.get(W - 6, y), '#2a2430', .3));
+    for (let x = 3; x < W - 5; x++) G.set(x, 4, _enM(G.get(x, 4), '#2a2430', .35));
   }
-  post(0); post(13);
-  for (let x = 0; x < 16; x++) {   // the top rail (kasagi) with a little cap
-    G.set(x, 1, x === 0 || x === 15 ? _EN.cedarD : _EN.cedarH); G.set(x, 2, _EN.cedar); G.set(x, 3, _EN.cedarD);
+  post(0); post(W - 3);
+  for (let x = 0; x < W; x++) {   // the top rail (kasagi) with a little cap
+    G.set(x, 1, x === 0 || x === W - 1 ? _EN.cedarD : _EN.cedarH); G.set(x, 2, _EN.cedar); G.set(x, 3, _EN.cedarD);
   }
-  for (let x = 1; x < 15; x++) G.set(x, 0, x === 1 || x === 14 ? _EN.cedarD : '#6a4428');
-  if (season === 3) { for (let x = 1; x < 15; x++) G.set(x, 0, x < 4 ? _EN_SN.w : _EN_SN.h); for (let x = 2; x < 14; x++) if (_enH(x, ty, 641) < .5) G.set(x, 1, _EN_SN.s); for (const x of [0, 1, 13, 14, 15]) G.set(x, 0, _EN_SN.b); }   // winter: snow along the top rail
+  for (let x = 1; x < W - 1; x++) G.set(x, 0, x === 1 || x === W - 2 ? _EN.cedarD : '#6a4428');
+  if (season === 3) { for (let x = 1; x < W - 1; x++) G.set(x, 0, x < 4 ? _EN_SN.w : _EN_SN.h); for (let x = 2; x < W - 2; x++) if (_enH(x, ty, 641) < .5) G.set(x, 1, _EN_SN.s); for (const x of [0, 1, W - 3, W - 2, W - 1]) G.set(x, 0, _EN_SN.b); }   // winter: snow along the top rail
   if (lamp) {   // a small star lantern hanging from the rail (the roten gate)
-    G.set(9, 4, '#3a2418');
+    const ox = (W - 16) >> 1;
+    G.set(ox + 9, 4, '#3a2418');
     const ST = ['..X..', 'XXXXX', '.XXX.', 'X...X'];
-    ST.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === 'X') G.set(7 + i, 5 + j, j === 0 || (j === 1 && i < 3) ? '#fff2a8' : j === 3 ? '#e0a020' : '#ffd23a'); }));
-    G.set(9, 6, '#fffbe0');
+    ST.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === 'X') G.set(ox + 7 + i, 5 + j, j === 0 || (j === 1 && i < 3) ? '#fff2a8' : j === 3 ? '#e0a020' : '#ffd23a'); }));
+    G.set(ox + 9, 6, '#fffbe0');
   }
 }
-function _enOnsenDoor(G, open) {   // sits in a wall-face row: cap + beam continue from the neighbours
+function _enOnsenDoor(G, open) {   // sits in a wall-face row: cap + beam continue from the neighbours (v2.4: G.w 32 = 2 tiles wide)
+  const W = G.w, t1 = Math.floor(W / 3), t2 = Math.floor(2 * W / 3), ox = (W - 16) >> 1;
   _enCap(G, false);
-  G.rect(0, 5, 16, 1, _EN.dwD);
-  if (!open) { _enShoji(G, 0, 6, 15, 14, 2); for (let x = 0; x < 16; x++) G.set(x, 15, _EN.dwH); return; }
-  for (let y = 6; y < 16; y++) for (let x = 0; x < 16; x++) {   // steamy bath floor beyond the doorway
+  G.rect(0, 5, W, 1, _EN.dwD);
+  if (!open) { _enShoji(G, 0, 6, W - 1, 14, 2); for (let x = 0; x < W; x++) G.set(x, 15, _EN.dwH); return; }
+  for (let y = 6; y < 16; y++) for (let x = 0; x < W; x++) {   // steamy bath floor beyond the doorway
     let c = (x + (y >> 2) * 5) % 8 === 0 || y % 4 === 0 ? _EN.slD : _EN.sl;
     G.set(x, y, _enM(c, OUT, y < 13 ? .4 : .15));
   }
-  for (let x = 0; x < 16; x++) G.set(x, 15, _EN.dwH);
+  for (let x = 0; x < W; x++) G.set(x, 15, _EN.dwH);
   // red noren hung in front of the beam; white yu (hot water) glyph; the hem is cut into three tongues
   const RD = _EN.red, RDd = '#9a2e2a', RDl = '#de6450';
-  for (let x = 0; x < 16; x++) G.set(x, 2, _EN.dwD);
-  G.set(0, 2, '#3a2418'); G.set(15, 2, '#3a2418');
-  for (let y = 3; y < 15; y++) for (let x = 1; x < 15; x++) {
-    if ((x === 5 || x === 10) && y > 13) continue;
+  for (let x = 0; x < W; x++) G.set(x, 2, _EN.dwD);
+  G.set(0, 2, '#3a2418'); G.set(W - 1, 2, '#3a2418');
+  for (let y = 3; y < 15; y++) for (let x = 1; x < W - 1; x++) {
+    if ((x === t1 || x === t2) && y > 13) continue;
     let c = RD;
-    if (y === 3) c = RDl; else if (y === 14 || x === 14) c = RDd; else if (x === 1) c = '#d65846';
+    if (y === 3) c = RDl; else if (y === 14 || x === W - 2) c = RDd; else if (x === 1) c = '#d65846';
     G.set(x, y, c);
   }
   const GLY = [
@@ -3738,7 +3755,7 @@ function _enOnsenDoor(G, open) {   // sits in a wall-face row: cap + beam contin
     '.X.X..X..X',
     'X.X..X..X.',
   ];
-  GLY.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === 'X') G.set(3 + i, 4 + j, _EN.wht); }));
+  GLY.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === 'X') G.set(ox + 3 + i, 4 + j, _EN.wht); }));
 }
 // the indigo noren over the main entrance: 48x14, anchor (0,0) at (6*16, 29*16-6); drawn over the cats
 function entranceNoren() {
@@ -8185,15 +8202,15 @@ function ring(x, y, p, col) {
 
 // ==== source:src/data/map.js ====
 // ============================================================ MAP & DATA (SPEC_v2 section 2)
-// 40 x 36 tiles. The v1 inn sits in cols 10-24: every v1 coordinate is x + 10, y unchanged.
+// 40 x 39 tiles (v2.4: 3 more rows for a bigger shop / front yard / plaza; was 36). The v1 inn sits in cols 10-24: every v1 coordinate is x + 10, y unchanged.
 const MAP = [
   'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',   // r0
   'bfffzzzfffbfrrrrrrrrrrrfbfrrrrrrrrrrrrrb',   // r1  shrine (v2.1) | onsen | star-view bath (roten)
   'bfzzzpzzzfbfr~~~~~~~~~rfbfr~~~~~~~~~~~rb',
   'bfzzzpzzzfbfr~~~~~~~~~rfbfr~~~~~~~~~~~rb',   // r3  bathers sit in this row of water
   'bfzzzpppppDsssssssssssssDssssssssssssssb',   // r4  (10,4) shrine gate, (24,4) roten gate
-  'bffzzzzzffbfssssssssssssbxxxxxxxxxxxxxxb',   // r5  roten deck r5-r7
-  'b################D#######xxxxxxxxxxxxxxb',   // r6  (17,6) onsen door
+  'bffzzzzzzzDsssssssssssssDxxxxxxxxxxxxxxb',   // r5  roten deck r5-r7; v2.4: (10,5) / (24,5) the gates are 2 tall, (8-9,5) sand from the west wing gate
+  'b#######DD#######DD######xxxxxxxxxxxxxxb',   // r6  (17-18,6) onsen door; v2.4 (8-9,6) west wing -> shrine gate
   'b#tttt#...#tttt#...#tttt#xxxxxxxxxxxxxxb',   // r7  W3 | R7 / R8
   'b#ttttD...#ttttD...Dtttt#ffffffpppfffffb',   // r8  hedge gap (31-33,8): garden <-> roten
   'b#tttt#...#tttt#...#tttt#ggggggpppgggggb',
@@ -8205,7 +8222,7 @@ const MAP = [
   'b#tttt#...#tttt#...#tttt#pgoooogpggggggb',   // r15 W1 | R3 / R4 | koi pond + dry garden
   'b#ttttD...#ttttD...Dtttt#pgoooogpzzzzzzb',
   'b#tttt#...#tttt#...#tttt#pgoooogpzzzzzzb',
-  'b#######D#######...######pggggggpggggggb',   // r18 (8,18) west wing door
+  'b#######DD######...######pggggggpggggggb',   // r18 (8-9,18) west wing door
   'b#kkkkmmmm#tttt#...#tttt#p######p######b',   // r19 kitchen + dining | R1 / R2
   'b#kkkkmmmm#ttttD...Dtttt#p#tttt#p#tttt#b',   // r20 cottages C1 / C2
   'b#mmmmmmmm#tttt#...#tttt#pDtttt#pDtttt#b',
@@ -8213,16 +8230,19 @@ const MAP = [
   'b#mmmmmmmm#lllllllllllll#p######p######b',   // r23 lobby (r23-r28)
   'b#mmmmmmmm#lllllllllllll#pggggggpggggggb',
   'b#mmmmmmmm#lllllllllllll#pggggggpggggggb',
-  'b#mmmmmmmmDlllllllllllllDppppppppggggggb',   // r26 (10,26) dining door, (24,26) garden door
+  'b#mmmmmmmmDlllllllllllllDppppppppggggggb',   // r26 (10,26-27) dining door, (24,26-27) garden door (v2.4: 2 tall)
+  'b#mmmmmmmmDlllllllllllllDpggggggpggggggb',
   'b#mmmmmmmm#lllllllllllll#pggggggpggggggb',
-  'b#mmmmmmmm#lllllllllllll#pggggggpggggggb',
-  'b###############EEE######Dfffffffffffffb',   // r29 (16-18,29) main entrance, (25,29) plaza gate (v2.1)
-  'bqqqqqqqqqgggggpppppgggggpfffggggggffffb',   // r30 shop | front garden | the lower garden (v2.0.1 A3; festival plaza in v2.1)
+  'b#######DD######EEE######DDffffffffffffb',   // r29 (8-9,29) dining -> shop door (v2.4), (16-18,29) main entrance, (25-26,29) plaza gate (v2.1)
+  'bqqqqqqqqqgggggpppppgggggppffggggggffffb',   // r30 shop (v2.4: r30-r37) | front garden | the lower garden (festival plaza in v2.1)
   'bqqqqqqqqqgggggpppppgggggpppppppppppppfb',
   'bqqqqqqqqqgggggpppppgggggfgggggggggggpgb',
   'bqqqqqqqqqgggggpppppgggggfgggggggggggggb',
-  'bqqqqqqqqqgggggpppppgggggfffffggfffffffb',
-  'bbbbbbbbbbbbbbbpppppbbbbbbbbbbbbbbbbbbbb',   // r35 guests come in from (17,36)
+  'bqqqqqqqqqgggggpppppgggggfgggggggggggggb',
+  'bqqqqqqqqqgggggpppppgggggfgggggggggggggb',
+  'bqqqqqqqqqgggggpppppgggggfgggggggggggggb',
+  'bqqqqqqqqqgggggpppppgggggfffffggfffffffb',   // r37 (v2.4: the map grew 3 rows, MH 39)
+  'bbbbbbbbbbbbbbbpppppbbbbbbbbbbbbbbbbbbbb',   // r38 guests come in from (17,39)
 ];
 const WALK_CH = new Set(['s', 't', '.', 'l', 'E', 'g', 'p', 'k', 'm', 'z', 'x', 'q']);
 const ch = (tx, ty) => (tx < 0 || ty < 0 || tx >= MW || ty >= MH) ? null : MAP[ty][tx];
@@ -8234,17 +8254,17 @@ const tcx = t => t[0] * TILE + 8, tcy = t => t[1] * TILE + 8;   // tile centre i
 // lock 'door': closed by its doors; 'block': the whole rect is BLOCK while locked. dim: darkened while locked.
 // sign: where the star-n board stands while it is locked (n = the star it belongs to). scenery: what covers it in v2.0.
 const AREAS = [
-  { id: 'front',  r: [10, 30, 24, 35], open: null,     music: 'lobby',  amb: 'wind' },
+  { id: 'front',  r: [10, 30, 24, 37], open: null,     music: 'lobby',  amb: 'wind' },
   { id: 'lobby',  r: [11, 23, 23, 28], open: null,     music: 'lobby',  amb: null },
   { id: 'main',   r: [11, 7, 23, 22],  open: null,     music: 'lobby',  amb: null },
   { id: 'onsen',  r: [11, 1, 23, 5],   open: 'onsen',  lock: 'door',  dim: true, music: 'onsen',  amb: 'water' },
-  { id: 'shop',   r: [1, 30, 9, 34],   open: 'shop',   lock: 'block', dim: true, music: 'lobby',  amb: null, sign: [10, 30], n: 2 },
+  { id: 'shop',   r: [1, 30, 9, 37],   open: 'shop',   lock: 'block', dim: true, music: 'lobby',  amb: null, sign: [10, 30], n: 2 },
   { id: 'dining', r: [2, 19, 9, 28],   open: 'dining', lock: 'door',  dim: true, music: 'dining', amb: 'fire', sign: [10, 26], n: 3 },
   { id: 'west',   r: [2, 7, 9, 17],    open: 'w1',     lock: 'door',  dim: true, music: 'lobby',  amb: null },
   { id: 'garden', r: [25, 9, 38, 28],  open: 'garden', lock: 'block', dim: true, music: 'garden', amb: 'garden', sign: [24, 26], n: 4 },
   { id: 'roten',  r: [25, 1, 38, 8],   open: 'roten',  lock: 'block', dim: true, music: 'onsen',  amb: 'falls', sign: [24, 4], n: 5 },
   { id: 'shrine', r: [1, 1, 9, 5],     open: 'shrine', lock: 'block', dim: false, music: 'garden', amb: null, scenery: 'bamboo', v21: true },   // v2.1 (16.8, star 5: gate pad (11,4))
-  { id: 'plaza',  r: [25, 30, 38, 34], open: 'plaza',  lock: 'block', dim: false, music: 'lobby',  amb: null, v21: true },   // v2.1 (16.9, star 5: gate pad (23,32)); v2.0.1: the lower garden (A3)
+  { id: 'plaza',  r: [25, 30, 38, 37], open: 'plaza',  lock: 'block', dim: false, music: 'lobby',  amb: null, v21: true },   // v2.1 (16.9, star 5: gate pad (23,32)); v2.0.1: the lower garden (A3)
 ];
 const AREA = NUL(); AREAS.forEach((a, i) => { a.i = i; AREA[a.id] = a; });
 const AREA_AT = new Int8Array(MW * MH).fill(-1);
@@ -8299,41 +8319,51 @@ const GUEST_ROOMS = ROOMS.filter(r => !r.vip);       // suites are only for VIPs
 const roomOpen = (rm, s) => !rm.open || !!(s || S).unlocked[rm.open];
 const futonC = rm => rm.cleanC;
 
-// ---- doors (2.3): kind = doorArt geometry; open = unlock id (null = always open); base = floor tile drawn under it
+// ---- doors (2.3): kind = doorArt geometry; open = unlock id, or a list of them that must all be bought (null = always
+// open); base = floor tile drawn under it. v2.4 (player feedback "wider doors, more ways through"): w / h = a door 2
+// tiles wide (in a horizontal wall) or 2 tall (in a vertical wall); `at` is its top-left tile, DOOR_AT maps every tile.
 const DOORS = [
-  { at: [17, 6], kind: 'onsen', open: 'onsen' },
-  { at: [8, 18], kind: 'hdoor', open: 'w1', col: '#8a6a3a' },                          // west wing, brown noren
-  { at: [10, 26], kind: 'left', open: 'dining', col: '#5a3a26', emb: 'rice' },          // dining is left of the door
-  { at: [24, 26], kind: 'right', open: 'garden', col: '#2f4a32', emb: 'pinebranch' },   // garden is right of the door
-  { at: [24, 4], kind: 'gate', open: 'roten', base: 's' },
-  { at: [10, 4], kind: 'gate', open: 'shrine', base: 's' },                             // v2.1
-  { at: [25, 29], kind: 'gateH', open: 'plaza', base: 'p' },                            // v2.1
+  { at: [17, 6], w: 2, kind: 'onsen', open: 'onsen' },
+  { at: [8, 18], w: 2, kind: 'hdoor', open: 'w1', col: '#8a6a3a' },                     // west wing, brown noren
+  { at: [10, 26], h: 2, kind: 'left', open: 'dining', col: '#5a3a26', emb: 'rice' },     // dining is left of the door
+  { at: [24, 26], h: 2, kind: 'right', open: 'garden', col: '#2f4a32', emb: 'pinebranch' },   // garden is right of the door
+  { at: [24, 4], h: 2, kind: 'gate', open: 'roten', base: 's' },
+  { at: [10, 4], h: 2, kind: 'gate', open: 'shrine', base: 's' },                        // v2.1
+  { at: [25, 29], w: 2, kind: 'gateH', open: 'plaza', base: 'p' },                       // v2.1
+  { at: [8, 29], w: 2, kind: 'hdoor', open: ['dining', 'shop'], col: '#3a6a4a', emb: 'fish', beyond: 'din' },   // v2.4: dining hall -> shop (green noren)
+  { at: [8, 6], w: 2, kind: 'hdoor', open: ['w1', 'shrine'], col: '#c8402a', emb: 'torii', beyond: 'sand' },   // v2.4: west wing hall -> the shrine (vermilion noren)
 ];
 ROOMS.forEach(rm => DOORS.push({ at: rm.door, kind: rm.left ? 'left' : 'right', open: rm.open, room: rm.id, col: rm.col, emb: rm.emb, gold: rm.vip }));
-const DOOR_AT = NUL(); DOORS.forEach(d => { DOOR_AT[d.at[1] * MW + d.at[0]] = d; });
-const doorIsOpen = d => !d.open || !!S.unlocked[d.open];
+const DOOR_AT = NUL(); DOORS.forEach(d => { d.w = d.w || 1; d.h = d.h || 1; for (let j = 0; j < d.h; j++) for (let i = 0; i < d.w; i++) DOOR_AT[(d.at[1] + j) * MW + d.at[0] + i] = d; });
+const doorIsOpen = d => !d.open || (Array.isArray(d.open) ? d.open.every(k => !!S.unlocked[k]) : !!S.unlocked[d.open]);
 function doorOpen(tx, ty) { const d = DOOR_AT[ty * MW + tx]; return !!d && doorIsOpen(d); }
 
 // ---- spots (2.4); v1 ones moved x + 10
 const DESK_SPOT = [13, 24], QSPOTS = [[13, 26], [13, 27], [13, 28], [14, 28], [15, 28]];
 const SHELF_C = [23 * TILE, 23 * TILE + 8], SHELF_SPOT = [22, 24];
 const BASKET_C = [15 * TILE + 8, 5 * TILE + 8], BASKET_SPOT = [14, 5], TOWEL_SPOT = [16, 5], WAIT_SPOT = [17, 5], MILK_SPOT = [22, 5];
+// v2.4 ("a milk machine by the front door, handier for everyone"): a second machine (unlock milk2) against the facade left
+// of the main entrance, off the walk; guests leaving the bath use the nearer free one, staff / the arrow the nearer one
+const MILK2_AT = [14, 30], MILK2_SPOT = [14, 31];
 const SLOT_X = [15, 17, 19, 13, 21], ROTEN_X = [27, 29, 31, 33, 35, 37];
 // bath slots: stand at (x,4), sit in the water at (x,3). Onsen 0-2 open with the onsen, 3-4 need 浴池; 5-10 are the roten.
 const SLOTS = SLOT_X.map((x, i) => ({ x, roten: false, need: i < 3 ? 'onsen' : 'bigbath' })).concat(ROTEN_X.map(x => ({ x, roten: true, need: 'roten' })));
 const REST = [[21, 25], [22, 25], [23, 25]];          // staff idle spots
-const EXIT = [17 * TILE + 8, 36 * TILE + 8], EXIT_TILE = [17, 35];   // half a tile below the map
-const SPOT = { carpet: [17, 26], clerk: [16, 23], owner: [6, 30], browse: [7, 32], mirror: [2, 33], petCushion: [8, 34], chef: [3, 20],
+const EXIT = [17 * TILE + 8, MH * TILE + 8], EXIT_TILE = [17, MH - 1];   // half a tile below the map
+const SPOT = { carpet: [17, 26], clerk: [16, 23], owner: [6, 30], browse: [7, 32], mirror: [2, 35], petCushion: [8, 35], chef: [3, 20],   // v2.4: the bigger shop
   waiterIdle: [[9, 20], [9, 21]], urn1: [12, 24], urn2: [26, 26], rotenPile: [32, 5] };
 // pick-up zones (4.1): centre px + radius
 const ZONE = { urn1: { c: [11 * TILE + 8, 24 * TILE + 8], r: 18 }, urn2: { c: [26 * TILE + 8, 25 * TILE + 8], r: 18 }, milk: { c: [22 * TILE + 8, 5 * TILE + 8], r: 18 },
+  milk2: { c: [MILK2_SPOT[0] * TILE + 8, MILK2_SPOT[1] * TILE + 8], r: 18 },
   stove: { c: [48, 312], r: 20 }, pass: { c: [56, 344], r: 22 } };
 // dining seats (cushions, not blocking) beside their tables; need = the unlock that brings the table
 const SEATS = [[2, 23, 3, 'dining'], [4, 23, 3, 'dining'], [6, 23, 7, 'dining'], [8, 23, 7, 'dining'], [2, 26, 3, 'table3'], [4, 26, 3, 'table3'], [6, 26, 7, 'table4'], [8, 26, 7, 'table4']]
   .map(([x, y, tx, need]) => ({ at: [x, y], table: [tx, y], need, face: x < tx ? 'right' : 'left' }));
-const DECOR_PADS = [[2, 32], [4, 32]], HAT_PAD = [5, 33], PET_PAD = [7, 33], PAD_MAX = 4;
+// v2.4 ("the shop is cramped, I step on what I didn't want"): every shop pad has an empty tile round it and none is on the
+// way from the dining door / the front yard; the four booths are a 2 x 2 block with a gap, the mirror and the cushion beside it
+const DECOR_PADS = [[2, 32], [4, 32]], HAT_PAD = [4, 34], PET_PAD = [6, 34], PAD_MAX = 4;
 const PILE_AT = NUL();
-Object.assign(PILE_AT, { recep: [15, 24], onsen: [18, 5], milk: [21, 5], dining: [9, 27], shop: [9, 32], roten: [32, 5] });
+Object.assign(PILE_AT, { recep: [15, 24], onsen: [18, 5], milk: [21, 5], dining: [9, 27], shop: [8, 31], roten: [32, 5], milk2: [13, 30] });
 ROOMS.forEach(r => { PILE_AT[r.id] = r.pile; });
 const pileOpen = (id, s) => id === 'recep' || (ROOM[id] ? roomOpen(ROOM[id], s) : !!(s || S).unlocked[id]);
 const SHIRTS = ['#e05a5a', '#5a9ae0', '#6ac06a', '#e0b04a', '#b07ae0', '#e08ac0', '#4ac0b8', '#f08a4a'];
@@ -8356,9 +8386,9 @@ const TILE_LOOK = new Array(MW * MH).fill(null);
   for (let x = 25; x <= 38; x++) set(x, 4, 'sunoko');
   // the lower garden (A3): flower beds (v 0 hydrangea, 1 iris, 2 cosmos, 3 marigold), a clipped hedge and a low bamboo
   // fence on its west side (towards the front yard), stepping stones from the walk to the bench
-  [[26, 30, 0], [27, 30, 0], [28, 30, 2], [35, 30, 3], [36, 30, 2], [37, 30, 0], [38, 30, 0], [38, 31, 1],
-    [26, 34, 1], [27, 34, 0], [28, 34, 0], [29, 34, 2], [32, 34, 2], [33, 34, 3], [34, 34, 3], [35, 34, 0], [36, 34, 0], [37, 34, 1], [38, 34, 1]].forEach(([x, y, v]) => set(x, y, 'bed|' + v));
-  for (let y = 32; y <= 34; y++) set(25, y, 'hedge|0,1');
+  [[27, 30, 0], [28, 30, 2], [35, 30, 3], [36, 30, 2], [37, 30, 0], [38, 30, 0], [38, 31, 1],
+    [26, 37, 1], [27, 37, 0], [28, 37, 0], [29, 37, 2], [32, 37, 2], [33, 37, 3], [34, 37, 3], [35, 37, 0], [36, 37, 0], [37, 37, 1], [38, 37, 1]].forEach(([x, y, v]) => set(x, y, 'bed|' + v));
+  for (let y = 32; y <= 37; y++) set(25, y, 'hedge|0,1');   // v2.4: the plaza runs to r37 (its south beds moved down 3)
   set(25, 30, 'gd|0,1'); set(25, 31, 'gd|0,1'); set(29, 32, 'gd|1'); set(30, 33, 'gd|1');
 }
 const tileLook = (tx, ty) => (tx < 0 || ty < 0 || tx >= MW || ty >= MH) ? null : TILE_LOOK[ty * MW + tx];
@@ -8380,7 +8410,7 @@ const SCENERY = [
   { k: 'bambooLamp', at: [26, 3], need: 'roten', block: false, img: () => deckLanternArt(lampLit()), light: [10, 2, 'deck'] },
   { k: 'bambooLamp', at: [38, 2], need: 'roten', block: false, img: () => deckLanternArt(lampLit()), light: [10, 2, 'deck'] },
   // A3: the lower garden. Shut (BLOCK) in v2.0; the lawn in the middle stays open for the v2.1 festival stalls.
-  { k: 'nodate', at: [30, 34], fw: 2, img: () => nodateArt('gray') },           // red bench under a parasol, a cat asleep on it
+  { k: 'nodate', at: [30, 37], fw: 2, img: () => nodateArt('gray') },           // red bench under a parasol, a cat asleep on it
   { k: 'tsukubai', at: [38, 32], img: () => tsukubaiArt() },                     // stone water basin at the end of the walk
   { k: 'toro', at: [38, 30], img: () => toroArt(), light: [18, 0, 'lamp'] },     // its stone lantern, in the hydrangeas
   { k: 'curl', at: [28, 32], block: false, img: () => catCurl('orange') },       // cats asleep in the sun
@@ -8496,7 +8526,7 @@ function UNB(id, name, price, req, hearts, pad, icon, card, o) { return Object.a
 // the season of the year, 0 spring .. 3 winter: core A's calendar (seasons.js seasonNow; called at run time only - a
 // `typeof seasonNow` here would throw while seasons.js's const is not yet initialised)
 const seasonB = () => seasonNow();
-const OUTFIT_PAD = [3, 34], UNIFORM_PAD = [5, 34];
+const OUTFIT_PAD = [4, 36], UNIFORM_PAD = [6, 36];   // v2.4: under the hat / pet booths, a tile between
 // the innkeeper's outfits (look.outfit; shirt = the colour shown until the character art draws the outfit itself)
 const OUTFITS_B = [
   ['o_yukata', '浴衣', 15000, 6, '换上朝颜浴衣', '#6a9ae0'], ['o_chef', '割烹', 20000, 8, '换上割烹着', '#f4f0e6'],
@@ -8599,14 +8629,15 @@ const PROPS_V21B = [
   { k: 'slantern', at: [8, 2], need: 'of3', img: () => shrineLanternArt(lampLit(), seasonB()), light: [18, 2, 'lamp'] },
   { k: 'komainu', at: [3, 2], need: 'of4', img: () => komainuArt('l', seasonB()) }, { k: 'komainu', at: [7, 2], need: 'of4', img: () => komainuArt('r', seasonB()) },
   { k: 'tree', at: [1, 3], need: 'of6', block: false, img: () => treeArt('sakura', seasonB(), 1) },
-  { k: 'tree', at: [8, 5], need: 'of6', block: false, img: () => flipOf(treeArt('sakura', seasonB(), 2)) },
+  { k: 'tree', at: [9, 2], need: 'of6', block: false,   // v2.4: off the west wing's new way in (was (8,5))
+    img: () => flipOf(treeArt('sakura', seasonB(), 2)) },
   ...[6, 7, 8, 9].map(x => ({ k: 'senbon', at: [x, 4], need: 'of7', block: false, img: () => underSenbon(x) ? fadeArt(senbonArt(), .45) : senbonArt() })),
   { k: 'glow', at: [5, 0], fw: 1.5, need: 'of10', block: false, ground: true, img: () => NO_ART, light: [28, 8, 'lamp'] },   // the gold cat on the roof glows at night (92, 8)
   // the garden pieces (16.7), each on its own ground (snow on them in winter)
   ...GARDEN_B.map(([id, , , at]) => ({ k: 'gz', at, need: id, img: () => snowy(gardenDecorArt(id, Math.floor(T * 1.5) & 1)), light: id === 'gd_lantern' ? [18, 0, 'lamp'] : undefined })),
   // the plaza (16.9): stalls under their cloth, open at a festival / a fireworks show; a lantern string along the hedge
   ...STALLS_B.map(([id, , , kind, x]) => ({ k: 'stall', at: [x, 30], fw: 2, need: id, img: () => stallArt(kind, stallsOpen(), Math.floor(T * 2) & 1) })),   // (snow in winter: seasons.js propImg, k 'stall')
-  { k: 'chochin', at: [26, 29], fw: 13, need: 'plaza', ground: true, block: false, img: () => chochinRow(13) },
+  { k: 'chochin', at: [27, 29], fw: 12, need: 'plaza', ground: true, block: false, img: () => chochinRow(12) },   // v2.4: from col 27 (the gate is 2 wide now)
   ...[27, 31, 35].map(x => ({ k: 'chochinLamp', at: [x, 29], need: 'plaza', ground: true, block: false, img: () => NO_ART, light: [10, 10, 'lamp'] })),
 ];
 // ==== end source:src/data/tables-v21b.js ====
@@ -8635,6 +8666,7 @@ const UNLOCKS = [
   UN('room4', '客房', 140, ['onsen'], 3, [18, 16], 'room', '开「樱」房'),
   UN('d_bonsai', '盆栽', 150, ['d_scroll', 'd_ikebana'], 5, 'decor', 'decor', '摆进客房加价', { decor: true }),
   UN('milk', '牛奶', 160, ['onsen'], 3, [20, 5], 'milk', '泡完买牛奶', { at: [22, 4] }),
+  UN('milk2', '牛奶', 150, ['milk', 'shop'], 2, [14, 30], 'milk', '门口也有牛奶', { at: [14, 30] }),   // v2.4: the second machine (pad on its own tile, like the tables)
   UN('d_screen', '屏风', 180, ['d_scroll', 'd_ikebana'], 5, 'decor', 'decor', '摆进客房加价', { decor: true }),
   UN('room5', '客房', 210, ['room4'], 3, [16, 12], 'room', '开「菊」房'),
   UN('shoes2', '跑鞋', 220, ['shoes1', 'room5'], 1, [19, 28], 'shoes', '走路更快'),
@@ -8759,18 +8791,18 @@ function dayLight(c) {
   return v;
 }
 const DAWN_AT = .10, DUSK_AT = .68;      // sunrise rolls the day over (banner + yesterday's numbers); dusk rings the temple bell (4.10)
-const LIGHT_MAX = 16, GLINT_MAX = 6;     // lamps drawn per frame (the nearest to the view centre), fish-pile glints
+const LIGHT_MAX = 24, GLINT_MAX = 6;     // lamps drawn per frame (the nearest to the view centre), fish-pile glints
 const GLOW_K = .4;                       // warm additive glow on top of the lamp's hole in the tint (stage M: see drawLighting)
 // staff levels (4.7): experience 20 / 60 / 140 / 300 -> Lv2..Lv5; Lv3 silver trim, Lv5 gold trim on work clothes
 const LV_XP = [0, 20, 60, 140, 300];
 const TRIM_OUTFITS = new Set(['kimono', 'apron', 'porter', 'chef', 'waiter', 'clerk']);
 // hearts (4.9 / 4.13): overtakes within 10 s share one banner; the 100th / 500th / 1000th / 5000th guest is a small event
 const RANK_MERGE = 10, MILESTONES = [100, 500, 1000, 5000];
-// the boutique (4.11): try-on within 2 tiles of a booth; the mirror / the pet cushion switch every 1 s; a pet walks 14 px behind
-const TRYON_R = 2 * 16, MIRROR_T = 1, PET_GAP = 14, BOOTH_HINT_T = 60;
+// the boutique (4.11): try-on within 1.25 tiles of a booth (v2.4: was 2 - with the booths 2 tiles apart standing on one tried both); the mirror / the pet cushion switch every 1 s; a pet walks 14 px behind
+const TRYON_R = 20, MIRROR_T = 1, PET_GAP = 14, BOOTH_HINT_T = 60;
 const PATIENCE = 45, PATIENCE_EARLY = 70, BATH_WAIT = 20, CHECKIN_T = .7, CLEAN_T = 1.5, MAID_CLEAN_T = 2.5, BATH_T = 6, SLEEP_T = 10, MILK_T = 1;
 const POUR_T = .6;   // a pad fills in this long once you stand on it (stage 4: was 1.2 s; fewer half-poured pads left behind)
-const P_SPEED = 56, G_SPEED = 34, STAFF_SPEED = 40, BASKET_MAX = 10, PAD_DELAY = .4, GUEST_MAX = 40;
+const P_SPEED = 56, G_SPEED = 34, STAFF_SPEED = 40, BASKET_MAX = 10, PAD_DELAY = .8, GUEST_MAX = 40;   // v2.4: PAD_DELAY .4 -> .8 s standing still
 // fish-pile pickup radius by net level (4.8). v2.0.1 G5: about 1.5 tiles more a level (was 10 / 18 / 28 / 40) and every
 // pile inside it - small ones and the cash box too - flies to the innkeeper (the NEAR_MIN gate is gone)
 const NET_R = [10, 34, 58, 82];
@@ -8826,6 +8858,7 @@ function defaults() {
     equip: { hat: null, pet: null }, staff: {}, vipNext: 0, opts: { lines: true }, gift: false,
     vipOwe: 0,   // the unpaid gift of a VIP seated in a suite right now (10.1: half of it goes to the cash box on load)
     vipAt: 0,    // when the next VIP is due after one left (game seconds, stats.time): a reload must not bring it sooner (18.2)
+    vsleep: [],  // v2.4: guests of honour asleep in a suite after their photo [{ r: suite, id, w: wake day, y: mom's year }]
     // v2.1 core A (16.13; seasons.js loadV21a cleans them): the year's starting totals, trophies, magazine covers,
     // festival medals, mom's visits, the reporter's / festival's last season, festivals held per season, "popular" left
     year: { g: 0, e: 0, h: 0, combos: 0, n: 1 }, awards: [], covers: [], medals: [], mom: 0, momY: 1,
@@ -8877,12 +8910,22 @@ function loadState(rawIn) {
     }
     s.piles = pl;
   }
+  {   // v2.4: a guest of honour asleep in an open suite (one each, a known VIP / rare guest / mom) sleeps on after a load
+    const vs = [], seen = new Set();
+    for (const r of Array.isArray(raw.vsleep) ? raw.vsleep : []) {
+      const rm = r && typeof r === 'object' ? ROOM[r.r] : null;
+      if (!rm || !rm.vip || !roomOpen(rm, s) || seen.has(rm.id) || typeof r.id !== 'string' || !VIP[r.id]) continue;
+      seen.add(rm.id); vs.push(Object.assign({ r: rm.id, id: r.id, w: clamp(int0(r.w), 1, s.day + 2) }, r.id === 'mom' ? { y: Math.max(1, int0(r.y)) } : {}));
+    }
+    s.vsleep = vs;
+  }
   {   // guests are not saved: a reserved room is free again, a slept-in room is messy and its guest left a tip
-    const rs = {};
+    const rs = {}, asleep = new Set(s.vsleep.map(r => r.r));
     for (const rm of ROOMS) {
       if (!roomOpen(rm, s)) continue;
       const st = s.rooms[rm.id];
-      if (st === 'occupied') { rs[rm.id] = 'messy'; s.piles[rm.id] = (s.piles[rm.id] || 0) + STARS[s.peak].tip; }
+      if (asleep.has(rm.id)) rs[rm.id] = 'occupied';   // v2.4: its sleeper is back in the futon (vip.js sleepReset)
+      else if (st === 'occupied') { rs[rm.id] = 'messy'; s.piles[rm.id] = (s.piles[rm.id] || 0) + STARS[s.peak].tip; }
       else rs[rm.id] = st === 'messy' ? 'messy' : 'clean';
     }
     s.rooms = rs;
@@ -9040,14 +9083,19 @@ const PROPS = [
   { k: 'shelf', at: [22, 23], fw: 2, need: 'onsen', img: () => shelfArt() },
   { k: 'basket', at: [15, 5], need: 'onsen', img: () => basketArt(S.basket, BASKET_MAX) },
   { k: 'milk', at: [22, 4], need: 'milk', img: () => milkArt(Math.floor(T * 1.25) & 1) },
+  { k: 'milk', at: MILK2_AT, need: 'milk2', img: () => milkArt(Math.floor(T * 1.25 + .5) & 1), light: [10, -6, 'lamp'] },   // v2.4: by the front door (its lit panel glows at night)
   { k: 'urn', at: [11, 24], need: 'tea', img: () => urnArt() },
   // shop (west of the front garden)
   { k: 'display', at: [1, 30], fw: 4, need: 'shop', img: () => displayShelfArt() },
   { k: 'counter', at: [6, 31], fw: 2, need: 'shop', img: () => shopCounterArt() },
-  { k: 'curtain', at: [5, 33], fw: 4, need: () => !!S.unlocked.shop && star() < 5, ground: true, block: false, img: () => curtainArt() },
-  { k: 'mirror', at: [1, 33], uid: 'boutique', need: () => !!S.unlocked.shop && star() >= 5, img: () => mirrorArt() },
-  { k: 'petcushion', at: [8, 34], uid: 'boutique', need: () => !!S.unlocked.shop && star() >= 5, ground: true, block: false, img: () => petCushionArt() },
+  { k: 'curtain', at: [3, 35], fw: 4, need: () => !!S.unlocked.shop && star() < 5, ground: true, block: false, img: () => curtainArt() },
+  { k: 'mirror', at: [1, 35], uid: 'boutique', need: () => !!S.unlocked.shop && star() >= 5, img: () => mirrorArt() },
+  { k: 'petcushion', at: [8, 35], uid: 'boutique', need: () => !!S.unlocked.shop && star() >= 5, ground: true, block: false, img: () => petCushionArt() },
   { k: 'statue', at: [11, 33], fw: 2, fh: 2, uid: () => S.unlocked.statue ? 'statue' : 'boutique', need: () => star() >= 5 && !!S.unlocked.shop, img: () => S.unlocked.statue ? statueArt('gold', 1) : statueArt('covered', clamp((S.paid.statue || 0) / UNLOCK.statue.price, 0, 1)) },
+  // v2.4 (nights too dark): paper andons in the shop's back corners, path lamps either side of the front walk
+  { k: 'andon', at: [1, 37], need: 'shop', img: () => andonArt(), light: [18, 6, 'lamp'] }, { k: 'andon', at: [9, 37], need: 'shop', img: () => andonArt(), light: [18, 6, 'lamp'] },
+  { k: 'lamp', at: [14, 35], img: () => gardenLampArt(lampLit()), light: [18, -3, 'lamp'] }, { k: 'lamp', at: [20, 35], img: () => gardenLampArt(lampLit()), light: [18, -3, 'lamp'] },
+  { k: 'lamp', at: [27, 35], need: 'plaza', img: () => gardenLampArt(lampLit()), light: [18, -3, 'lamp'] }, { k: 'lamp', at: [36, 35], need: 'plaza', img: () => gardenLampArt(lampLit()), light: [18, -3, 'lamp'] },
   // dining + kitchen
   { k: 'stove', at: [2, 19], fw: 2, need: 'dining', img: () => stoveArt(stoveBusy() ? Math.floor(T * 2) & 1 : 0) },   // fire + steam only while cooking
   { k: 'ricepot', at: [4, 19], need: 'dining', img: () => ricePotArt(stoveBusy() ? Math.floor(T * 1.5) & 1 : 0) },
@@ -9542,10 +9590,15 @@ function updGuest(gu, dt) {
         if (S.unlocked.milk) { setSt(gu, 'toMilk'); gu.goal = null; } else guestNext(gu, 'bath');
       }
       break;
-    case 'toMilk': goTo(gu, MILK_SPOT[0], MILK_SPOT[1]); if (walk()) { setSt(gu, 'milk'); gu.tt = MILK_T; gu.dir = 'up'; SFX.milk(); lineSay(gu, 'G13'); } break;
+    case 'toMilk': {   // v2.4: the nearer machine nobody else is buying at (the onsen's, else the one by the front door)
+      if (!gu.milkAt) gu.milkAt = !S.unlocked.milk2 || !GUESTS.some(o => o !== gu && (o.st === 'toMilk' || o.st === 'milk') && o.milkAt === 'milk') ? 'milk' : 'milk2';
+      const sp = gu.milkAt === 'milk2' ? MILK2_SPOT : MILK_SPOT;
+      goTo(gu, sp[0], sp[1]); if (walk()) { setSt(gu, 'milk'); gu.tt = MILK_T; gu.dir = 'up'; SFX.milk(); lineSay(gu, 'G13'); }
+      break;
+    }
     case 'milk':   // G3: nobody waits at the machine for the innkeeper any more - it buys its milk and goes
       gu.tt -= dt;
-      if (gu.tt <= 0) { deposit('milk', fee('milk', { gu })); callSelf(gu, 'milk'); markDirty(); gu.heart = 1; SFX.meow(); guestNext(gu, 'bath'); }
+      if (gu.tt <= 0) { deposit(gu.milkAt === 'milk2' ? 'milk2' : 'milk', fee('milk', { gu })); callSelf(gu, 'milk'); markDirty(); gu.heart = 1; SFX.meow(); gu.milkAt = null; guestNext(gu, 'bath'); }
       break;
     case 'toTea': goTo(gu, TEA_SPOT[0], TEA_SPOT[1]); if (walk()) { setSt(gu, 'tea'); gu.tt = TEA_T; gu.dir = 'left'; SFX.milk(); lineSay(gu, 'G13'); } break;
     case 'tea':    // a cup at the lobby urn (G3): pays into the tea pile, like milk at the machine
@@ -9760,13 +9813,13 @@ function updClerk(s, dt, walk) {
 // now; within DELIVER_R it hands it over and the tip goes into the cash box at the desk (serveCall). A call that ends on
 // the way (timed out, the guest got it by itself) is let go; what is left on its tray just goes back.
 function teaSource(k, s) {
-  if (k === 'milk') return 'milk';
+  if (k === 'milk') return !S.unlocked.milk2 || dist(s.x, s.y, ZONE.milk.c[0], ZONE.milk.c[1]) <= dist(s.x, s.y, ZONE.milk2.c[0], ZONE.milk2.c[1]) ? 'milk' : 'milk2';   // v2.4: the nearer machine
   if (k === 'rice') return PASS.n > 0 ? 'pass' : 'stove';
   const a = !!S.unlocked.tea, b = !!S.unlocked.garden;
   if (!a || !b) return a ? 'urn1' : 'urn2';
   return dist(s.x, s.y, ZONE.urn1.c[0], ZONE.urn1.c[1]) <= dist(s.x, s.y, ZONE.urn2.c[0], ZONE.urn2.c[1]) ? 'urn1' : 'urn2';
 }
-const TEA_SRC_TILE = { urn1: SPOT.urn1, urn2: SPOT.urn2, milk: MILK_SPOT, pass: [3, 22], stove: [2, 20] };
+const TEA_SRC_TILE = { urn1: SPOT.urn1, urn2: SPOT.urn2, milk: MILK_SPOT, milk2: MILK2_SPOT, pass: [3, 22], stove: [2, 20] };
 function updTeaboy(s, dt, walk) {
   s.jobs = s.jobs.filter(gu => gu.call && gu.callBy === s && GUESTS.includes(gu) && !gu.gone);
   s.cooking = false; s.working = false;
@@ -9959,6 +10012,7 @@ function edgeNew(tx, ty, icon) {
 let VIPG = null, vipT = 1e9, lastVip = null;
 const SUITES = ROOMS.filter(r => r.vip);
 const suiteFree = rm => roomOpen(rm) && S.rooms[rm.id] === 'clean' && !RT[rm.id].guest;
+const suiteAvail = rm => roomOpen(rm) && !RT[rm.id].guest;   // v2.4: nobody asleep in it (it may still need cleaning)
 const cleanSuite = () => SUITES.find(suiteFree) || null;   // suite A first, B when A is dirty or taken
 const vipNeedsSuite = () => !!VIPG && (VIPG.st === 'arrive' || VIPG.st === 'carpet') && !cleanSuite();
 const vipGift = () => R(20 * STARS[star()].room * qualityQ() * (1 + .05 * goldStars()));
@@ -10017,7 +10071,55 @@ function vipWishDone() {
     else if (!S.gifts.includes(v.id)) { S.gifts.push(v.id); if (S.gifts.length > 6) S.gifts.shift(); }
   }
   S.stats.vips++; RUN.vipDone++; RUN.vipF.push(f); RUN.vipUsed.push(used); RUN.vipPaid += v.paid;
-  vipLeave(true);
+  vipBed(v);   // v2.4: it stays the night (was: vipLeave(true) - straight out of the door after the photo)
+}
+// ---- v2.4 (player feedback "the guests of honour run off right after the photo"): after the photo a VIP / rare guest /
+// mom goes to bed in its suite (futon, Zzz, a warm andon) and sleeps until the next dawn - at least VIP_SLEEP_MIN s, else
+// the dawn after - then says goodbye at the door of its suite and walks out; the suite is messy after it. The VIP slot
+// (VIPG) is free at once (the next one's gap starts at the photo, as before), but a guest of honour only comes while a
+// suite has nobody asleep in it (suiteAvail). Saved: S.vsleep = [{ r: suite, id, w: the day it wakes, y: mom's year }].
+const VIP_SLEEP_MIN = 45;
+let VSLEEP = [];   // the sleepers (runtime entities, rebuilt from S.vsleep on resetWorld)
+function vipBed(v) {
+  firstDone('vip');
+  S.vipOwe = 0; vipT = S.stats.time + vipGap(); S.vipAt = Math.ceil(vipT);
+  if (v.rare) rareLeave(v, true);   // when it may come again (counted from the photo, as before)
+  const toDawn = (((DAWN_AT - S.clock) % 1) + 1) % 1 * DAY_LEN;
+  const rec = { r: v.suite, id: v.id, w: S.day + (toDawn < VIP_SLEEP_MIN ? 2 : 1) }; if (v.mom) rec.y = v.momYear || 1;
+  S.vsleep.push(rec);
+  const e = sleeperOf(rec, v); setSt(e, 'toBed'); VSLEEP.push(e); RT[v.suite].guest = e;
+  VIPG = null; markDirty();
+}
+// a sleeper entity from its saved record (after the photo: from the guest itself, where it stands)
+function sleeperOf(rec, v) {
+  const rm = ROOM[rec.r], d = VIP[rec.id] || {}, look = v ? v.look : rec.id === 'mom' ? MOM_DEF.look : RARE_LOOK[rec.id] || VIP_LOOK[rec.id] || { fur: d.fur || 'orange', outfit: 'robe', robe: d.robe || null };
+  const e = { id: rec.id, sleeper: true, mom: rec.id === 'mom', momYear: rec.y, look, room: rec.r, x: v ? v.x : tcx(rm.cleanT), y: v ? v.y : tcy(rm.cleanT), ox: 0, dir: 'down', moving: false, walkT: 0, path: [], goal: null, q: [], st: 'sleep', t: 0, rec };
+  const r = RARE[rec.id]; if (r && r.kits) e.kits = (v && v.kits) || r.kits.slice(1).map((fur, i) => ({ fur, x: e.x + (i ? 6 : -6), y: e.y + 3, dir: 'down', moving: false, walkT: 0, q: [] }));
+  return v ? Object.assign(v, e, { vip: false }) : e;   // the same object (a line it is still saying stays its own)
+}
+function sleepReset() {   // resetWorld: the saved sleepers back in their futons
+  VSLEEP = S.vsleep.map(rec => sleeperOf(rec));
+  for (const e of VSLEEP) { RT[e.room].guest = e; S.rooms[e.room] = 'occupied'; }
+}
+function sleepTick(dt) {
+  for (const e of VSLEEP) {
+    e.t += dt;
+    if (e.st === 'toBed') {
+      const rm = ROOM[e.room]; goTo(e, rm.cleanT[0], rm.cleanT[1]);
+      if (stepPath(e, dt, G_SPEED) || e.lost || e.t > 20) { e.x = tcx(rm.cleanT); e.y = tcy(rm.cleanT); e.moving = false; setSt(e, 'sleep'); S.rooms[e.room] = 'occupied'; lineSay(e, 'G33|G07'); markDirty(); }
+    } else if (e.st === 'sleep') { if (S.day >= e.rec.w) vipWake(e); }
+    else if (e.st === 'leave') { if (stepPath(e, dt, G_SPEED)) e.gone = true; }
+    if (e.kits && e.st !== 'sleep') kitsFollow(e, dt);
+  }
+  if (VSLEEP.some(e => e.gone)) VSLEEP = VSLEEP.filter(e => !e.gone);
+}
+function vipWake(e) {
+  const id = e.room; RT[id].guest = null; S.rooms[id] = 'messy'; RT[id].vipMess = true; RT[id].cleanP = 0;   // the long clean (4.4)
+  S.vsleep = S.vsleep.filter(r => r !== e.rec);
+  const rm = ROOM[id]; e.x = tcx(rm.cleanT); e.y = tcy(rm.cleanT); if (e.kits) e.kits.forEach((k, i) => { k.x = e.x + (i ? 6 : -6); k.y = e.y + 3; });
+  setSt(e, 'leave'); e.goal = null; goTo(e, EXIT_TILE[0], EXIT_TILE[1], EXIT.slice());
+  if (e.mom) momLeaveLine(e); else lineSay(e, 'V11');   // its goodbye
+  markDirty();
 }
 function vipPhoto() {   // "click" (no flash): a polaroid flies from its head to the menu button
   sfx('shutter'); FX.push({ k: 'polaroid', id: VIPG.id, x0: R(VIPG.x) - R(cam.x), y0: R(VIPG.y) - 26 - R(cam.y), t: 0, life: .9 });
@@ -10025,7 +10127,8 @@ function vipPhoto() {   // "click" (no flash): a polaroid flies from its head to
 }
 function updVip(dt) {
   const v = VIPG;
-  if (!v) { if (S.unlocked.garden && S.stats.time >= vipT && SUITES.some(rm => roomOpen(rm)) && !rareArrive()) vipArrive(); return; }   // v2.1: a rare guest due comes in its place
+  sleepTick(dt);   // v2.4: the guests of honour asleep in their suites
+  if (!v) { if (S.unlocked.garden && S.stats.time >= vipT && SUITES.some(suiteAvail) && !momDue() && !rareArrive()) vipArrive(); return; }   // v2.1: a rare guest due comes in its place; v2.4: only while a suite has nobody asleep in it, never on mom's day before she came
   v.t += dt;
   const walk = spd => stepPath(v, dt, spd);
   switch (v.st) {
@@ -10127,6 +10230,21 @@ function buildLights() {
   if (S.unlocked.garden) { add(33, 18, 18, -3); add(26, 27, 18, -3); add(33, 24, 18, -3); add(26, 10, 18); add(31, 17, 18, 4); }   // path lamps, wall lamp, snow lantern
   if (S.unlocked.roten) { add(28, 7, 18, 0, DECK_COL); add(36, 7, 18, 0, DECK_COL); }        // star-view deck lanterns
   for (const rm of ROOMS) if (roomOpen(rm)) add(rm.andon[0], rm.andon[1], 10, 6, LAMP_COL, rm);
+  // v2.4 (player feedback "the nights are a bit too dark"): a lantern over every open door and gate (on the side you
+  // come from), ceiling lamps in the lobby's corners, the west hall, the dining hall and the shop, the cottage / suite
+  // porches. The shop's andons, the front yard's / plaza's path lamps and the second milk machine light themselves (props
+  // with `light`, rebuildWorld). Locked places stay dark; the night tint is unchanged.
+  for (const d of DOORS) if (!d.room && doorIsOpen(d)) {
+    const [x, y] = d.at, w = d.w || 1, h = d.h || 1, cx = x * TILE + w * 8, cy = y * TILE + h * 8;
+    LIGHTS.push({ x: cx, y: cy + (h > 1 ? 0 : 2), r: 18, col: LAMP_COL, room: null });
+  }
+  add(12, 27, 18); add(22, 27, 18);                                   // the lobby's lower corners
+  if (S.unlocked.w1) for (const y of [8, 12, 16]) add(8, y, 18, 4);    // the west hall (Taisho ceiling lamps, soft)
+  if (S.unlocked.dining) { add(4, 27, 18); add(7, 27, 18); add(7, 20, 18); }
+  if (S.unlocked.shop) { add(3, 32, 24); add(5, 35, 24); add(8, 33, 18); }
+  if (S.unlocked.garden) { add(25, 12, 18); add(25, 21, 18); add(32, 21, 18); add(29, 9, 18); add(36, 9, 18); }   // porches of 月见亭 / 花见亭 / 萤见亭, the walk under the hedge
+  if (S.unlocked.suiteB) add(32, 12, 18);
+  if (S.unlocked.shrine) { add(7, 4, 18); add(3, 4, 10); }            // the approach
 }
 const roomBusy = rm => rm.vip ? !!RT[rm.id].guest : S.rooms[rm.id] === 'occupied';
 const lightR = L => L.room ? (roomBusy(L.room) ? 18 : 10) : L.r;
@@ -10233,6 +10351,15 @@ function deskManned() { const rc = STAFF.find(s => s.role === 'recep'); return P
 // receptionist checks in twice as fast (two at work)
 function checkinT() { const rc = STAFF.find(s => s.role === 'recep' && s.atDesk); return rc ? CHECKIN_T * lvMul(rc, .92) / repStaff() / (P.atDesk ? 2 : 1) : CHECKIN_T; }
 function inShelfZone() { return S.unlocked.onsen && dist(P.x, P.y, SHELF_C[0], SHELF_C[1]) <= 22; }
+// v2.4: towels the innkeeper has a use for - room in the basket less what the porter / a maid already carry to it, plus the
+// rush guests' towel wishes (so it never fights the porter over the basket, and never ends up with towels nobody takes)
+const TOWEL_BACK_T = .15;
+function towelUse() {
+  let carried = 0, ex = 0;
+  for (const s of STAFF) if ((s.role === 'porter' || s.role === 'maid') && s.carry > 0) carried += s.carry;
+  for (const gu of GUESTS) if (gu.ex && gu.ex.k === 'towel') ex++;
+  return Math.max(0, BASKET_MAX - S.basket - carried) + ex;
+}
 function inBasketZone() { return S.unlocked.onsen && dist(P.x, P.y, BASKET_C[0], BASKET_C[1]) <= 20; }
 function inCleanZone(rm) { return dist(P.x, P.y, rm.cleanC[0], rm.cleanC[1]) <= rm.cleanR; }
 // pulled: the net reached it from further than a step (G5) - its fish fly over to the innkeeper (not straight to the HUD)
@@ -10259,7 +10386,10 @@ function collect(id, pulled) {
 }
 function pour(u, dt) {
   if (P.padOn !== u.id) { P.padOn = u.id; P.padT = 0; }
-  P.padT += dt; if (P.padT < PAD_DELAY) return;   // walking across a pad doesn't spend; stand on it for a moment
+  // walking across a pad doesn't spend: stand still on it for a moment (v2.4: 0.4 -> 0.8 s and only while standing still -
+  // "I keep stepping on things I didn't want"); once the fish flow, a nudge on the pad doesn't stop them
+  if (P.moving && P.pouring !== u.id) { P.padT = 0; return; }
+  P.padT += dt; if (P.padT < PAD_DELAY) return;
   if (padNeed(u) <= 0) { unlock(u.id); return; }   // an old save already paid more than a price that was lowered later
   if (S.money <= 0) { P.pouring = null; P.pourAcc = 0; return; }   // out of fish: no pouring look (the frame stays white)
   if (P.pouring !== u.id) { P.pouring = u.id; P.pourAcc = 0; }
@@ -10299,6 +10429,7 @@ const PICKUPS = [
   { id: 'urn1', k: 'tea', t: .3, on: () => !!S.unlocked.tea },
   { id: 'urn2', k: 'tea', t: .3, on: () => !!S.unlocked.garden },
   { id: 'milk', k: 'milk', t: .3, on: () => !!S.unlocked.milk },
+  { id: 'milk2', k: 'milk', t: .3, on: () => !!S.unlocked.milk2 },   // v2.4: the machine by the front door
   { id: 'pass', k: 'rice', t: .15, on: () => !!S.unlocked.dining },
 ];
 const inZone = z => dist(P.x, P.y, z.c[0], z.c[1]) <= z.r;
@@ -10374,8 +10505,12 @@ function zones(dt) {
   // towels: shelf -> head stack -> basket
   if (S.unlocked.onsen) {
     const cap = towelCap();
-    if (inShelfZone() && P.towels < cap) { P.shelfT += dt; while (P.shelfT >= .12 && P.towels < cap) { P.shelfT -= .12; P.towels++; SFX.pop(); } } else P.shelfT = 0;
+    // v2.4 ("I picked up towels by accident and the basket was full"): only as many as there is a use for (towelUse)
+    const want = Math.min(cap, towelUse());
+    if (inShelfZone() && P.towels < want) { P.shelfT += dt; while (P.shelfT >= .12 && P.towels < want) { P.shelfT -= .12; P.towels++; SFX.pop(); } } else P.shelfT = 0;
     if (inBasketZone() && P.towels > 0 && S.basket < BASKET_MAX) { P.basketT += dt; while (P.basketT >= .1 && P.towels > 0 && S.basket < BASKET_MAX) { P.basketT -= .1; P.towels--; S.basket++; SFX.pop(); markDirty(); } } else P.basketT = 0;
+    // ... and what is left over goes back by itself at the shelf or the basket, one every TOWEL_BACK_T s (the stack shrinks)
+    if (P.towels > towelUse() && (inShelfZone() || inBasketZone())) { P.towelBackT = (P.towelBackT || 0) + dt; if (P.towelBackT >= TOWEL_BACK_T) { P.towelBackT = 0; P.towels--; SFX.pop(); } } else P.towelBackT = 0;
   }
   // decor slots: stand still on one to swap in the next piece (4.5)
   slotZone(dt, ptx, pty);
@@ -10497,8 +10632,8 @@ const deskHelp = free => !!S.unlocked.recep && !!free && (lineLongT >= LINE_LONG
 const padLocked = u => { const xy = P.padLock && padXY(u); return !!xy && xy[0] === P.padLock[0] && xy[1] === P.padLock[1]; };
 const guidePads = sk => sk && sk.pad ? [] : visiblePads().filter(u => !u.booth && !u.noArrow && !padLocked(u) && !(sk && sk.decor && u.decor));   // v2.1: never the fireworks
 // pick-up points: the tile the arrow / bot goes to and the arrow kind (6)
-const PICK_TILE = { urn1: SPOT.urn1, urn2: SPOT.urn2, milk: MILK_SPOT, pass: [3, 22], stove: [2, 20] };
-const PICK_KIND = { urn1: 'urn', urn2: 'urn', milk: 'milk', pass: 'pass', stove: 'stove' };
+const PICK_TILE = { urn1: SPOT.urn1, urn2: SPOT.urn2, milk: MILK_SPOT, milk2: MILK2_SPOT, pass: [3, 22], stove: [2, 20] };
+const PICK_KIND = { urn1: 'urn', urn2: 'urn', milk: 'milk', milk2: 'milk', pass: 'pass', stove: 'stove' };
 const T_PICK = (id, here, k) => { const z = ZONE[id], t = PICK_TILE[id]; return Object.assign(gT(PICK_KIND[id], z.c[0], z.c[1], t[0], t[1], here, 'pick:' + id), { item: k || null }); };
 // stage 2B kinds (6): slot (decor), vip (greet / catch up), suite (show it in), tap (run its bath), photo
 const T_SLOT = (sl, here) => Object.assign(gT('slot', tcx(sl.at), tcy(sl.at), sl.at[0], sl.at[1], here, 'slot:' + sl.key), { slot: sl.key });
@@ -10544,7 +10679,14 @@ function sourceOf(k, from) {
     if (was === 'pick:urn2' && d1 >= .7 * d2) return 'urn2';
     return d1 <= d2 ? 'urn1' : 'urn2';
   }
-  if (k === 'milk') return S.unlocked.milk ? 'milk' : null;
+  if (k === 'milk') {   // v2.4: the nearer of the two machines (same stickiness as the urns)
+    if (!S.unlocked.milk) return null; if (!S.unlocked.milk2) return 'milk';
+    const d1 = dist(tcx(from), tcy(from), ZONE.milk.c[0], ZONE.milk.c[1]), d2 = dist(tcx(from), tcy(from), ZONE.milk2.c[0], ZONE.milk2.c[1]);
+    const was = GPREV && GPREV.kind === 'milk' && !GPREV.here ? GPREV.key : null;
+    if (was === 'pick:milk' && d2 >= .7 * d1) return 'milk';
+    if (was === 'pick:milk2' && d1 >= .7 * d2) return 'milk2';
+    return d1 <= d2 ? 'milk' : 'milk2';
+  }
   if (k === 'rice') return !S.unlocked.dining ? null : PASS.n > 0 ? 'pass' : hasChef() ? null : 'stove';   // chef + empty counter: wait for him
   if (k === 'kaiseki') return S.unlocked.dining ? 'stove' : null;
   return null;
@@ -10581,7 +10723,7 @@ function guideTarget(opts) {
   for (const rm of ROOMS) if (S.rooms[rm.id] === 'messy' && inCleanZone(rm)) return gAt(1, T_CLEAN(rm, true));
   if (S.unlocked.onsen) {
     if (P.towels > 0 && S.basket < BASKET_MAX && inBasketZone()) return gAt(1, T_BASKET(true));
-    if (P.towels < towelCap() && inShelfZone() && (exNeed('towel', L) > 0 || (S.unlocked.porter ? towelWanted() : (P.towels > 0 || S.basket <= 2 || towelWanted())))) return gAt(1, T_SHELF(true));
+    if (P.towels < Math.min(towelCap(), towelUse()) && inShelfZone() && (exNeed('towel', L) > 0 || (S.unlocked.porter ? towelWanted() : (P.towels > 0 || S.basket <= 2 || towelWanted())))) return gAt(1, T_SHELF(true));
   }
   if (P.pouring && S.money > 0 && PADPOS.has(P.pouring) && !sk.pad && !(sk.decor && UNLOCK[P.pouring].decor)) return gAt(1, T_PAD(UNLOCK[P.pouring], true));
   for (const pk of PICKUPS) if (inZone(ZONE[pk.id]) && canPick(pk, L)) return gAt(1, T_PICK(pk.id, true, pk.k));   // picking up something wanted
@@ -10698,7 +10840,7 @@ function guideTarget(opts) {
   }
   if (GPREV && GPREV.rule === 12 && !GPREV.here && Q.length) { const rm = ROOM[GPREV.key.slice(6)]; if (rm && S.rooms[rm.id] === 'messy') return gAt(12, T_CLEAN(rm, false)); }
   // 13. towels (until the porter is hired): basket low or a guest waiting for one
-  if (S.unlocked.onsen && towelHelp()) return gAt(13, P.towels > 0 ? T_BASKET(false) : T_SHELF(false));
+  if (S.unlocked.onsen && towelHelp() && (P.towels > 0 || towelUse() > 0)) return gAt(13, P.towels > 0 ? T_BASKET(false) : T_SHELF(false));   // v2.4: not to the shelf while the porter's load fills the basket
   // 14. decor: complete a combo the arrow may point at, else dress an empty room's A slot (nearest first)
   if (slotT) return gStick(14, T_SLOT(slotT), slots.map(sl => T_SLOT(sl)));
   // 15. the biggest fish pile - only one worth the walk: >= 20 fish and >= 20 % (stage 4: 10 %) of what the cheapest pad
@@ -11095,13 +11237,13 @@ function gzIcon(id) {
 const WISH_MAKE = { tea: () => !!(S.unlocked.tea || S.unlocked.garden), milk: () => !!S.unlocked.milk, rice: () => !!S.unlocked.dining, kaiseki: () => !!S.unlocked.dining };
 const wishOk = k => !WISH_MAKE[k] || WISH_MAKE[k]();
 function vipWs(v) { if (!v) return []; if (!v.ws) v.ws = (VIP[v.id] ? VIP[v.id].wishes : ['tea', 'bath', 'photo']).map(k => wishOk(k) ? k : 'tea'); return v.ws; }
-const STATION_ICON = { urn1: 'urn', urn2: 'urn', milk: 'milk', stove: 'stove', pass: 'pass', tap: 'tub' };
+const STATION_ICON = { urn1: 'urn', urn2: 'urn', milk: 'milk', milk2: 'milk', stove: 'stove', pass: 'pass', tap: 'tub' };
 const WISH_VERB = { tea: '泡茶', kaiseki: '做饭', milk: '拿奶', rice: '拿饭', bath: '放水', photo: '合影' };
 const TRAY_WISH = new Set(['tea', 'kaiseki', 'milk', 'rice']);
 // the stations that make wish k right now: pick-up zone ids (ZONE / PICK_TILE) or 'tap' (the suite's tub)
 function wishStations(k) {
   if (k === 'tea') return [S.unlocked.tea ? 'urn1' : null, S.unlocked.garden ? 'urn2' : null].filter(Boolean);
-  if (k === 'milk') return S.unlocked.milk ? ['milk'] : [];
+  if (k === 'milk') return [S.unlocked.milk ? 'milk' : null, S.unlocked.milk2 ? 'milk2' : null].filter(Boolean);   // v2.4: + the machine by the front door
   if (k === 'kaiseki') return S.unlocked.dining ? ['stove'] : [];
   if (k === 'rice') return !S.unlocked.dining ? [] : PASS.n > 0 || hasChef() ? ['pass'] : ['stove'];
   if (k === 'bath') return VIPG && VIPG.suite ? ['tap'] : [];
@@ -11118,7 +11260,7 @@ function wishGlow() {
 // where a station is: g = the spot to stand on (the glow ring: centre, radii), tag = over the station's sprite (world px)
 function stationAt(id) {
   if (id === 'tap') { const rm = ROOM[VIPG.suite], tp = rm.tap, tb = rm.tub; return { gx: tcx(tp), gy: tcy(tp) + 3, rx: 9, ry: 5, tx: tcx(tb), ty: (tb[1] + 1) * TILE - 24, tile: tp }; }
-  const z = ZONE[id], dy = { urn1: 30, urn2: 30, milk: 46, stove: 30, pass: 24 }[id] || 28;
+  const z = ZONE[id], dy = { urn1: 30, urn2: 30, milk: 46, milk2: 46, stove: 30, pass: 24 }[id] || 28;
   return { gx: z.c[0], gy: z.c[1] + 4, rx: z.r, ry: R(z.r * .55), tx: z.c[0], ty: z.c[1] - dy, tile: PICK_TILE[id] };
 }
 // ---- pictures
@@ -11630,7 +11772,7 @@ function loadStateB(s, raw) {
 // ==== source:src/core/update.js ====
 // ============================================================ update(dt)
 let state = 'title', st = 0, T = 0;
-const TITLE_CAM = [190, MAPH - H - 32];   // the entrance noren + the bowing innkeeper below the start button (v1: x 30)
+const TITLE_CAM = [190, 29 * TILE - 240];   // v2.4: fixed (the map grew below the entrance; was MAPH - H - 32 = 224)   // the entrance noren + the bowing innkeeper below the start button (v1: x 30)
 const cam = { x: TITLE_CAM[0], y: TITLE_CAM[1] };
 let DISP = 0, hudBump = 0;
 const FX = [];
@@ -11737,13 +11879,17 @@ const WORLD = mk(MAPW, MAPH);
 // whenever a room's combo changes
 function paintDoor(dr) {
   if (!dr) return;
-  const [tx, ty] = dr.at, wg = WORLD.getContext('2d'), nb = { u: ch(tx, ty - 1), d: ch(tx, ty + 1), l: ch(tx - 1, ty), r: ch(tx + 1, ty) };
-  wg.imageSmoothingEnabled = false; wg.clearRect(tx * TILE, ty * TILE, TILE, TILE);
-  const base = tileArt(dr.base || '.', tx, ty, nb, seasonNow()); if (base) wg.drawImage(base, tx * TILE, ty * TILE);
+  const [tx, ty] = dr.at, wg = WORLD.getContext('2d'), dw = dr.w || 1, dh = dr.h || 1;
+  wg.imageSmoothingEnabled = false;
+  for (let j = 0; j < dh; j++) for (let i = 0; i < dw; i++) {   // v2.4: a wide / tall door covers 2 tiles (one image)
+    const x = tx + i, y = ty + j, nb = { u: ch(x, y - 1), d: ch(x, y + 1), l: ch(x - 1, y), r: ch(x + 1, y) };
+    wg.clearRect(x * TILE, y * TILE, TILE, TILE);
+    const base = tileArt(dr.base || '.', x, y, nb, seasonNow()); if (base) wg.drawImage(base, x * TILE, y * TILE);
+  }
   const rm = dr.room ? ROOM[dr.room] : null, c = rm ? roomCombo(rm) : null;
   // a room door shows its own room's floor through the doorway, and what lies outside (corridor / west hall / gravel)
   const fl = rm ? [rm.floor, tileLook(tx + (rm.left ? 1 : -1), ty) || ch(tx + (rm.left ? 1 : -1), ty)] : null;
-  wg.drawImage(doorArt(dr.kind, doorIsOpen(dr), c ? c.col : dr.col || null, c ? c.emb : dr.emb || null, !!dr.gold, tx, ty, fl, seasonNow()), tx * TILE, ty * TILE);   // gates paint their own ground: they need where they stand (v2.1: in the season's colours)
+  wg.drawImage(doorArt(dr.kind, doorIsOpen(dr), c ? c.col : dr.col || null, c ? c.emb : dr.emb || null, !!dr.gold, tx, ty, fl, seasonNow(), dw > 1 ? 'w' : dh > 1 ? 'h' : null, dr.beyond || null), tx * TILE, ty * TILE);   // gates paint their own ground: they need where they stand (v2.1: in the season's colours)
 }
 const tubBusy = rm => !!VIPG && VIPG.suite === rm.id && (VIPG.st === 'soak' || (VIPG.st === 'seated' && VIPG.actT > 0 && vipWish() === 'bath'));
 // a VIP's face, 8x8 from its front sprite (photo frames, the polaroid; the album crops its own)
@@ -11757,7 +11903,7 @@ function rebuildWorld() {
   const wg = WORLD.getContext('2d'), sea = seasonNow(); wg.imageSmoothingEnabled = false; wg.clearRect(0, 0, MAPW, MAPH);
   for (let ty = 0; ty < MH; ty++) for (let tx = 0; tx < MW; tx++) {
     const c = MAP[ty][tx], nb = { u: ch(tx, ty - 1), d: ch(tx, ty + 1), l: ch(tx - 1, ty), r: ch(tx + 1, ty) };
-    if (c === 'D') paintDoor(DOOR_AT[ty * MW + tx]);
+    if (c === 'D') { const dr = DOOR_AT[ty * MW + tx]; if (dr && dr.at[0] === tx && dr.at[1] === ty) paintDoor(dr); }   // a 2-tile door: once, from its first tile
     else { const t = tileArt(c, tx, ty, nb, sea, TILE_LOOK[ty * MW + tx]); if (t) wg.drawImage(t, tx * TILE, ty * TILE); }   // looks: room floors / walls (A1) ...
   }
   // wall decor (2.4): gift shelf + photo frames on the lobby's north wall, the dining menu boards, the garden wall lamp
@@ -11777,7 +11923,7 @@ function rebuildWorld() {
   const sh = lockedShade(), shadeTile = (tx, ty) => { if (typeof sh === 'string') { wg.fillStyle = sh; wg.fillRect(tx * TILE, ty * TILE, TILE, TILE); } else wg.drawImage(sh, tx * TILE, ty * TILE); };
   for (const a of AREAS) if (a.dim && !areaOpen(a)) for (let y = a.r[1]; y <= a.r[3]; y++) for (let x = a.r[0]; x <= a.r[2]; x++) shadeTile(x, y);
   for (const rm of ROOMS) if (!roomOpen(rm) && areaOpen(areaAt(rm.box[0], rm.box[1]))) for (let y = rm.box[1]; y <= rm.box[3]; y++) for (let x = rm.box[0]; x <= rm.box[2]; x++) shadeTile(x, y);
-  if (!S.unlocked.shop) for (let y = 30; y <= 34; y++) wg.drawImage(ropeArt('v'), 10 * TILE, y * TILE);
+  if (!S.unlocked.shop) for (let y = AREA.shop.r[1]; y <= AREA.shop.r[3]; y++) wg.drawImage(ropeArt('v'), 10 * TILE, y * TILE);
 }
 const VIS = (wx, wy, m) => wx - CX > -m && wx - CX < W + m && wy - CY > -m && wy - CY < H + m;
 // walk frame 2 lifts the head (and the body) 1 px (art 12.1): what sits on a head (towels, a tray, try-on sparkles) bobs with it
@@ -11859,6 +12005,7 @@ function drawFutons(rm) {
   let hA = null, hB = null;
   if (gu && gu.st === 'sleep') {
     const m = gu.mate; hA = [[gu.look.fur, 0]];
+    if (gu.kits) hA = [[gu.kits[0].fur, -4], [gu.look.fur, 0], [gu.kits[1].fur, 4]];   // v2.4: the kitten brothers asleep in a row
     if (m && m.kind === 'kitten' && rm.futonB) hB = [[m.look.fur, 0]];
     else if (m) hA = [[gu.look.fur, -3], [m.look.fur, 3]];
   }
@@ -11982,6 +12129,10 @@ function drawScene(vw, vh, live, noPlayer, card) {
     if (v.st === 'soak') { const tb = ROOM[v.suite].tub; L.push({ y: (tb[1] + 1) * TILE + .02, f: () => drawA(catBathing(v.look.fur, Math.floor(T * 1.4) & 1, 'tub'), tcx(tb), tb[1] * TILE + 8, 9, 9) }); }
     else L.push({ y: v.y, f: () => v.kits ? drawKit(v, v.look.fur) : drawCat(v, v.look) });   // v2.1: the three kitten brothers (rare.js)
   }
+  if (live) for (const e of VSLEEP) if (e.st !== 'sleep' && VIS(e.x, e.y, 32)) {   // v2.4: a guest of honour on its way to bed / out in the morning
+    L.push({ y: e.y, x: e.x, hw: 10, f: () => e.kits ? drawKit(e, e.look.fur) : drawCat(e, e.look) });
+    if (e.kits) for (const k of e.kits) L.push({ y: k.y, f: () => drawKit(k, k.fur) });
+  }
   if (live) {
     for (const gu of GUESTS) guestDraws(L, gu);
     for (const s of STAFF) if (VIS(s.x, s.y, 24)) L.push({ y: s.y, x: s.x, hw: 10, f: () => drawCat(s, staffLook(s)) });
@@ -11991,7 +12142,7 @@ function drawScene(vw, vh, live, noPlayer, card) {
   }
   // the shop awning (once open) sorts just above row 30: the tanuki at (6,30) and the shelf's samples stand in front of it
   // (drawn over everyone it hid them - stage 2B note)
-  if (S.unlocked.shop && VIS(88, 30 * TILE, 100)) L.push({ y: 30 * TILE - .5, f: () => g.drawImage(awningArt(), 16 - CX, 30 * TILE - 12 - CY) });
+  if (S.unlocked.shop && VIS(88, 30 * TILE, 100)) L.push({ y: 30 * TILE - .5, f: () => { const a = awningArt(), w = doorOpen(8, 29) ? 112 : a.width; g.drawImage(a, 0, 0, w, a.height, 16 - CX, 30 * TILE - 12 - CY, w, a.height); } });   // v2.4: the dining door (8-9,29) open: the awning stops short of it (its own noren is the way in)
   if (live && !card) { rareDraws(L); if (!noPlayer) dressGhostDraws(L); }   // v2.1: the kitten brothers following, the uniform ghost
   // the main view (render: PSPLIT) leaves the innkeeper out - he has his own layer - and keeps what is drawn in front of
   // him near him (y-sorted after him, base within OCC_DY below his feet) to draw it again over his layer
@@ -12281,6 +12432,8 @@ function drawPlayerAttach() {
   if (TRY.hat && !P.towels) { const fr = Math.floor(T * 3) & 3, b = headBob(P); drawA(sparkleArt(fr), R(P.x) - 7, R(P.y) - 25 - b, 4, 4); drawA(sparkleArt((fr + 2) & 3), R(P.x) + 7, R(P.y) - 21 - b, 4, 4); any = true; }
   // the decor slot you stand on: a small ring at your feet until the next piece swaps in
   if (P.slot.key && !P.slot.stop && P.slot.t > 0) { ring(R(P.x) - CX, R(P.y) + 6 - CY, P.slot.t / (P.slot.n ? DECOR_T : DECOR_T0), '#ffe9a8'); any = true; }
+  // v2.4: standing still on a price pad - a gold ring at your feet fills before the first fish goes in (PAD_DELAY)
+  if (P.padOn && !P.pouring && P.padT > 0 && P.padT < PAD_DELAY) { ring(R(P.x) - CX, R(P.y) + 6 - CY, P.padT / PAD_DELAY, '#ffd23f'); any = true; }
   if (P.towels > 0) { towelStack(P, P.towels, P.sway); any = true; }
   // the tray (4.1); a new tray: its new empty place glows once (7.3.4)
   if (P.tray.length) { drawTray(P, P.tray); any = true; }
@@ -13095,9 +13248,15 @@ VIP.mom = MOM_DEF;
 function momTick() {
   const v = VIPG;
   if (v) { if (v.mom) momFollow(v); return; }
-  if (star() < MOM_STAR || !S.unlocked.garden || !SUITES.some(rm => roomOpen(rm))) return;
-  const y = yearOf(S.day);
-  if (seasonNow() === 0 && seasonDay(S.day) === 2 && S.clock >= MOM_AT && S.momY < y) momArrive(y);
+  const due = momDue();
+  if (((due === true && S.clock >= MOM_AT) || due === 'late') && SUITES.some(suiteAvail)) momArrive(yearOf(S.day));
+}
+// v2.4: her day (spring day 3) until she came this year - no VIP / rare guest starts a visit then (vip.js), so a suite is
+// free for her; a guest of honour asleep in the only suite that night: she comes as soon as one is free the next day ('late')
+function momDue() {
+  if (star() < MOM_STAR || !S.unlocked.garden || !SUITES.some(rm => roomOpen(rm)) || S.momY >= yearOf(S.day)) return false;
+  const s = seasonNow();
+  return s === 0 && seasonDay(S.day) === 2 ? true : s === 1 && seasonDay(S.day) === 0 ? 'late' : false;
 }
 function momArrive(year) {   // the same fields as vipArrive() builds, + mom / said / momYear
   VIPG = { id: 'mom', vip: true, mom: true, said: false, momYear: year, look: MOM_DEF.look, x: EXIT[0], y: EXIT[1], dir: 'up', moving: false, walkT: 0, path: [], goal: null, q: [], st: 'arrive', t: 0, tt: 0,
@@ -13940,6 +14099,7 @@ function resetWorld() {
   PASS.n = 0; BROWSE.occ = null; TEA_AT.occ = null; netPullAt = -9; TABLE_EATEN.fill(-9); FIRST_Q.length = 0; BANNER_Q.length = 0; lastCallAt = -99; comboRushAt = NUL(); lastBuyAt = S.stats.time;
   for (const k in PILE_AGE) delete PILE_AGE[k];
   // the VIP is not saved (10.1): after a load the next one comes soon - unless half a gift was just refunded (no shortcut)
+  sleepReset();   // v2.4: guests of honour asleep in the suites (vip.js)
   VIPG = null; lastVip = null; vipT = !S.unlocked.garden ? 1e9 : Math.max(S.stats.time + (S.vipRefunded ? vipGap() : S.vipNext ? VIP_RELOAD : VIP_FIRST), S.vipAt || 0);
   for (const k in RUN) RUN[k] = Array.isArray(RUN[k]) ? [] : 0;
   // stage 2C runtime: no replayed gold-star / boutique events after a load; the pet starts at your feet

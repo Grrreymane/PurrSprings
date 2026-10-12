@@ -3,7 +3,7 @@
 //   node D:/Minigame/_workflow/tools/headless.js D:/Minigame/Hotelgame tests/map_check.js
 // 1. static: every 'D' has a DOORS entry (and back), room furniture stands on tatami, pads are never on a queue spot,
 //    the desk spot, a door, a seat, a room stand or inside a pick-up zone (3.5 rule 5)
-// 2. the SPEC states (start ... v2.0 final): walkable / reached counts (start 467 / 209, final 717 / 717)
+// 2. the SPEC states (start ... v2.0 final): walkable / reached counts (v2.4: start 511 / 252, final 792 / 792; v2.1 892 / 892)
 // 3. EVERY unlock state along a full buy order: from the desk, every spot / pad / pile / seat / slot that is in use
 //    in that state is reachable, and no open floor is cut off (cells behind a closed room door don't count)
 const errs = [], bad = m => { if (errs.length < 60) errs.push(m); };
@@ -37,6 +37,7 @@ function points() {
   for (const id in PILE_AT) if (pileOpen(id)) p('pile:' + id, PILE_AT[id]);
   for (const rm of ROOMS) if (roomOpen(rm)) for (const k of ['stand', 'pile', 'slotA', 'slotB', 'tap', 'cleanT']) if (rm[k]) p(rm.id + '.' + k, rm[k]);
   if (S.unlocked.onsen) { p('shelf', SHELF_SPOT); p('basket', BASKET_SPOT); p('towel', TOWEL_SPOT); p('wait', WAIT_SPOT); p('milkSpot', MILK_SPOT); }
+  if (S.unlocked.milk2) p('milk2Spot', MILK2_SPOT);   // v2.4
   SLOTS.forEach((s, i) => { if (slotOpen(i)) p('slot' + i, [s.x, 4]); });
   if (S.unlocked.tea) p('urn1', SPOT.urn1);
   if (S.unlocked.garden) p('urn2', SPOT.urn2);
@@ -80,7 +81,7 @@ for (const rm of ROOMS) for (const k of ['andon', 'table', 'futon', 'stand', 'pi
   QSPOTS.forEach(q => forbid.set(K(...q), 'queue')); forbid.set(K(...DESK_SPOT), 'desk');
   DOORS.forEach(d => forbid.set(K(...d.at), 'door')); SEATS.forEach(s => forbid.set(K(...s.at), 'seat'));
   ROOMS.forEach(rm => forbid.set(K(...rm.stand), rm.id + ' stand'));
-  const zones = [[SHELF_C, 22, 'shelf'], [BASKET_C, 20, 'basket'], [ZONE.milk.c, ZONE.milk.r, 'milk'], [ZONE.urn1.c, ZONE.urn1.r, 'urn1', 'tea'], [ZONE.urn2.c, ZONE.urn2.r, 'urn2'], [ZONE.stove.c, ZONE.stove.r, 'stove'], [ZONE.pass.c, ZONE.pass.r, 'pass']];
+  const zones = [[SHELF_C, 22, 'shelf'], [BASKET_C, 20, 'basket'], [ZONE.milk.c, ZONE.milk.r, 'milk'], [ZONE.milk2.c, ZONE.milk2.r, 'milk2', 'milk2'], [ZONE.urn1.c, ZONE.urn1.r, 'urn1', 'tea'], [ZONE.urn2.c, ZONE.urn2.r, 'urn2'], [ZONE.stove.c, ZONE.stove.r, 'stove'], [ZONE.pass.c, ZONE.pass.r, 'pass']];
   const pads = UNLOCKS.filter(u => !u.dyn).map(u => [u.id, u.pad]).concat(DECOR_PADS.map((d, i) => ['decor' + i, d]), [['hat', HAT_PAD], ['pet', PET_PAD]]);
   for (const [id, [x, y]] of pads) {
     if (forbid.has(K(x, y))) bad('pad ' + id + ' on a ' + forbid.get(K(x, y)) + ' at ' + K(x, y));
@@ -88,18 +89,31 @@ for (const rm of ROOMS) for (const k of ['andon', 'table', 'futon', 'stand', 'pi
     for (const [c, r, zn, own] of zones) if (own !== id && dist(x * TILE + 8, y * TILE + 8, c[0], c[1]) <= r) bad('pad ' + id + ' inside the ' + zn + ' pick-up zone');
   }
 }
+// ---- v2.4: the shop is roomy - every shop pad has a free tile round it (no other pad, nothing that blocks), nothing tall
+// right below it (3/4 view), and none lies on a shortest walk from the dining door to the front yard
+{
+  const SP = [['decor0', DECOR_PADS[0]], ['decor1', DECOR_PADS[1]], ['hat', HAT_PAD], ['pet', PET_PAD], ['outfit', OUTFIT_PAD], ['uniform', UNIFORM_PAD], ['mirror', SPOT.mirror], ['cushion', SPOT.petCushion], ['browse', SPOT.browse]];
+  setState(UNLOCKS.filter(u => !u.repeat).map(u => u.id), true);
+  for (let i = 0; i < SP.length; i++) for (let j = i + 1; j < SP.length; j++) { const [a, p] = SP[i], [b, q] = SP[j]; if (Math.max(Math.abs(p[0] - q[0]), Math.abs(p[1] - q[1])) < 2) bad('shop: ' + a + ' and ' + b + ' side by side'); }
+  for (const [n, [x, y]] of SP.slice(0, 6)) { if (BLOCK[(y + 1) * MW + x]) bad('shop: something tall right below the ' + n + ' pad'); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (BLOCK[(y + dy) * MW + x + dx] && !(dy === -1 && y - 1 <= 31)) bad('shop: the ' + n + ' pad is boxed in at ' + K(x + dx, y + dy)); }
+  const D0 = reachFrom(8, 30), D1 = reachFrom(9, 30);
+  for (const [n, [x, y]] of SP.slice(0, 6)) for (const D of [D0, D1]) for (let ey = 30; ey <= 37; ey++) {   // on a shortest walk to any front-yard edge tile?
+    const E = reachFrom(10, ey), tot = D[ey * MW + 10];
+    if (D[y * MW + x] >= 0 && E[y * MW + x] >= 0 && D[y * MW + x] + E[y * MW + x] === tot && tot <= 8) bad('shop: the ' + n + ' pad is on the walk from the dining door to (10,' + ey + ')');
+  }
+}
 // ---- 2. the SPEC 2.8 states
 const lines = [];
 const ALLV2 = UNLOCKS.filter(u => !u.need5 && u.id !== 'maid4').map(u => u.id);
-const V21_FINAL = [773, 773];   // v2.1 core B: + the shrine approach and the plaza (lawn + path), less what the shrine parts, garden pieces and stalls block
+const V21_FINAL = [892, 892];   // v2.4: 39 rows, the bigger shop, the new doors and lamps (v2.1: 773)   // v2.1 core B: + the shrine approach and the plaza (lawn + path), less what the shrine parts, garden pieces and stalls block
 const SPECSTATES = [
-  ['start', [], false, [467, 209]],
+  ['start', [], false, [511, 252]],
   ['onsen', ['room2', 'room3', 'onsen']],
   ['shop', ['room2', 'room3', 'onsen', 'recep', 'tea', 'shop', 'milk', 'room4']],
   ['dining', ['room2', 'room3', 'room4', 'room5', 'onsen', 'recep', 'tea', 'shop', 'milk', 'maid1', 'dining']],
   ['west', ['room2', 'room3', 'room4', 'room5', 'room6', 'onsen', 'recep', 'tea', 'shop', 'milk', 'maid1', 'dining', 'w1', 'w2', 'w3', 'waiter1', 'table3']],
   ['garden', ALLV2.filter(id => id !== 'c2' && id !== 'suiteB' && id !== 'roten')],
-  ['v2.0 final', UNLOCKS.filter(u => !u.v21b).map(u => u.id), true, [717, 717]],
+  ['v2.0 final', UNLOCKS.filter(u => !u.v21b).map(u => u.id), true, [792, 792]],
   ['v2.1 final', UNLOCKS.filter(u => !u.repeat).map(u => u.id), true, [V21_FINAL[0], V21_FINAL[1]]],   // core B: shrine + plaza open, every garden piece / shrine part / stall placed
 ];
 for (const [name, ids, s5, exp] of SPECSTATES) { setState(ids, s5); const r = check(name, exp); lines.push(name.padEnd(11) + ' walkable ' + r.walk + ' reached ' + r.reached + ' points ' + r.pts); }
@@ -119,7 +133,7 @@ if (left.length) bad('never buyable along the buy order: ' + left.join(' '));
 // distances the SPEC quotes (2.8), v2.0 final
 setState(UNLOCKS.filter(u => !u.v21b).map(u => u.id), true);
 const Dd = reachFrom(DESK_SPOT[0], DESK_SPOT[1]), dd = (x, y) => Dd[y * MW + x];
-const quoted = [['R1 stand', 13, 20, 10], ['R8 stand', 21, 8, 24], ['basket spot', 14, 5, 28], ['tea pick-up', 12, 24, 1], ['stove', 3, 20, 22], ['pass', 3, 22, 20], ['W1 stand', 4, 16, 25], ['W3 stand', 4, 8, 33], ['shop decor pad', 2, 32, 25], ['C1 stand', 28, 21, 22], ['C2 stand', 35, 21, 29], ['roten slot 37', 37, 4, 44], ['exit', 17, 35, 15]];
+const quoted = [['R1 stand', 13, 20, 10], ['R8 stand', 21, 8, 24], ['basket spot', 14, 5, 28], ['tea pick-up', 12, 24, 1], ['stove', 3, 20, 22], ['pass', 3, 22, 20], ['W1 stand', 4, 16, 25], ['W3 stand', 4, 8, 33], ['C1 stand', 28, 21, 22], ['C2 stand', 35, 21, 29], ['roten slot 37', 37, 4, 44], ['exit', 17, 38, 18], ['shop decor pad via the dining door', 2, 32, 23]];   // v2.4: the exit 3 rows further down; the shop through the dining hall
 for (const [nm, x, y, want] of quoted) if (dd(x, y) !== want) bad('desk -> ' + nm + ' is ' + dd(x, y) + ' tiles (SPEC 2.8: ' + want + ')');
 console.log(lines.join('\n'));
 console.log('buy-order states checked: ' + n + ' (all ' + UNLOCKS.length + ' unlocks bought: ' + (left.length ? 'NO' : 'yes') + ')');

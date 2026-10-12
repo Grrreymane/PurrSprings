@@ -39,6 +39,21 @@ function buildLights() {
   if (S.unlocked.garden) { add(33, 18, 18, -3); add(26, 27, 18, -3); add(33, 24, 18, -3); add(26, 10, 18); add(31, 17, 18, 4); }   // path lamps, wall lamp, snow lantern
   if (S.unlocked.roten) { add(28, 7, 18, 0, DECK_COL); add(36, 7, 18, 0, DECK_COL); }        // star-view deck lanterns
   for (const rm of ROOMS) if (roomOpen(rm)) add(rm.andon[0], rm.andon[1], 10, 6, LAMP_COL, rm);
+  // v2.4 (player feedback "the nights are a bit too dark"): a lantern over every open door and gate (on the side you
+  // come from), ceiling lamps in the lobby's corners, the west hall, the dining hall and the shop, the cottage / suite
+  // porches. The shop's andons, the front yard's / plaza's path lamps and the second milk machine light themselves (props
+  // with `light`, rebuildWorld). Locked places stay dark; the night tint is unchanged.
+  for (const d of DOORS) if (!d.room && doorIsOpen(d)) {
+    const [x, y] = d.at, w = d.w || 1, h = d.h || 1, cx = x * TILE + w * 8, cy = y * TILE + h * 8;
+    LIGHTS.push({ x: cx, y: cy + (h > 1 ? 0 : 2), r: 18, col: LAMP_COL, room: null });
+  }
+  add(12, 27, 18); add(22, 27, 18);                                   // the lobby's lower corners
+  if (S.unlocked.w1) for (const y of [8, 12, 16]) add(8, y, 18, 4);    // the west hall (Taisho ceiling lamps, soft)
+  if (S.unlocked.dining) { add(4, 27, 18); add(7, 27, 18); add(7, 20, 18); }
+  if (S.unlocked.shop) { add(3, 32, 24); add(5, 35, 24); add(8, 33, 18); }
+  if (S.unlocked.garden) { add(25, 12, 18); add(25, 21, 18); add(32, 21, 18); add(29, 9, 18); add(36, 9, 18); }   // porches of 月见亭 / 花见亭 / 萤见亭, the walk under the hedge
+  if (S.unlocked.suiteB) add(32, 12, 18);
+  if (S.unlocked.shrine) { add(7, 4, 18); add(3, 4, 10); }            // the approach
 }
 const roomBusy = rm => rm.vip ? !!RT[rm.id].guest : S.rooms[rm.id] === 'occupied';
 const lightR = L => L.room ? (roomBusy(L.room) ? 18 : 10) : L.r;

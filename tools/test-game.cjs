@@ -13,7 +13,8 @@ const headless = (() => { for (let d = root, i = 0; i < 6; i++, d = path.dirname
 const QUICK = [['smoke.js', 1], ['map_check.js', 1], ['ui_check.js', 2]];
 const FULL = QUICK.concat([['smoke.js', 2], ['migrate_v1.js', 1], ['lines_check.js', 3], ['music_check.js', 1], ['sys_chars21.js', 1], ['migrate_v201.js', 1],
   ['door_check.js', 1], ['smooth_walk.js', 1], ['repro_waiter_rice.js', 1],
-  ['sys_vipguide.js', 4], ['sys_reputation.js', 2], ['sys_rush.js', 3], ['sys_caps.js', 5]]);   // v2.2 (SPEC_v2 19)   // 18.2: doorways, even scrolling, the waiter's counter
+  ['sys_vipguide.js', 4], ['sys_reputation.js', 2], ['sys_rush.js', 3], ['sys_caps.js', 5],
+  ['sys_v24.js', 1], ['sys_vipsleep.js', 1], ['sys_towel_overflow.js', 1], ['sys_vip.js', 1], ['sys_mom.js', 3], ['sys_world.js', 2]]);   // v2.4: the map, the sleeping guests of honour, towels   // v2.2 (SPEC_v2 19)   // 18.2: doorways, even scrolling, the waiter's counter
 const run = ([file, seed]) => new Promise(done => {
   const t0 = Date.now();
   execFile(process.execPath, [headless, root, 'tests/' + file, '--seed', String(seed)], { cwd: root, maxBuffer: 64 << 20 }, (err, out, errOut) => {

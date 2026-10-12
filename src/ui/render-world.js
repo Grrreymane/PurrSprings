@@ -7,13 +7,17 @@ const WORLD = mk(MAPW, MAPH);
 // whenever a room's combo changes
 function paintDoor(dr) {
   if (!dr) return;
-  const [tx, ty] = dr.at, wg = WORLD.getContext('2d'), nb = { u: ch(tx, ty - 1), d: ch(tx, ty + 1), l: ch(tx - 1, ty), r: ch(tx + 1, ty) };
-  wg.imageSmoothingEnabled = false; wg.clearRect(tx * TILE, ty * TILE, TILE, TILE);
-  const base = tileArt(dr.base || '.', tx, ty, nb, seasonNow()); if (base) wg.drawImage(base, tx * TILE, ty * TILE);
+  const [tx, ty] = dr.at, wg = WORLD.getContext('2d'), dw = dr.w || 1, dh = dr.h || 1;
+  wg.imageSmoothingEnabled = false;
+  for (let j = 0; j < dh; j++) for (let i = 0; i < dw; i++) {   // v2.4: a wide / tall door covers 2 tiles (one image)
+    const x = tx + i, y = ty + j, nb = { u: ch(x, y - 1), d: ch(x, y + 1), l: ch(x - 1, y), r: ch(x + 1, y) };
+    wg.clearRect(x * TILE, y * TILE, TILE, TILE);
+    const base = tileArt(dr.base || '.', x, y, nb, seasonNow()); if (base) wg.drawImage(base, x * TILE, y * TILE);
+  }
   const rm = dr.room ? ROOM[dr.room] : null, c = rm ? roomCombo(rm) : null;
   // a room door shows its own room's floor through the doorway, and what lies outside (corridor / west hall / gravel)
   const fl = rm ? [rm.floor, tileLook(tx + (rm.left ? 1 : -1), ty) || ch(tx + (rm.left ? 1 : -1), ty)] : null;
-  wg.drawImage(doorArt(dr.kind, doorIsOpen(dr), c ? c.col : dr.col || null, c ? c.emb : dr.emb || null, !!dr.gold, tx, ty, fl, seasonNow()), tx * TILE, ty * TILE);   // gates paint their own ground: they need where they stand (v2.1: in the season's colours)
+  wg.drawImage(doorArt(dr.kind, doorIsOpen(dr), c ? c.col : dr.col || null, c ? c.emb : dr.emb || null, !!dr.gold, tx, ty, fl, seasonNow(), dw > 1 ? 'w' : dh > 1 ? 'h' : null, dr.beyond || null), tx * TILE, ty * TILE);   // gates paint their own ground: they need where they stand (v2.1: in the season's colours)
 }
 const tubBusy = rm => !!VIPG && VIPG.suite === rm.id && (VIPG.st === 'soak' || (VIPG.st === 'seated' && VIPG.actT > 0 && vipWish() === 'bath'));
 // a VIP's face, 8x8 from its front sprite (photo frames, the polaroid; the album crops its own)
@@ -27,7 +31,7 @@ function rebuildWorld() {
   const wg = WORLD.getContext('2d'), sea = seasonNow(); wg.imageSmoothingEnabled = false; wg.clearRect(0, 0, MAPW, MAPH);
   for (let ty = 0; ty < MH; ty++) for (let tx = 0; tx < MW; tx++) {
     const c = MAP[ty][tx], nb = { u: ch(tx, ty - 1), d: ch(tx, ty + 1), l: ch(tx - 1, ty), r: ch(tx + 1, ty) };
-    if (c === 'D') paintDoor(DOOR_AT[ty * MW + tx]);
+    if (c === 'D') { const dr = DOOR_AT[ty * MW + tx]; if (dr && dr.at[0] === tx && dr.at[1] === ty) paintDoor(dr); }   // a 2-tile door: once, from its first tile
     else { const t = tileArt(c, tx, ty, nb, sea, TILE_LOOK[ty * MW + tx]); if (t) wg.drawImage(t, tx * TILE, ty * TILE); }   // looks: room floors / walls (A1) ...
   }
   // wall decor (2.4): gift shelf + photo frames on the lobby's north wall, the dining menu boards, the garden wall lamp
@@ -47,7 +51,7 @@ function rebuildWorld() {
   const sh = lockedShade(), shadeTile = (tx, ty) => { if (typeof sh === 'string') { wg.fillStyle = sh; wg.fillRect(tx * TILE, ty * TILE, TILE, TILE); } else wg.drawImage(sh, tx * TILE, ty * TILE); };
   for (const a of AREAS) if (a.dim && !areaOpen(a)) for (let y = a.r[1]; y <= a.r[3]; y++) for (let x = a.r[0]; x <= a.r[2]; x++) shadeTile(x, y);
   for (const rm of ROOMS) if (!roomOpen(rm) && areaOpen(areaAt(rm.box[0], rm.box[1]))) for (let y = rm.box[1]; y <= rm.box[3]; y++) for (let x = rm.box[0]; x <= rm.box[2]; x++) shadeTile(x, y);
-  if (!S.unlocked.shop) for (let y = 30; y <= 34; y++) wg.drawImage(ropeArt('v'), 10 * TILE, y * TILE);
+  if (!S.unlocked.shop) for (let y = AREA.shop.r[1]; y <= AREA.shop.r[3]; y++) wg.drawImage(ropeArt('v'), 10 * TILE, y * TILE);
 }
 const VIS = (wx, wy, m) => wx - CX > -m && wx - CX < W + m && wy - CY > -m && wy - CY < H + m;
 // walk frame 2 lifts the head (and the body) 1 px (art 12.1): what sits on a head (towels, a tray, try-on sparkles) bobs with it
@@ -129,6 +133,7 @@ function drawFutons(rm) {
   let hA = null, hB = null;
   if (gu && gu.st === 'sleep') {
     const m = gu.mate; hA = [[gu.look.fur, 0]];
+    if (gu.kits) hA = [[gu.kits[0].fur, -4], [gu.look.fur, 0], [gu.kits[1].fur, 4]];   // v2.4: the kitten brothers asleep in a row
     if (m && m.kind === 'kitten' && rm.futonB) hB = [[m.look.fur, 0]];
     else if (m) hA = [[gu.look.fur, -3], [m.look.fur, 3]];
   }
@@ -252,6 +257,10 @@ function drawScene(vw, vh, live, noPlayer, card) {
     if (v.st === 'soak') { const tb = ROOM[v.suite].tub; L.push({ y: (tb[1] + 1) * TILE + .02, f: () => drawA(catBathing(v.look.fur, Math.floor(T * 1.4) & 1, 'tub'), tcx(tb), tb[1] * TILE + 8, 9, 9) }); }
     else L.push({ y: v.y, f: () => v.kits ? drawKit(v, v.look.fur) : drawCat(v, v.look) });   // v2.1: the three kitten brothers (rare.js)
   }
+  if (live) for (const e of VSLEEP) if (e.st !== 'sleep' && VIS(e.x, e.y, 32)) {   // v2.4: a guest of honour on its way to bed / out in the morning
+    L.push({ y: e.y, x: e.x, hw: 10, f: () => e.kits ? drawKit(e, e.look.fur) : drawCat(e, e.look) });
+    if (e.kits) for (const k of e.kits) L.push({ y: k.y, f: () => drawKit(k, k.fur) });
+  }
   if (live) {
     for (const gu of GUESTS) guestDraws(L, gu);
     for (const s of STAFF) if (VIS(s.x, s.y, 24)) L.push({ y: s.y, x: s.x, hw: 10, f: () => drawCat(s, staffLook(s)) });
@@ -261,7 +270,7 @@ function drawScene(vw, vh, live, noPlayer, card) {
   }
   // the shop awning (once open) sorts just above row 30: the tanuki at (6,30) and the shelf's samples stand in front of it
   // (drawn over everyone it hid them - stage 2B note)
-  if (S.unlocked.shop && VIS(88, 30 * TILE, 100)) L.push({ y: 30 * TILE - .5, f: () => g.drawImage(awningArt(), 16 - CX, 30 * TILE - 12 - CY) });
+  if (S.unlocked.shop && VIS(88, 30 * TILE, 100)) L.push({ y: 30 * TILE - .5, f: () => { const a = awningArt(), w = doorOpen(8, 29) ? 112 : a.width; g.drawImage(a, 0, 0, w, a.height, 16 - CX, 30 * TILE - 12 - CY, w, a.height); } });   // v2.4: the dining door (8-9,29) open: the awning stops short of it (its own noren is the way in)
   if (live && !card) { rareDraws(L); if (!noPlayer) dressGhostDraws(L); }   // v2.1: the kitten brothers following, the uniform ghost
   // the main view (render: PSPLIT) leaves the innkeeper out - he has his own layer - and keeps what is drawn in front of
   // him near him (y-sorted after him, base within OCC_DY below his feet) to draw it again over his layer

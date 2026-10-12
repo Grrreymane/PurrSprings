@@ -43,7 +43,8 @@ const shown = [], first = NUL(), speakers = [];
 const _show = showLine;
 showLine = ln => {
   const e = ln.e, L = LINES[ln.id], t = S.stats.time;
-  const known = e === P || e === PET || e === VIPG || STAFF.includes(e) || GUESTS.includes(e) || GUESTS.some(gu => gu.mate === e);
+  const known = e === P || e === PET || e === VIPG || VSLEEP.includes(e) ||   // v2.4: + a guest of honour going to bed / leaving in the morning
+    STAFF.includes(e) || GUESTS.includes(e) || GUESTS.some(gu => gu.mate === e);
   ok(known, ln.id + ': the speaker is nobody in the inn');
   ok(lineOk(e), ln.id + ': speaker off screen / too far');
   if (first[ln.id] !== undefined) ok(t - first[ln.id] >= 60 - 1e-6, ln.id + ' twice within 60 s (' + (t - first[ln.id]).toFixed(1) + ' s)');

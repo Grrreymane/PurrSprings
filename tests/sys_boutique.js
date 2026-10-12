@@ -57,16 +57,16 @@ setup(true); { delete S.unlocked.shop; resetWorld(); go('play'); ok(!boutiqueOpe
 setup(true, ['h_straw', 'h_flower']);
 { eq([...PADPOS.keys()].find(id => UNLOCK[id].hat), 'h_fox', 'no VIP met: beret / captain / shades skipped -> fox');
   S.album.vip.kawa = 1; padsUpdate(); eq([...PADPOS.keys()].find(id => UNLOCK[id].hat), 'h_beret', 'kawa came: the beret'); }
-// ---- try-on: within 2 tiles of a booth the piece is on you; walking away takes it off; K03 once a piece
+// ---- try-on: within 1.5 tiles of a booth (v2.4; was 2) the piece is on you; walking away takes it off; K03 once a piece
 setup(true);
-{ at(5, 31); run(.1); eq(TRY.hat, 'straw', 'trying the straw hat (2 tiles from the booth)'); eq(playerLook().hat, 'straw', 'drawn on the innkeeper');
+{ at(4, 33); run(.1); eq(TRY.hat, 'straw', 'trying the straw hat (a tile from the booth; v2.4 TRYON_R 1.5 tiles)'); eq(playerLook().hat, 'straw', 'drawn on the innkeeper');
   ok(LINES.filter(([, k]) => k === 'K03').length === 1, 'K03 once'); ok(SFXLOG.includes('tryon'), 'try-on sound'); ok(!S.unlocked.h_straw, 'not bought by trying');
   const looks = []; const _cs = catSprite; catSprite = (v, f, l) => { looks.push(l); return _cs(v, f, l); }; updCam(0, true); render(); catSprite = _cs;
   ok(looks.some(l => l.outfit === 'happi' && l.hat === 'straw'), 'rendered with the hat');
   at(10, 32); run(.1); eq(TRY.hat, null, 'walked away: off'); eq(playerLook().hat || null, null, 'bare head again');
-  at(5, 31); run(.1); eq(LINES.filter(([, k]) => k === 'K03').length, 1, 'no second K03 for the same piece');
+  at(4, 33); run(.1); eq(LINES.filter(([, k]) => k === 'K03').length, 1, 'no second K03 for the same piece');
   P.towels = 3; eq(playerLook().hat || null, null, 'towels on the head: no hat'); P.towels = 0;
-  at(7, 31); run(.1); eq(TRY.pet, 'duck', 'the duck ghost at the pet booth');
+  at(6, 33); run(.1); eq(TRY.pet, 'duck', 'the duck ghost at the pet booth'); eq(TRY.hat, null, 'v2.4: one booth at a time');
   const pets = []; const _ps = petSprite; petSprite = (k, v, f) => { pets.push(k); return _ps(k, v, f); }; updCam(0, true); render(); petSprite = _ps;
   ok(pets.includes('duck'), 'its ghost is drawn'); }
 // ---- buying = wearing / bringing along
@@ -112,12 +112,12 @@ setup(true);
 setup(true, UNLOCKS.filter(u => u.hat || u.pet || u.id === 'maid4' || (u.v21b && !u.repeat && !u.ok)).map(u => u.id));   // v2.1: + every core B piece (outfits, uniforms, shrine, plaza, garden)
 { S.money = 60000; at(17, 27); guideClock = 0; update(DT); ok(GUIDE && GUIDE.id === 'statue', 'everything else bought, 60,000 on hand: the arrow points at the statue (' + (GUIDE && GUIDE.key) + ')');
   S.money = 40000; guideClock = 0; update(DT); ok(!(GUIDE && GUIDE.id === 'statue'), 'under 50,000: not');
-  S.money = 60000; walkTo(13, 33); run(.5); ok(S.money === 0 && S.paid.statue === 60000, 'poured in: money ' + S.money + ', paid ' + S.paid.statue);
+  S.money = 60000; walkTo(13, 33); run(1.2); ok(S.money === 0 && S.paid.statue === 60000, 'poured in: money ' + S.money + ', paid ' + S.paid.statue);
   guideClock = 0; update(DT); ok(!(GUIDE && GUIDE.id === 'statue'), 'poured: the arrow moves on'); }
 // ---- a booth piece is pointed at once: the first time it is affordable; after a look (walking off) or 60 s, never again
 setup(true);
 { S.money = 4200; at(17, 27); guideClock = 0; update(DT); ok(GUIDE && GUIDE.kind === 'pad' && GUIDE.id === 'h_straw', 'affordable: the arrow points at the straw hat (' + (GUIDE && GUIDE.kind + ' ' + GUIDE.id) + ')');
-  at(5, 31); run(.3); at(17, 27); run(.3); guideClock = 0; update(DT); ok(!(GUIDE && GUIDE.id === 'h_straw'), 'after a look: not again'); }
+  at(4, 33); run(.3); at(17, 27); run(.3); guideClock = 0; update(DT); ok(!(GUIDE && GUIDE.id === 'h_straw'), 'after a look: not again'); }
 setup(true);
 { S.money = 4200; at(17, 27); run(BOOTH_HINT_T + 1); guideClock = 0; update(DT); ok(!(GUIDE && GUIDE.id === 'h_straw'), 'ignored for 60 s: not again'); ok(boothOf('h_straw').done, 'done'); }
 // ---- after star 5 something is always buyable (G4)

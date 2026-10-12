@@ -10,10 +10,10 @@ function st(list, o) { S = defaults(); for (const id of list) S.unlocked[id] = t
 // the table
 ok(UNLOCKS_V21A.length === 8 && UNLOCKS_V21A.every(u => UNLOCK[u.id] === u && !u.v21b), 'v2.1 core A rows ' + UNLOCKS_V21A.length + ' (want 8 seasonal decor)');
 { const v20 = UNLOCKS.filter(u => !u.v21b).length - UNLOCKS_V21A.length, v21 = UNLOCKS.filter(u => u.v21b).length;   // v2.1 core B: + 44 rows (tables-v21b.js)
-  ok(v20 === 65, 'UNLOCKS has ' + v20 + ' v2.0 rows (SPEC 3.4: 53 pads + 12 star-5 rows; v2.0.1: + 茶房, - 竹篮 2, - 托盘 2)'); ok(v21 === 44, 'v2.1 core B rows ' + v21 + ' (want 44: 2 gates, 10 offerings, 8 garden pieces, 4 stalls, fireworks, 8 outfits, 4 uniforms, 3 pets, 4 gold decor)'); }
+  ok(v20 === 66, 'UNLOCKS has ' + v20 + ' v2.0 rows (SPEC 3.4: 53 pads + 12 star-5 rows; v2.0.1: + 茶房, - 竹篮 2, - 托盘 2; v2.4: + 门口牛奶 milk2)'); ok(v21 === 44, 'v2.1 core B rows ' + v21 + ' (want 44: 2 gates, 10 offerings, 8 garden pieces, 4 stalls, fireworks, 8 outfits, 4 uniforms, 3 pets, 4 gold decor)'); }
 ok(RETIRED.every(id => !UNLOCK[id]), 'retired pads are gone: ' + RETIRED.join());
 const tot = (a, b) => UNLOCKS.slice(UNLOCKS.findIndex(u => u.id === a), UNLOCKS.findIndex(u => u.id === b) + 1).reduce((s, u) => s + u.price, 0);
-ok(tot('room2', 'onsen') === 145 && tot('recep', 'dining') === 2325 && tot('tray1', 'garden') === 6900 && tot('g_shishi', 'roten') === 10130,   // v2.2 prices (SPEC_v2 3.4 / 18.2: 庭园 1,000, 星见 3,100 - the good reputation's bonus); v2.3 星见 3,500 (19.3: 3-min days bring the festival and the press before ★5)
+ok(tot('room2', 'onsen') === 145 && tot('recep', 'dining') === 2475 && tot('tray1', 'garden') === 6900 && tot('g_shishi', 'roten') === 10130,   // v2.2 prices (SPEC_v2 3.4 / 18.2: 庭园 1,000, 星见 3,100 - the good reputation's bonus); v2.3 星见 3,500 (19.3: 3-min days bring the festival and the press before ★5)
    'star totals ' + [tot('room2', 'onsen'), tot('recep', 'dining'), tot('tray1', 'garden'), tot('g_shishi', 'roten')]);
 ok(tot('maid4', 'statue') === 1473800, 'after-star-5 total ' + tot('maid4', 'statue'));
 for (const u of UNLOCKS) {
@@ -45,11 +45,11 @@ st(['room2', 'room3', 'onsen', 'recep']); ok(!PADPOS.has('d_scroll') && PADPOS.h
 st(['room2', 'room3', 'onsen', 'recep'], { peak: 5 });
 ok(!PADPOS.has('statue') && !PADPOS.has('h_straw'), 'star 5 without the shop: no statue / hats ' + ids());
 st(['room2', 'room3', 'onsen', 'recep', 'shop'], { peak: 5 });
-ok(PADPOS.has('statue') && PADPOS.get('h_straw') + '' === '5,33' && PADPOS.get('p_duck') + '' === '7,33', 'star 5 booths ' + JSON.stringify([...PADPOS]));
+ok(PADPOS.has('statue') && PADPOS.get('h_straw') + '' === '4,34' && PADPOS.get('p_duck') + '' === '6,34', 'star 5 booths ' + JSON.stringify([...PADPOS]));
 ['h_straw', 'h_flower'].forEach(id => { S.unlocked[id] = true; }); padsUpdate();
 ok(PADPOS.has('h_fox') && !PADPOS.has('h_beret'), 'beret waits for 猫川先生: ' + ids());
 S.album.vip.kawa = 1; padsUpdate(); ok(PADPOS.has('h_beret'), 'beret after hosting kawa: ' + ids());
-S.unlocked.p_duck = true; padsUpdate(); ok(PADPOS.get('p_shiba') + '' === '7,33', 'shiba after the duck: ' + ids());
+S.unlocked.p_duck = true; padsUpdate(); ok(PADPOS.get('p_shiba') + '' === '6,34', 'shiba after the duck: ' + ids());
 ok(!guidePads().some(u => u.booth), 'the arrow never points at booths / statue');
 // pads only in open areas: the roten pad needs nothing but c2 + bigbath, and it sits in the (open) onsen
 st(UNLOCKS.slice(0, UNLOCKS.findIndex(u => u.id === 'roten')).map(u => u.id));

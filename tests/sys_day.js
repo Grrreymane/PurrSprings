@@ -63,10 +63,12 @@ setup(ALL); ensureStaff();
   ok(STAR_SPOTS.length >= 8 && STAR_SPOTS.length <= 12 && STAR_SPOTS.every(s => s.f <= .5), 'stars: ' + STAR_SPOTS.length + ', each <= 0.5 Hz'); }
 // ---- lamps
 setup();
-{ eq(LIGHTS.length, 10, 'star 1: lobby 2 + corridor 4 + lanterns 2 + entrance 1 + room1 andon');
+{ eq(LIGHTS.length, 14, 'star 1: lobby 2 + corridor 4 + lanterns 2 + entrance 1 + room1 andon + v2.4 lobby corners 2 + front path lamps 2');
   setup(ALL); const inArea = L => areaAt(Math.floor(L.x / 16), Math.floor(L.y / 16));
   ok(LIGHTS.every(L => areaOpen(inArea(L)) || !inArea(L)), 'no lamp in a locked area');
-  ok(!LIGHTS.some(L => !L.room && L.x >= 7 * 16 && L.x < 10 * 16 && L.y >= 7 * 16 && L.y < 18 * 16), 'the west wing corridor stays dark');
+  eq(LIGHTS.filter(L => !L.room && L.x >= 7 * 16 && L.x < 10 * 16 && L.y >= 7 * 16 && L.y < 18 * 16).length, 3, 'v2.4: the west hall has three soft ceiling lamps (it was dark)');
+  for (const d of DOORS) if (!d.room && doorIsOpen(d)) ok(LIGHTS.some(L => Math.abs(L.x - (d.at[0] * 16 + (d.w || 1) * 8)) < 1 && Math.abs(L.y - (d.at[1] * 16 + (d.h || 1) * 8)) <= 2), 'v2.4: a lamp at the ' + d.kind + ' ' + d.at);
+  setup(); ok(!LIGHTS.some(L => DOORS.some(d => !d.room && !doorIsOpen(d) && Math.abs(L.x - (d.at[0] * 16 + (d.w || 1) * 8)) < 1 && Math.abs(L.y - (d.at[1] * 16 + (d.h || 1) * 8)) <= 2)), 'v2.4: no lamp at a closed door / gate'); setup(ALL);
   eq(LIGHTS.filter(L => L.room).length, 15, 'every open room has its andon (15)');
   ok(LIGHTS.every(L => [10, 18, 24, 28].includes(L.r)), 'radii from glowArt\'s set');
   const r1 = LIGHTS.find(L => L.room === ROOM.room1); eq(lightR(r1), 10, 'empty room: r10'); S.rooms.room1 = 'occupied'; eq(lightR(r1), 18, 'someone asleep: r18'); S.rooms.room1 = 'clean'; }

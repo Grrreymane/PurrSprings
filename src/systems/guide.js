@@ -35,8 +35,8 @@ const deskHelp = free => !!S.unlocked.recep && !!free && (lineLongT >= LINE_LONG
 const padLocked = u => { const xy = P.padLock && padXY(u); return !!xy && xy[0] === P.padLock[0] && xy[1] === P.padLock[1]; };
 const guidePads = sk => sk && sk.pad ? [] : visiblePads().filter(u => !u.booth && !u.noArrow && !padLocked(u) && !(sk && sk.decor && u.decor));   // v2.1: never the fireworks
 // pick-up points: the tile the arrow / bot goes to and the arrow kind (6)
-const PICK_TILE = { urn1: SPOT.urn1, urn2: SPOT.urn2, milk: MILK_SPOT, pass: [3, 22], stove: [2, 20] };
-const PICK_KIND = { urn1: 'urn', urn2: 'urn', milk: 'milk', pass: 'pass', stove: 'stove' };
+const PICK_TILE = { urn1: SPOT.urn1, urn2: SPOT.urn2, milk: MILK_SPOT, milk2: MILK2_SPOT, pass: [3, 22], stove: [2, 20] };
+const PICK_KIND = { urn1: 'urn', urn2: 'urn', milk: 'milk', milk2: 'milk', pass: 'pass', stove: 'stove' };
 const T_PICK = (id, here, k) => { const z = ZONE[id], t = PICK_TILE[id]; return Object.assign(gT(PICK_KIND[id], z.c[0], z.c[1], t[0], t[1], here, 'pick:' + id), { item: k || null }); };
 // stage 2B kinds (6): slot (decor), vip (greet / catch up), suite (show it in), tap (run its bath), photo
 const T_SLOT = (sl, here) => Object.assign(gT('slot', tcx(sl.at), tcy(sl.at), sl.at[0], sl.at[1], here, 'slot:' + sl.key), { slot: sl.key });
@@ -82,7 +82,14 @@ function sourceOf(k, from) {
     if (was === 'pick:urn2' && d1 >= .7 * d2) return 'urn2';
     return d1 <= d2 ? 'urn1' : 'urn2';
   }
-  if (k === 'milk') return S.unlocked.milk ? 'milk' : null;
+  if (k === 'milk') {   // v2.4: the nearer of the two machines (same stickiness as the urns)
+    if (!S.unlocked.milk) return null; if (!S.unlocked.milk2) return 'milk';
+    const d1 = dist(tcx(from), tcy(from), ZONE.milk.c[0], ZONE.milk.c[1]), d2 = dist(tcx(from), tcy(from), ZONE.milk2.c[0], ZONE.milk2.c[1]);
+    const was = GPREV && GPREV.kind === 'milk' && !GPREV.here ? GPREV.key : null;
+    if (was === 'pick:milk' && d2 >= .7 * d1) return 'milk';
+    if (was === 'pick:milk2' && d1 >= .7 * d2) return 'milk2';
+    return d1 <= d2 ? 'milk' : 'milk2';
+  }
   if (k === 'rice') return !S.unlocked.dining ? null : PASS.n > 0 ? 'pass' : hasChef() ? null : 'stove';   // chef + empty counter: wait for him
   if (k === 'kaiseki') return S.unlocked.dining ? 'stove' : null;
   return null;
@@ -119,7 +126,7 @@ function guideTarget(opts) {
   for (const rm of ROOMS) if (S.rooms[rm.id] === 'messy' && inCleanZone(rm)) return gAt(1, T_CLEAN(rm, true));
   if (S.unlocked.onsen) {
     if (P.towels > 0 && S.basket < BASKET_MAX && inBasketZone()) return gAt(1, T_BASKET(true));
-    if (P.towels < towelCap() && inShelfZone() && (exNeed('towel', L) > 0 || (S.unlocked.porter ? towelWanted() : (P.towels > 0 || S.basket <= 2 || towelWanted())))) return gAt(1, T_SHELF(true));
+    if (P.towels < Math.min(towelCap(), towelUse()) && inShelfZone() && (exNeed('towel', L) > 0 || (S.unlocked.porter ? towelWanted() : (P.towels > 0 || S.basket <= 2 || towelWanted())))) return gAt(1, T_SHELF(true));
   }
   if (P.pouring && S.money > 0 && PADPOS.has(P.pouring) && !sk.pad && !(sk.decor && UNLOCK[P.pouring].decor)) return gAt(1, T_PAD(UNLOCK[P.pouring], true));
   for (const pk of PICKUPS) if (inZone(ZONE[pk.id]) && canPick(pk, L)) return gAt(1, T_PICK(pk.id, true, pk.k));   // picking up something wanted
@@ -236,7 +243,7 @@ function guideTarget(opts) {
   }
   if (GPREV && GPREV.rule === 12 && !GPREV.here && Q.length) { const rm = ROOM[GPREV.key.slice(6)]; if (rm && S.rooms[rm.id] === 'messy') return gAt(12, T_CLEAN(rm, false)); }
   // 13. towels (until the porter is hired): basket low or a guest waiting for one
-  if (S.unlocked.onsen && towelHelp()) return gAt(13, P.towels > 0 ? T_BASKET(false) : T_SHELF(false));
+  if (S.unlocked.onsen && towelHelp() && (P.towels > 0 || towelUse() > 0)) return gAt(13, P.towels > 0 ? T_BASKET(false) : T_SHELF(false));   // v2.4: not to the shelf while the porter's load fills the basket
   // 14. decor: complete a combo the arrow may point at, else dress an empty room's A slot (nearest first)
   if (slotT) return gStick(14, T_SLOT(slotT), slots.map(sl => T_SLOT(sl)));
   // 15. the biggest fish pile - only one worth the walk: >= 20 fish and >= 20 % (stage 4: 10 %) of what the cheapest pad

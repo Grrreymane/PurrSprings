@@ -14,7 +14,7 @@ function UNB(id, name, price, req, hearts, pad, icon, card, o) { return Object.a
 // the season of the year, 0 spring .. 3 winter: core A's calendar (seasons.js seasonNow; called at run time only - a
 // `typeof seasonNow` here would throw while seasons.js's const is not yet initialised)
 const seasonB = () => seasonNow();
-const OUTFIT_PAD = [3, 34], UNIFORM_PAD = [5, 34];
+const OUTFIT_PAD = [4, 36], UNIFORM_PAD = [6, 36];   // v2.4: under the hat / pet booths, a tile between
 // the innkeeper's outfits (look.outfit; shirt = the colour shown until the character art draws the outfit itself)
 const OUTFITS_B = [
   ['o_yukata', '浴衣', 15000, 6, '换上朝颜浴衣', '#6a9ae0'], ['o_chef', '割烹', 20000, 8, '换上割烹着', '#f4f0e6'],
@@ -117,13 +117,14 @@ const PROPS_V21B = [
   { k: 'slantern', at: [8, 2], need: 'of3', img: () => shrineLanternArt(lampLit(), seasonB()), light: [18, 2, 'lamp'] },
   { k: 'komainu', at: [3, 2], need: 'of4', img: () => komainuArt('l', seasonB()) }, { k: 'komainu', at: [7, 2], need: 'of4', img: () => komainuArt('r', seasonB()) },
   { k: 'tree', at: [1, 3], need: 'of6', block: false, img: () => treeArt('sakura', seasonB(), 1) },
-  { k: 'tree', at: [8, 5], need: 'of6', block: false, img: () => flipOf(treeArt('sakura', seasonB(), 2)) },
+  { k: 'tree', at: [9, 2], need: 'of6', block: false,   // v2.4: off the west wing's new way in (was (8,5))
+    img: () => flipOf(treeArt('sakura', seasonB(), 2)) },
   ...[6, 7, 8, 9].map(x => ({ k: 'senbon', at: [x, 4], need: 'of7', block: false, img: () => underSenbon(x) ? fadeArt(senbonArt(), .45) : senbonArt() })),
   { k: 'glow', at: [5, 0], fw: 1.5, need: 'of10', block: false, ground: true, img: () => NO_ART, light: [28, 8, 'lamp'] },   // the gold cat on the roof glows at night (92, 8)
   // the garden pieces (16.7), each on its own ground (snow on them in winter)
   ...GARDEN_B.map(([id, , , at]) => ({ k: 'gz', at, need: id, img: () => snowy(gardenDecorArt(id, Math.floor(T * 1.5) & 1)), light: id === 'gd_lantern' ? [18, 0, 'lamp'] : undefined })),
   // the plaza (16.9): stalls under their cloth, open at a festival / a fireworks show; a lantern string along the hedge
   ...STALLS_B.map(([id, , , kind, x]) => ({ k: 'stall', at: [x, 30], fw: 2, need: id, img: () => stallArt(kind, stallsOpen(), Math.floor(T * 2) & 1) })),   // (snow in winter: seasons.js propImg, k 'stall')
-  { k: 'chochin', at: [26, 29], fw: 13, need: 'plaza', ground: true, block: false, img: () => chochinRow(13) },
+  { k: 'chochin', at: [27, 29], fw: 12, need: 'plaza', ground: true, block: false, img: () => chochinRow(12) },   // v2.4: from col 27 (the gate is 2 wide now)
   ...[27, 31, 35].map(x => ({ k: 'chochinLamp', at: [x, 29], need: 'plaza', ground: true, block: false, img: () => NO_ART, light: [10, 10, 'lamp'] })),
 ];

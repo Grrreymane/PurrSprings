@@ -1,13 +1,13 @@
 // ============================================================ MAP & DATA (SPEC_v2 section 2)
-// 40 x 36 tiles. The v1 inn sits in cols 10-24: every v1 coordinate is x + 10, y unchanged.
+// 40 x 39 tiles (v2.4: 3 more rows for a bigger shop / front yard / plaza; was 36). The v1 inn sits in cols 10-24: every v1 coordinate is x + 10, y unchanged.
 const MAP = [
   'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',   // r0
   'bfffzzzfffbfrrrrrrrrrrrfbfrrrrrrrrrrrrrb',   // r1  shrine (v2.1) | onsen | star-view bath (roten)
   'bfzzzpzzzfbfr~~~~~~~~~rfbfr~~~~~~~~~~~rb',
   'bfzzzpzzzfbfr~~~~~~~~~rfbfr~~~~~~~~~~~rb',   // r3  bathers sit in this row of water
   'bfzzzpppppDsssssssssssssDssssssssssssssb',   // r4  (10,4) shrine gate, (24,4) roten gate
-  'bffzzzzzffbfssssssssssssbxxxxxxxxxxxxxxb',   // r5  roten deck r5-r7
-  'b################D#######xxxxxxxxxxxxxxb',   // r6  (17,6) onsen door
+  'bffzzzzzzzDsssssssssssssDxxxxxxxxxxxxxxb',   // r5  roten deck r5-r7; v2.4: (10,5) / (24,5) the gates are 2 tall, (8-9,5) sand from the west wing gate
+  'b#######DD#######DD######xxxxxxxxxxxxxxb',   // r6  (17-18,6) onsen door; v2.4 (8-9,6) west wing -> shrine gate
   'b#tttt#...#tttt#...#tttt#xxxxxxxxxxxxxxb',   // r7  W3 | R7 / R8
   'b#ttttD...#ttttD...Dtttt#ffffffpppfffffb',   // r8  hedge gap (31-33,8): garden <-> roten
   'b#tttt#...#tttt#...#tttt#ggggggpppgggggb',
@@ -19,7 +19,7 @@ const MAP = [
   'b#tttt#...#tttt#...#tttt#pgoooogpggggggb',   // r15 W1 | R3 / R4 | koi pond + dry garden
   'b#ttttD...#ttttD...Dtttt#pgoooogpzzzzzzb',
   'b#tttt#...#tttt#...#tttt#pgoooogpzzzzzzb',
-  'b#######D#######...######pggggggpggggggb',   // r18 (8,18) west wing door
+  'b#######DD######...######pggggggpggggggb',   // r18 (8-9,18) west wing door
   'b#kkkkmmmm#tttt#...#tttt#p######p######b',   // r19 kitchen + dining | R1 / R2
   'b#kkkkmmmm#ttttD...Dtttt#p#tttt#p#tttt#b',   // r20 cottages C1 / C2
   'b#mmmmmmmm#tttt#...#tttt#pDtttt#pDtttt#b',
@@ -27,16 +27,19 @@ const MAP = [
   'b#mmmmmmmm#lllllllllllll#p######p######b',   // r23 lobby (r23-r28)
   'b#mmmmmmmm#lllllllllllll#pggggggpggggggb',
   'b#mmmmmmmm#lllllllllllll#pggggggpggggggb',
-  'b#mmmmmmmmDlllllllllllllDppppppppggggggb',   // r26 (10,26) dining door, (24,26) garden door
+  'b#mmmmmmmmDlllllllllllllDppppppppggggggb',   // r26 (10,26-27) dining door, (24,26-27) garden door (v2.4: 2 tall)
+  'b#mmmmmmmmDlllllllllllllDpggggggpggggggb',
   'b#mmmmmmmm#lllllllllllll#pggggggpggggggb',
-  'b#mmmmmmmm#lllllllllllll#pggggggpggggggb',
-  'b###############EEE######Dfffffffffffffb',   // r29 (16-18,29) main entrance, (25,29) plaza gate (v2.1)
-  'bqqqqqqqqqgggggpppppgggggpfffggggggffffb',   // r30 shop | front garden | the lower garden (v2.0.1 A3; festival plaza in v2.1)
+  'b#######DD######EEE######DDffffffffffffb',   // r29 (8-9,29) dining -> shop door (v2.4), (16-18,29) main entrance, (25-26,29) plaza gate (v2.1)
+  'bqqqqqqqqqgggggpppppgggggppffggggggffffb',   // r30 shop (v2.4: r30-r37) | front garden | the lower garden (festival plaza in v2.1)
   'bqqqqqqqqqgggggpppppgggggpppppppppppppfb',
   'bqqqqqqqqqgggggpppppgggggfgggggggggggpgb',
   'bqqqqqqqqqgggggpppppgggggfgggggggggggggb',
-  'bqqqqqqqqqgggggpppppgggggfffffggfffffffb',
-  'bbbbbbbbbbbbbbbpppppbbbbbbbbbbbbbbbbbbbb',   // r35 guests come in from (17,36)
+  'bqqqqqqqqqgggggpppppgggggfgggggggggggggb',
+  'bqqqqqqqqqgggggpppppgggggfgggggggggggggb',
+  'bqqqqqqqqqgggggpppppgggggfgggggggggggggb',
+  'bqqqqqqqqqgggggpppppgggggfffffggfffffffb',   // r37 (v2.4: the map grew 3 rows, MH 39)
+  'bbbbbbbbbbbbbbbpppppbbbbbbbbbbbbbbbbbbbb',   // r38 guests come in from (17,39)
 ];
 const WALK_CH = new Set(['s', 't', '.', 'l', 'E', 'g', 'p', 'k', 'm', 'z', 'x', 'q']);
 const ch = (tx, ty) => (tx < 0 || ty < 0 || tx >= MW || ty >= MH) ? null : MAP[ty][tx];
@@ -48,17 +51,17 @@ const tcx = t => t[0] * TILE + 8, tcy = t => t[1] * TILE + 8;   // tile centre i
 // lock 'door': closed by its doors; 'block': the whole rect is BLOCK while locked. dim: darkened while locked.
 // sign: where the star-n board stands while it is locked (n = the star it belongs to). scenery: what covers it in v2.0.
 const AREAS = [
-  { id: 'front',  r: [10, 30, 24, 35], open: null,     music: 'lobby',  amb: 'wind' },
+  { id: 'front',  r: [10, 30, 24, 37], open: null,     music: 'lobby',  amb: 'wind' },
   { id: 'lobby',  r: [11, 23, 23, 28], open: null,     music: 'lobby',  amb: null },
   { id: 'main',   r: [11, 7, 23, 22],  open: null,     music: 'lobby',  amb: null },
   { id: 'onsen',  r: [11, 1, 23, 5],   open: 'onsen',  lock: 'door',  dim: true, music: 'onsen',  amb: 'water' },
-  { id: 'shop',   r: [1, 30, 9, 34],   open: 'shop',   lock: 'block', dim: true, music: 'lobby',  amb: null, sign: [10, 30], n: 2 },
+  { id: 'shop',   r: [1, 30, 9, 37],   open: 'shop',   lock: 'block', dim: true, music: 'lobby',  amb: null, sign: [10, 30], n: 2 },
   { id: 'dining', r: [2, 19, 9, 28],   open: 'dining', lock: 'door',  dim: true, music: 'dining', amb: 'fire', sign: [10, 26], n: 3 },
   { id: 'west',   r: [2, 7, 9, 17],    open: 'w1',     lock: 'door',  dim: true, music: 'lobby',  amb: null },
   { id: 'garden', r: [25, 9, 38, 28],  open: 'garden', lock: 'block', dim: true, music: 'garden', amb: 'garden', sign: [24, 26], n: 4 },
   { id: 'roten',  r: [25, 1, 38, 8],   open: 'roten',  lock: 'block', dim: true, music: 'onsen',  amb: 'falls', sign: [24, 4], n: 5 },
   { id: 'shrine', r: [1, 1, 9, 5],     open: 'shrine', lock: 'block', dim: false, music: 'garden', amb: null, scenery: 'bamboo', v21: true },   // v2.1 (16.8, star 5: gate pad (11,4))
-  { id: 'plaza',  r: [25, 30, 38, 34], open: 'plaza',  lock: 'block', dim: false, music: 'lobby',  amb: null, v21: true },   // v2.1 (16.9, star 5: gate pad (23,32)); v2.0.1: the lower garden (A3)
+  { id: 'plaza',  r: [25, 30, 38, 37], open: 'plaza',  lock: 'block', dim: false, music: 'lobby',  amb: null, v21: true },   // v2.1 (16.9, star 5: gate pad (23,32)); v2.0.1: the lower garden (A3)
 ];
 const AREA = NUL(); AREAS.forEach((a, i) => { a.i = i; AREA[a.id] = a; });
 const AREA_AT = new Int8Array(MW * MH).fill(-1);
@@ -113,41 +116,51 @@ const GUEST_ROOMS = ROOMS.filter(r => !r.vip);       // suites are only for VIPs
 const roomOpen = (rm, s) => !rm.open || !!(s || S).unlocked[rm.open];
 const futonC = rm => rm.cleanC;
 
-// ---- doors (2.3): kind = doorArt geometry; open = unlock id (null = always open); base = floor tile drawn under it
+// ---- doors (2.3): kind = doorArt geometry; open = unlock id, or a list of them that must all be bought (null = always
+// open); base = floor tile drawn under it. v2.4 (player feedback "wider doors, more ways through"): w / h = a door 2
+// tiles wide (in a horizontal wall) or 2 tall (in a vertical wall); `at` is its top-left tile, DOOR_AT maps every tile.
 const DOORS = [
-  { at: [17, 6], kind: 'onsen', open: 'onsen' },
-  { at: [8, 18], kind: 'hdoor', open: 'w1', col: '#8a6a3a' },                          // west wing, brown noren
-  { at: [10, 26], kind: 'left', open: 'dining', col: '#5a3a26', emb: 'rice' },          // dining is left of the door
-  { at: [24, 26], kind: 'right', open: 'garden', col: '#2f4a32', emb: 'pinebranch' },   // garden is right of the door
-  { at: [24, 4], kind: 'gate', open: 'roten', base: 's' },
-  { at: [10, 4], kind: 'gate', open: 'shrine', base: 's' },                             // v2.1
-  { at: [25, 29], kind: 'gateH', open: 'plaza', base: 'p' },                            // v2.1
+  { at: [17, 6], w: 2, kind: 'onsen', open: 'onsen' },
+  { at: [8, 18], w: 2, kind: 'hdoor', open: 'w1', col: '#8a6a3a' },                     // west wing, brown noren
+  { at: [10, 26], h: 2, kind: 'left', open: 'dining', col: '#5a3a26', emb: 'rice' },     // dining is left of the door
+  { at: [24, 26], h: 2, kind: 'right', open: 'garden', col: '#2f4a32', emb: 'pinebranch' },   // garden is right of the door
+  { at: [24, 4], h: 2, kind: 'gate', open: 'roten', base: 's' },
+  { at: [10, 4], h: 2, kind: 'gate', open: 'shrine', base: 's' },                        // v2.1
+  { at: [25, 29], w: 2, kind: 'gateH', open: 'plaza', base: 'p' },                       // v2.1
+  { at: [8, 29], w: 2, kind: 'hdoor', open: ['dining', 'shop'], col: '#3a6a4a', emb: 'fish', beyond: 'din' },   // v2.4: dining hall -> shop (green noren)
+  { at: [8, 6], w: 2, kind: 'hdoor', open: ['w1', 'shrine'], col: '#c8402a', emb: 'torii', beyond: 'sand' },   // v2.4: west wing hall -> the shrine (vermilion noren)
 ];
 ROOMS.forEach(rm => DOORS.push({ at: rm.door, kind: rm.left ? 'left' : 'right', open: rm.open, room: rm.id, col: rm.col, emb: rm.emb, gold: rm.vip }));
-const DOOR_AT = NUL(); DOORS.forEach(d => { DOOR_AT[d.at[1] * MW + d.at[0]] = d; });
-const doorIsOpen = d => !d.open || !!S.unlocked[d.open];
+const DOOR_AT = NUL(); DOORS.forEach(d => { d.w = d.w || 1; d.h = d.h || 1; for (let j = 0; j < d.h; j++) for (let i = 0; i < d.w; i++) DOOR_AT[(d.at[1] + j) * MW + d.at[0] + i] = d; });
+const doorIsOpen = d => !d.open || (Array.isArray(d.open) ? d.open.every(k => !!S.unlocked[k]) : !!S.unlocked[d.open]);
 function doorOpen(tx, ty) { const d = DOOR_AT[ty * MW + tx]; return !!d && doorIsOpen(d); }
 
 // ---- spots (2.4); v1 ones moved x + 10
 const DESK_SPOT = [13, 24], QSPOTS = [[13, 26], [13, 27], [13, 28], [14, 28], [15, 28]];
 const SHELF_C = [23 * TILE, 23 * TILE + 8], SHELF_SPOT = [22, 24];
 const BASKET_C = [15 * TILE + 8, 5 * TILE + 8], BASKET_SPOT = [14, 5], TOWEL_SPOT = [16, 5], WAIT_SPOT = [17, 5], MILK_SPOT = [22, 5];
+// v2.4 ("a milk machine by the front door, handier for everyone"): a second machine (unlock milk2) against the facade left
+// of the main entrance, off the walk; guests leaving the bath use the nearer free one, staff / the arrow the nearer one
+const MILK2_AT = [14, 30], MILK2_SPOT = [14, 31];
 const SLOT_X = [15, 17, 19, 13, 21], ROTEN_X = [27, 29, 31, 33, 35, 37];
 // bath slots: stand at (x,4), sit in the water at (x,3). Onsen 0-2 open with the onsen, 3-4 need 浴池; 5-10 are the roten.
 const SLOTS = SLOT_X.map((x, i) => ({ x, roten: false, need: i < 3 ? 'onsen' : 'bigbath' })).concat(ROTEN_X.map(x => ({ x, roten: true, need: 'roten' })));
 const REST = [[21, 25], [22, 25], [23, 25]];          // staff idle spots
-const EXIT = [17 * TILE + 8, 36 * TILE + 8], EXIT_TILE = [17, 35];   // half a tile below the map
-const SPOT = { carpet: [17, 26], clerk: [16, 23], owner: [6, 30], browse: [7, 32], mirror: [2, 33], petCushion: [8, 34], chef: [3, 20],
+const EXIT = [17 * TILE + 8, MH * TILE + 8], EXIT_TILE = [17, MH - 1];   // half a tile below the map
+const SPOT = { carpet: [17, 26], clerk: [16, 23], owner: [6, 30], browse: [7, 32], mirror: [2, 35], petCushion: [8, 35], chef: [3, 20],   // v2.4: the bigger shop
   waiterIdle: [[9, 20], [9, 21]], urn1: [12, 24], urn2: [26, 26], rotenPile: [32, 5] };
 // pick-up zones (4.1): centre px + radius
 const ZONE = { urn1: { c: [11 * TILE + 8, 24 * TILE + 8], r: 18 }, urn2: { c: [26 * TILE + 8, 25 * TILE + 8], r: 18 }, milk: { c: [22 * TILE + 8, 5 * TILE + 8], r: 18 },
+  milk2: { c: [MILK2_SPOT[0] * TILE + 8, MILK2_SPOT[1] * TILE + 8], r: 18 },
   stove: { c: [48, 312], r: 20 }, pass: { c: [56, 344], r: 22 } };
 // dining seats (cushions, not blocking) beside their tables; need = the unlock that brings the table
 const SEATS = [[2, 23, 3, 'dining'], [4, 23, 3, 'dining'], [6, 23, 7, 'dining'], [8, 23, 7, 'dining'], [2, 26, 3, 'table3'], [4, 26, 3, 'table3'], [6, 26, 7, 'table4'], [8, 26, 7, 'table4']]
   .map(([x, y, tx, need]) => ({ at: [x, y], table: [tx, y], need, face: x < tx ? 'right' : 'left' }));
-const DECOR_PADS = [[2, 32], [4, 32]], HAT_PAD = [5, 33], PET_PAD = [7, 33], PAD_MAX = 4;
+// v2.4 ("the shop is cramped, I step on what I didn't want"): every shop pad has an empty tile round it and none is on the
+// way from the dining door / the front yard; the four booths are a 2 x 2 block with a gap, the mirror and the cushion beside it
+const DECOR_PADS = [[2, 32], [4, 32]], HAT_PAD = [4, 34], PET_PAD = [6, 34], PAD_MAX = 4;
 const PILE_AT = NUL();
-Object.assign(PILE_AT, { recep: [15, 24], onsen: [18, 5], milk: [21, 5], dining: [9, 27], shop: [9, 32], roten: [32, 5] });
+Object.assign(PILE_AT, { recep: [15, 24], onsen: [18, 5], milk: [21, 5], dining: [9, 27], shop: [8, 31], roten: [32, 5], milk2: [13, 30] });
 ROOMS.forEach(r => { PILE_AT[r.id] = r.pile; });
 const pileOpen = (id, s) => id === 'recep' || (ROOM[id] ? roomOpen(ROOM[id], s) : !!(s || S).unlocked[id]);
 const SHIRTS = ['#e05a5a', '#5a9ae0', '#6ac06a', '#e0b04a', '#b07ae0', '#e08ac0', '#4ac0b8', '#f08a4a'];
@@ -170,9 +183,9 @@ const TILE_LOOK = new Array(MW * MH).fill(null);
   for (let x = 25; x <= 38; x++) set(x, 4, 'sunoko');
   // the lower garden (A3): flower beds (v 0 hydrangea, 1 iris, 2 cosmos, 3 marigold), a clipped hedge and a low bamboo
   // fence on its west side (towards the front yard), stepping stones from the walk to the bench
-  [[26, 30, 0], [27, 30, 0], [28, 30, 2], [35, 30, 3], [36, 30, 2], [37, 30, 0], [38, 30, 0], [38, 31, 1],
-    [26, 34, 1], [27, 34, 0], [28, 34, 0], [29, 34, 2], [32, 34, 2], [33, 34, 3], [34, 34, 3], [35, 34, 0], [36, 34, 0], [37, 34, 1], [38, 34, 1]].forEach(([x, y, v]) => set(x, y, 'bed|' + v));
-  for (let y = 32; y <= 34; y++) set(25, y, 'hedge|0,1');
+  [[27, 30, 0], [28, 30, 2], [35, 30, 3], [36, 30, 2], [37, 30, 0], [38, 30, 0], [38, 31, 1],
+    [26, 37, 1], [27, 37, 0], [28, 37, 0], [29, 37, 2], [32, 37, 2], [33, 37, 3], [34, 37, 3], [35, 37, 0], [36, 37, 0], [37, 37, 1], [38, 37, 1]].forEach(([x, y, v]) => set(x, y, 'bed|' + v));
+  for (let y = 32; y <= 37; y++) set(25, y, 'hedge|0,1');   // v2.4: the plaza runs to r37 (its south beds moved down 3)
   set(25, 30, 'gd|0,1'); set(25, 31, 'gd|0,1'); set(29, 32, 'gd|1'); set(30, 33, 'gd|1');
 }
 const tileLook = (tx, ty) => (tx < 0 || ty < 0 || tx >= MW || ty >= MH) ? null : TILE_LOOK[ty * MW + tx];
@@ -194,7 +207,7 @@ const SCENERY = [
   { k: 'bambooLamp', at: [26, 3], need: 'roten', block: false, img: () => deckLanternArt(lampLit()), light: [10, 2, 'deck'] },
   { k: 'bambooLamp', at: [38, 2], need: 'roten', block: false, img: () => deckLanternArt(lampLit()), light: [10, 2, 'deck'] },
   // A3: the lower garden. Shut (BLOCK) in v2.0; the lawn in the middle stays open for the v2.1 festival stalls.
-  { k: 'nodate', at: [30, 34], fw: 2, img: () => nodateArt('gray') },           // red bench under a parasol, a cat asleep on it
+  { k: 'nodate', at: [30, 37], fw: 2, img: () => nodateArt('gray') },           // red bench under a parasol, a cat asleep on it
   { k: 'tsukubai', at: [38, 32], img: () => tsukubaiArt() },                     // stone water basin at the end of the walk
   { k: 'toro', at: [38, 30], img: () => toroArt(), light: [18, 0, 'lamp'] },     // its stone lantern, in the hydrangeas
   { k: 'curl', at: [28, 32], block: false, img: () => catCurl('orange') },       // cats asleep in the sun

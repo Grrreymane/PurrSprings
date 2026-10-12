@@ -273,6 +273,8 @@ function drawPlayerAttach() {
   if (TRY.hat && !P.towels) { const fr = Math.floor(T * 3) & 3, b = headBob(P); drawA(sparkleArt(fr), R(P.x) - 7, R(P.y) - 25 - b, 4, 4); drawA(sparkleArt((fr + 2) & 3), R(P.x) + 7, R(P.y) - 21 - b, 4, 4); any = true; }
   // the decor slot you stand on: a small ring at your feet until the next piece swaps in
   if (P.slot.key && !P.slot.stop && P.slot.t > 0) { ring(R(P.x) - CX, R(P.y) + 6 - CY, P.slot.t / (P.slot.n ? DECOR_T : DECOR_T0), '#ffe9a8'); any = true; }
+  // v2.4: standing still on a price pad - a gold ring at your feet fills before the first fish goes in (PAD_DELAY)
+  if (P.padOn && !P.pouring && P.padT > 0 && P.padT < PAD_DELAY) { ring(R(P.x) - CX, R(P.y) + 6 - CY, P.padT / PAD_DELAY, '#ffd23f'); any = true; }
   if (P.towels > 0) { towelStack(P, P.towels, P.sway); any = true; }
   // the tray (4.1); a new tray: its new empty place glows once (7.3.4)
   if (P.tray.length) { drawTray(P, P.tray); any = true; }

@@ -32,7 +32,7 @@ S.unlocked.milk = true;
 for (const v of VIPS.concat(RARES)) for (const k of v.wishes) ok(k === 'photo' || k === 'bath' || k === 'stay' || k === 'show' || WISH_MAKE[k], 'every wish kind is known: ' + v.id + ' ' + k);
 // ---- the stations
 st();
-eq(wishStations('tea').join(','), 'urn1,urn2', 'tea: both urns'); eq(wishStations('milk').join(','), 'milk', 'milk: the machine');
+eq(wishStations('tea').join(','), 'urn1,urn2', 'tea: both urns'); eq(wishStations('milk').join(','), 'milk,milk2', 'milk: both machines (v2.4)');
 eq(wishStations('kaiseki').join(','), 'stove', 'kaiseki: the stove'); eq(wishStations('rice').join(','), 'pass', 'rice with a chef: the counter');
 S.unlocked.chef = false; PASS.n = 0; eq(wishStations('rice').join(','), 'stove', 'rice, no chef, empty counter: the stove'); S.unlocked.chef = true;
 // ---- tea: glow, route bubble, arrow at the station with the route icon, then the guest
@@ -102,7 +102,7 @@ function host(who) {
 st(); S.stats.vips = 1; S.unlocked.chef = false; PASS.n = 0;
 const done = [];
 for (const who of ['kawa', 'ozeki', 'sakura', 'captain', 'star', 'granny', 'r_boy', 'r_fisher', 'r_bride']) {
-  const n0 = S.stats.vips; P.x = 17 * 16 + 8; P.y = 25 * 16 + 8; P.tray = []; for (const rm of SUITES) S.rooms[rm.id] = 'clean';
+  const n0 = S.stats.vips; P.x = 17 * 16 + 8; P.y = 25 * 16 + 8; P.tray = []; VSLEEP.length = 0; S.vsleep = []; for (const rm of SUITES) { S.rooms[rm.id] = 'clean'; RT[rm.id].guest = null; }   // v2.4: last one's sleeper out of the way
   ok(host(who) && S.stats.vips === n0 + 1, 'glow-only bot hosted ' + who + ' to the photo'); done.push(who);
 }
 console.log('  glow-only bot hosted: ' + done.join(' '));

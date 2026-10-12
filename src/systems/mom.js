@@ -12,9 +12,15 @@ VIP.mom = MOM_DEF;
 function momTick() {
   const v = VIPG;
   if (v) { if (v.mom) momFollow(v); return; }
-  if (star() < MOM_STAR || !S.unlocked.garden || !SUITES.some(rm => roomOpen(rm))) return;
-  const y = yearOf(S.day);
-  if (seasonNow() === 0 && seasonDay(S.day) === 2 && S.clock >= MOM_AT && S.momY < y) momArrive(y);
+  const due = momDue();
+  if (((due === true && S.clock >= MOM_AT) || due === 'late') && SUITES.some(suiteAvail)) momArrive(yearOf(S.day));
+}
+// v2.4: her day (spring day 3) until she came this year - no VIP / rare guest starts a visit then (vip.js), so a suite is
+// free for her; a guest of honour asleep in the only suite that night: she comes as soon as one is free the next day ('late')
+function momDue() {
+  if (star() < MOM_STAR || !S.unlocked.garden || !SUITES.some(rm => roomOpen(rm)) || S.momY >= yearOf(S.day)) return false;
+  const s = seasonNow();
+  return s === 0 && seasonDay(S.day) === 2 ? true : s === 1 && seasonDay(S.day) === 0 ? 'late' : false;
 }
 function momArrive(year) {   // the same fields as vipArrive() builds, + mom / said / momYear
   VIPG = { id: 'mom', vip: true, mom: true, said: false, momYear: year, look: MOM_DEF.look, x: EXIT[0], y: EXIT[1], dir: 'up', moving: false, walkT: 0, path: [], goal: null, q: [], st: 'arrive', t: 0, tt: 0,

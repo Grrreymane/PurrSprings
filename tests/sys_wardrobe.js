@@ -43,10 +43,10 @@ setupB(true);
   S.paid.o_momiji = 100; ok(padEligible(UNLOCK.o_momiji), 'money poured in: it stays on sale after its season'); delete S.paid.o_momiji; S.day = 1; }
 // ---- try-on: the outfit on you, the uniform on the staff + a ghost at your side; walking off takes it off
 setupB(true);
-{ atB(3, 33); runB(.1); eq(TRY.outfit, 'o_yukata', 'by the outfit booth: trying the yukata'); eq(playerLook().outfit, 'o_yukata', 'drawn on the innkeeper');
+{ atB(3, 36); runB(.1); eq(TRY.outfit, 'o_yukata', 'by the outfit booth: trying the yukata'); eq(playerLook().outfit, 'o_yukata', 'drawn on the innkeeper');
   ok(SAID.some(([w, k]) => w && w.role === 'owner' && k === 'K03'), 'the tanuki: K03');
   const rc = STAFF.find(s => s.role === 'recep'), own = STAFF.find(s => s.role === 'owner');
-  atB(5, 34); runB(.1); eq(TRY.uniform, 'sakura', 'on the uniform booth: trying sakura'); eq(staffLook(rc).uniform, 'sakura', 'the receptionist wears it');
+  atB(7, 36); runB(.1); eq(TRY.uniform, 'sakura', 'on the uniform booth: trying sakura'); eq(staffLook(rc).uniform, 'sakura', 'the receptionist wears it');
   eq(staffLook(own).uniform, undefined, 'the shop owner keeps its own clothes');
   const L = []; dressGhostDraws(L); eq(L.length, 1, 'a ghost receptionist at your side');
   const looks = []; const _cs = catSprite; catSprite = (v, f, l) => { looks.push(l); return _cs(v, f, l); }; updCam(0, true); render(); catSprite = _cs;

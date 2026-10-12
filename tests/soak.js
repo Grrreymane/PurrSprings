@@ -74,10 +74,11 @@ function checkSecond() {
   // rooms <-> guests
   for (const rm of ROOMS) {
     const rt = RT[rm.id], st = S.rooms[rm.id];
-    if (rm.vip) {   // stage 2B: a suite holds only the VIP (it stays 'clean' while used, 'messy' after - 10.1)
-      if (rt.guest && (rt.guest !== VIPG || VIPG.suite !== rm.id)) flag('suite-guest', at + ' ' + rm.id);
-      if (rt.guest && st !== 'clean') flag('suite-guest-dirty', at + ' ' + rm.id + ' ' + st);
-      if (st === 'reserved' || st === 'occupied') flag('suite-state', at + ' ' + rm.id + ' ' + st);
+    if (rm.vip) {   // stage 2B: a suite holds only the VIP (it stays 'clean' while used, 'messy' after - 10.1); v2.4: or its sleeper ('occupied' once in bed)
+      const sl = VSLEEP.includes(rt.guest) && rt.guest.room === rm.id;
+      if (rt.guest && !sl && (rt.guest !== VIPG || VIPG.suite !== rm.id)) flag('suite-guest', at + ' ' + rm.id);
+      if (rt.guest && !sl && st !== 'clean') flag('suite-guest-dirty', at + ' ' + rm.id + ' ' + st);
+      if (st === 'reserved' || (st === 'occupied' && !(sl && rt.guest.st === 'sleep'))) flag('suite-state', at + ' ' + rm.id + ' ' + st);
       if (rt.claim && (!STAFF.includes(rt.claim) || rt.claim.job !== rm.id)) flag('claim-leak', at + ' ' + rm.id);
       continue;
     }
@@ -131,7 +132,7 @@ function checkSecond() {
   for (const k of ['g', 'h', 'best']) if (!Number.isInteger(S.dayLog[k]) || S.dayLog[k] < 0) flag('daylog', at + ' ' + k + '=' + S.dayLog[k]);
   for (const k in S.staff) if (!Number.isInteger(S.staff[k]) || S.staff[k] < 0 || !STAFF_DEF[k]) flag('staff-xp', at + ' ' + k + '=' + S.staff[k]);
   if (PET && dist(P.x, P.y, PET.x, PET.y) > 200) flag('pet-far', at + ' ' + R(dist(P.x, P.y, PET.x, PET.y)));
-  if (VIPG && SUITES.some(rm => RT[rm.id].guest && RT[rm.id].guest !== VIPG)) flag('suite-guest', at);
+  if (VIPG && SUITES.some(rm => RT[rm.id].guest && RT[rm.id].guest !== VIPG && !VSLEEP.includes(RT[rm.id].guest))) flag('suite-guest', at);
   // the statue only once every hat / pet is bought and >= 50,000 on hand (END-1); two checks in a row, since the arrow
   // re-picks every 0.25 s and a pour empties the wallet in a frame
   soakStatueBad = GUIDE && GUIDE.id === 'statue' && (S.money < 50000 || UNLOCKS.some(u => (u.hat || u.pet) && !S.unlocked[u.id])) ? soakStatueBad + 1 : 0;

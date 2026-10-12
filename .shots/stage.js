@@ -549,6 +549,20 @@
       if (window.PX2) place(window.PX2, window.PY2, 'down'); ff(.3, false); GUIDE = guideTarget(); FREEZE_AT();
     },
     b_title() { b5(['o_hakama', 'h_straw', 'p_crane']); S.equip = { hat: 'h_straw', pet: 'p_crane', outfit: 'o_hakama' }; resetWorld(); go('title'); },
+    // v2.4: a full star-5 inn (shrine level window.LV (3), the plaza + stalls, milk2), the innkeeper at window.PX / PY,
+    // clock window.CLOCK (night .85), frozen after window.MORE s (night_* / shop / door shots)
+    v24() {
+      const lv = window.LV === undefined ? 3 : window.LV;
+      b5(['shrine', 'plaza', 'milk2'].concat(Array.from({ length: lv }, (_, i) => 'of' + (i + 1)), STALLS_B.map(s => s[0]), window.EXTRA || [])); S.clock = window.CLOCK === undefined ? .85 : window.CLOCK; S.money = window.MONEY || 0;
+      resetWorld(); go('play'); spawnT = window.SPAWN ? 0 : 1e9; ff(window.WARM || .5, false); place(window.PX || 17, window.PY || 26, window.DIR || 'down'); ff(window.MORE || .4, false); GUIDE = guideTarget(); FREEZE_AT();
+    },
+    // v2.4: a guest of honour (window.WHO, default kawa) asleep in 月见亭 after its photo, the innkeeper by the suite
+    v24sleep() {
+      b5([]); S.clock = window.CLOCK === undefined ? .8 : window.CLOCK; resetWorld(); go('play'); spawnT = 1e9;
+      vipArrive(); const v = VIPG, rm = ROOM.c3, who = window.WHO || 'kawa'; v.id = who; v.look = VIP_LOOK[who] || v.look;
+      v.x = tcx(rm.stand); v.y = tcy(rm.stand); v.suite = 'c3'; RT.c3.guest = v; setSt(v, 'seated'); v.wi = VIP[who].wishes.length - 1; vipWishStart(); firstDone('vip'); FIRST_Q.length = 0;
+      vipPhoto(); ff(window.MORE || 4, false); place(window.PX || 28, window.PY || 14, 'up'); ff(.3, false); FREEZE_AT();
+    },
     mapV21() { newGame(); S.tut.moved = true; unl(ALL.concat(['maid4'], UNLOCKS.filter(u => u.v21b && !u.repeat && !u.ok && (!u.shrine || u.shrine <= (window.LV === undefined ? 10 : window.LV))).map(u => u.id))); S.done = true; resetWorld(); go('play'); ff(30, false); place(17, 27, 'up'); mapView(); },
   };
   (sc[window.SHOT] || sc.title)();

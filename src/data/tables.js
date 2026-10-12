@@ -21,6 +21,7 @@ const UNLOCKS = [
   UN('room4', '客房', 140, ['onsen'], 3, [18, 16], 'room', '开「樱」房'),
   UN('d_bonsai', '盆栽', 150, ['d_scroll', 'd_ikebana'], 5, 'decor', 'decor', '摆进客房加价', { decor: true }),
   UN('milk', '牛奶', 160, ['onsen'], 3, [20, 5], 'milk', '泡完买牛奶', { at: [22, 4] }),
+  UN('milk2', '牛奶', 150, ['milk', 'shop'], 2, [14, 30], 'milk', '门口也有牛奶', { at: [14, 30] }),   // v2.4: the second machine (pad on its own tile, like the tables)
   UN('d_screen', '屏风', 180, ['d_scroll', 'd_ikebana'], 5, 'decor', 'decor', '摆进客房加价', { decor: true }),
   UN('room5', '客房', 210, ['room4'], 3, [16, 12], 'room', '开「菊」房'),
   UN('shoes2', '跑鞋', 220, ['shoes1', 'room5'], 1, [19, 28], 'shoes', '走路更快'),
@@ -145,18 +146,18 @@ function dayLight(c) {
   return v;
 }
 const DAWN_AT = .10, DUSK_AT = .68;      // sunrise rolls the day over (banner + yesterday's numbers); dusk rings the temple bell (4.10)
-const LIGHT_MAX = 16, GLINT_MAX = 6;     // lamps drawn per frame (the nearest to the view centre), fish-pile glints
+const LIGHT_MAX = 24, GLINT_MAX = 6;     // lamps drawn per frame (the nearest to the view centre), fish-pile glints
 const GLOW_K = .4;                       // warm additive glow on top of the lamp's hole in the tint (stage M: see drawLighting)
 // staff levels (4.7): experience 20 / 60 / 140 / 300 -> Lv2..Lv5; Lv3 silver trim, Lv5 gold trim on work clothes
 const LV_XP = [0, 20, 60, 140, 300];
 const TRIM_OUTFITS = new Set(['kimono', 'apron', 'porter', 'chef', 'waiter', 'clerk']);
 // hearts (4.9 / 4.13): overtakes within 10 s share one banner; the 100th / 500th / 1000th / 5000th guest is a small event
 const RANK_MERGE = 10, MILESTONES = [100, 500, 1000, 5000];
-// the boutique (4.11): try-on within 2 tiles of a booth; the mirror / the pet cushion switch every 1 s; a pet walks 14 px behind
-const TRYON_R = 2 * 16, MIRROR_T = 1, PET_GAP = 14, BOOTH_HINT_T = 60;
+// the boutique (4.11): try-on within 1.25 tiles of a booth (v2.4: was 2 - with the booths 2 tiles apart standing on one tried both); the mirror / the pet cushion switch every 1 s; a pet walks 14 px behind
+const TRYON_R = 20, MIRROR_T = 1, PET_GAP = 14, BOOTH_HINT_T = 60;
 const PATIENCE = 45, PATIENCE_EARLY = 70, BATH_WAIT = 20, CHECKIN_T = .7, CLEAN_T = 1.5, MAID_CLEAN_T = 2.5, BATH_T = 6, SLEEP_T = 10, MILK_T = 1;
 const POUR_T = .6;   // a pad fills in this long once you stand on it (stage 4: was 1.2 s; fewer half-poured pads left behind)
-const P_SPEED = 56, G_SPEED = 34, STAFF_SPEED = 40, BASKET_MAX = 10, PAD_DELAY = .4, GUEST_MAX = 40;
+const P_SPEED = 56, G_SPEED = 34, STAFF_SPEED = 40, BASKET_MAX = 10, PAD_DELAY = .8, GUEST_MAX = 40;   // v2.4: PAD_DELAY .4 -> .8 s standing still
 // fish-pile pickup radius by net level (4.8). v2.0.1 G5: about 1.5 tiles more a level (was 10 / 18 / 28 / 40) and every
 // pile inside it - small ones and the cash box too - flies to the innkeeper (the NEAR_MIN gate is gone)
 const NET_R = [10, 34, 58, 82];
