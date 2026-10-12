@@ -26,7 +26,7 @@ st(['room2', 'room3', 'onsen', 'room4', 'room5', 'recep', 'maid1', 'dining', 'w1
 ok(doorOpen(10, 26) && doorOpen(8, 18) && doorOpen(6, 16) && !doorOpen(6, 12), 'dining door, west wing door, W1 open, W2 closed');
 ok(findPath(13, 24, ROOM.w1.stand[0], ROOM.w1.stand[1]) && !findPath(13, 24, ROOM.w2.stand[0], ROOM.w2.stand[1]), 'W1 reachable, W2 not');
 st(['room2', 'room3', 'onsen', 'garden']);
-ok(doorOpen(24, 26) && doorOpen(26, 21) && doorOpen(26, 12) && !doorOpen(33, 21) && !doorOpen(33, 12), 'garden opens C1 + C3 (suite A); C2 / C4 stay shut');
+ok(doorOpen(24, 26) && doorOpen(30, 21) && doorOpen(30, 12) && !doorOpen(33, 21) && !doorOpen(33, 12), 'garden opens C1 + C3 (suite A); C2 / C4 stay shut');
 ok(findPath(13, 24, ROOM.c1.stand[0], ROOM.c1.stand[1]) && !blockedRect(AREA.garden.r) && blockedRect(AREA.roten.r), 'C1 reachable, roten still blocked');
 ok(S.rooms.c1 === 'clean' && S.rooms.c3 === 'clean', 'garden rooms ready');
 // unlock() pops + area fade

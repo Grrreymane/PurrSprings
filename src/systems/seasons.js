@@ -190,7 +190,7 @@ function drawMoon() {
   };
   if (S.unlocked.onsen) one(17 * TILE + 8, 2 * TILE + 8, 5);
   if (S.unlocked.roten) one(32 * TILE + 8, 2 * TILE + 8, 6);
-  if (S.unlocked.garden) one(28 * TILE + 8, 16 * TILE + 4, 4);
+  if (S.unlocked.garden) one((POND[0] + POND[1] + 1) / 2 * TILE, 16 * TILE + 4, 4);
 }
 // ---- the lobby's north wall (drawScene, before the cats): the trophies (23,22), the newest magazine cover (19,22), the
 // family photo (15,22); during a festival the lantern strings over the front door and along the lobby wall

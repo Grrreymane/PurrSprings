@@ -6183,6 +6183,153 @@ function fireworkArt(k, frame) {
     return c;
   });
 }
+
+// ------------------------------------------------------------ v2.1 festival plaza, lower half: scenery
+// thin snow line (winter): in rows y0..y1, top pixels (nothing above) that sit in a level run of >= 2 turn to snow
+// (thin diagonal sticks stay bare); long flat runs get a broken 2nd row
+function _obSnowTop(G, y0, y1) {
+  const src = G.d.slice(), at = (x, y) => (x < 0 || y < 0 || x >= G.w || y >= G.h) ? null : src[y * G.w + x];
+  const top = (x, y) => at(x, y) && !at(x, y - 1);
+  for (let y = Math.max(0, y0); y <= Math.min(G.h - 1, y1); y++) for (let x = 0; x < G.w; x++) {
+    if (!top(x, y) || !(top(x - 1, y) || top(x + 1, y))) continue;
+    G.set(x, y, '#f4f8fc');
+    if (at(x - 1, y) && at(x + 1, y) && !at(x - 1, y - 1) && !at(x + 1, y - 1) && at(x, y + 1) && _obH(x, y, 77) < .55) G.set(x, y + 1, '#dce5f0');
+  }
+}
+// small paper lantern (3x6) hanging from (x, y) = its cap; on = warm lit paper
+function _obChochin(G, x, y, on) {
+  G.set(x + 1, y, '#3a2a2e'); G.rect(x, y + 1, 3, 1, '#3a2a2e'); G.rect(x, y + 5, 3, 1, '#3a2a2e');
+  if (on) { G.rect(x, y + 2, 3, 3, '#ffd27a'); G.set(x + 1, y + 3, '#fff2c0'); G.set(x + 1, y + 2, '#fff2c0'); G.set(x + 2, y + 4, '#f0a850'); }
+  else { G.rect(x, y + 2, 3, 3, '#e0503a'); G.set(x, y + 2, '#f07a5a'); G.set(x, y + 3, '#f07a5a'); G.set(x + 2, y + 4, '#a8302a'); }
+}
+// bon-odori drum tower: 48x56, footprint 3x2, anchor (0,56) = bottom-left of the footprint (rows 24..55 are the
+// footprint). lit = the lanterns glow (static); s = season 0..3, winter puts snow on the rails, drum and lanterns.
+function yaguraArt(lit, s) {
+  const on = !!lit, ss = (s | 0) & 3;
+  return art('ob:yagura:' + (on ? 1 : 0) + ':' + ss, () => _obObj(48, 56, G => {
+    const P = _obP;
+    // back legs + tie, front legs
+    G.rect(6, 36, 2, 5, P.dk2); G.rect(40, 36, 2, 5, P.dk2); G.rect(8, 39, 32, 1, P.dk2);
+    [3, 42].forEach(x0 => { G.rect(x0, 36, 3, 19, P.dk); G.rect(x0, 36, 1, 19, P.dkL); });
+    G.rect(6, 45, 36, 1, P.dk2);                                                                // front tie beam
+    gLine(G, 6, 37, 13, 44, P.dk2); gLine(G, 41, 37, 34, 44, P.dk2);                          // braces
+    // deck (planks run left-right) + front beam
+    G.rect(2, 17, 44, 8, P.woodL);
+    for (let x = 2; x < 46; x++) { G.set(x, 19, _obH(x, 19, 5) < .5 ? '#cf9c66' : P.wood); G.set(x, 22, _obH(x, 22, 6) < .5 ? '#cf9c66' : P.wood); }
+    G.rect(2, 25, 44, 1, P.dk); G.rect(2, 26, 44, 1, P.dk2);
+    // kohaku maku: red and white stripes, black rope band on top
+    G.rect(2, 27, 44, 1, '#3a2a2e');
+    for (let y = 28; y <= 35; y++) for (let x = 2; x <= 45; x++) {
+      const red = ((x - 2) >> 2) & 1, bot = y === 35;
+      G.set(x, y, red ? (bot ? '#a83a30' : '#d0483a') : (bot ? '#d8d0c0' : '#f4f0e6'));
+    }
+    // back rail
+    G.rect(5, 11, 1, 7, P.dk); G.rect(42, 11, 1, 7, P.dk);
+    G.rect(5, 11, 38, 1, P.dk); G.rect(5, 14, 38, 1, P.dk2);
+    // the taiko on its stand
+    G.rect(18, 15, 2, 7, P.dk2); G.rect(28, 15, 2, 7, P.dk2); G.rect(17, 20, 14, 1, P.dk);
+    const BP = ['#4a1e12', '#6a2c1a', '#8a3e24', '#a8562e', '#c8743c'], bk = _obLit(BP, 22, 9, 9, 6.4);
+    for (let x = 17; x <= 31; x++) {                                                            // barrel, bulging in the middle
+      const u = (x + .5 - 24.5) / 7.5, hh = 4.6 + 1.6 * (1 - u * u);
+      for (let y = R(11 - hh); y <= R(11 + hh); y++) G.set(x, y, bk(x, y));
+    }
+    for (let x = 18; x <= 30; x++) G.set(x, 11, (x & 1) ? '#d8a040' : '#b07818');               // rope band
+    [16, 32].forEach(hx => {                                                                    // drum heads, tacks on the rims
+      G.ell(hx + .5, 11, 1.6, 5.6, hx < 24 ? '#f4ecd8' : '#d8ccb0');
+      for (let y = 6; y <= 16; y += 2) G.set(hx < 24 ? hx + 1 : hx - 1, y, '#2e1e14');
+    });
+    gLine(G, 30, 3, 35, 7, '#e8c890'); gLine(G, 33, 2, 36, 6, '#d8b070');                       // bachi (sticks)
+    // front corner poles, a low front rail with a gap for the ladder, a sagging lantern string
+    G.rect(2, 3, 2, 22, P.dk); G.set(2, 3, P.dkL); G.rect(44, 3, 2, 22, P.dk); G.set(44, 3, P.dkL);
+    G.rect(4, 18, 16, 1, P.dk); G.rect(28, 18, 16, 1, P.dk);
+    // ladder up the front
+    [20, 27].forEach(x0 => { G.rect(x0, 24, 1, 31, P.dk); });
+    for (let y = 28; y <= 52; y += 4) { G.rect(21, y, 6, 1, P.woodL); G.rect(21, y + 1, 6, 1, P.woodD); }
+    if (ss === 3) _obSnowTop(G, 0, 12);
+    for (let x = 4; x <= 43; x++) G.set(x, 4 + R(Math.sin((x - 4) / 39 * Math.PI) * 2), '#5a4a40');
+    [[5, 4], [11, 5], [36, 5], [41, 4]].forEach(([lx, ly]) => { _obChochin(G, lx, ly + 1, on); if (ss === 3) G.rect(lx, ly + 2, 3, 1, '#f4f8fc'); });
+  }, [[3, 6, 55, .34], [42, 45, 55, .34], [19, 28, 55, .3], [6, 41, 41, .2]], on ? (x, px) => {
+    const halo = [];
+    [[5, 5], [11, 6], [36, 6], [41, 5]].forEach(([lx, ly]) => { halo.push([lx - 1, ly + 3], [lx + 3, ly + 3], [lx + 1, ly + 7]); });
+    px('rgba(255,210,122,.45)', halo);
+  } : null));
+}
+
+// keijiban: little notice board with a gabled roof on two posts, three pinned papers. 16x26, anchor (0,26)
+// = bottom-left of the 1x1 footprint (the board is centred in it). s = season: one paper's colour, winter snow.
+function noticeBoardArt(s) {
+  const ss = (s | 0) & 3;
+  return art('ob:notice:' + ss, () => _obObj(16, 26, G => {
+    const P = _obP;
+    G.rect(2, 6, 2, 19, P.dk); G.rect(2, 6, 1, 19, P.dkL); G.rect(12, 6, 2, 19, P.dk); G.rect(12, 6, 1, 19, P.dkL);   // posts
+    G.rect(1, 7, 14, 12, P.dk2);                                                                // frame
+    G.rect(2, 8, 12, 10, '#b88a58'); for (let y = 9; y < 18; y += 3) G.rect(2, y, 12, 1, '#a87a4a');   // board
+    const PAP = { L: '#fbfaf4', l: '#8a7a6a' };
+    _obPat(G, 3, 9, ['LLLL', 'LllL', 'LLLL', 'LlLL', 'LLLL'], PAP);
+    _obPat(G, 8, 9, ['LLLLL', 'LlllL', 'LLLLL', 'LllLL', 'LLLLL', 'LlllL', 'LLLLL'], PAP);
+    const TC = ['#f8c8d8', '#c8e4f4', '#f8d098', '#eef2f6'][ss];
+    _obPat(G, 3, 15, ['CCCC', 'CkkC'], { C: TC, k: '#7a5a5a' });
+    G.set(4, 9, '#e8453c'); G.set(10, 9, '#4a8ad8'); G.set(4, 15, '#e8453c');                 // pins
+    G.tri(-.6, 6.2, 8, -.2, 16.6, 6.2, '#5c4c4a');                                              // gabled roof
+    for (let y = 1; y <= 5; y++) for (let x = 0; x < 16; x++) if (G.get(x, y)) G.set(x, y, x < 8 - (y & 1) ? '#76625c' : (x + y) % 3 ? '#5c4c4a' : '#46393a');
+    G.rect(0, 6, 16, 1, '#342a2c'); G.rect(7, 0, 2, 1, '#342a2c');
+    if (ss === 3) _obSnowTop(G, 0, 7);
+  }, [[1, 4, 25, .32], [11, 14, 25, .32], [5, 10, 25, .14]]));
+}
+
+// fujidana: wisteria pergola over a long bench. 48x40, footprint 3x1, anchor (0,40) = bottom-left of the footprint.
+// s = season: 0 purple racemes, 1 green leaves, 2 yellow-brown leaves, 3 bare vines + snow. The seat (rows 26..29,
+// x 6..41) stays clear for cats.
+function pergolaArt(s) {
+  const ss = (s | 0) & 3;
+  return art('ob:pergola:' + ss, () => _obObj(48, 40, G => {
+    const P = _obP;
+    G.rect(5, 6, 2, 20, P.dk2); G.rect(41, 6, 2, 20, P.dk2);                                   // back posts
+    // bench
+    G.rect(6, 26, 36, 3, P.woodL); for (let x = 6; x < 42; x++) if (_obH(x, 27, 9) < .3) G.set(x, 27, '#cf9c66');
+    G.rect(6, 29, 36, 1, P.wood); G.rect(6, 30, 36, 1, P.woodD);
+    [8, 23, 38].forEach(x0 => { G.rect(x0, 31, 2, 7, P.dk); G.set(x0, 31, P.dkL); });
+    G.rect(8, 34, 32, 1, P.dk2);
+    // front posts
+    [1, 45].forEach(x0 => { G.rect(x0, 8, 2, 31, P.dk); G.rect(x0, 8, 1, 31, P.dkL); });
+    // lattice: back beam, front beam, cross slats, a middle purlin
+    G.rect(2, 3, 44, 1, P.dk2); G.rect(1, 6, 46, 1, '#8a5a34');
+    for (let x = 3; x <= 45; x += 6) G.rect(x, 3, 1, 6, '#8a5a34');
+    G.rect(0, 8, 48, 2, P.dk); G.rect(0, 8, 48, 1, P.dkL);
+    const LEAF = [[P.leafD, P.leafD, P.leaf, P.leaf, P.leafL, P.leafLL],
+      ['#2e6a32', '#3d7a3a', '#4a8a3a', '#5a9a3a', '#72b04a', '#8ac85a'],
+      ['#8a5a1a', '#a8701e', '#c88a2a', '#dca838', '#ecc456', '#f6dc80']][Math.min(ss, 2)];
+    if (ss < 3) {
+      [[5, 4.6, 5.4, 3], [14, 3.8, 5.6, 3.2], [24, 4.4, 6, 3], [34, 3.8, 5.6, 3.2], [43, 4.6, 5, 3]].forEach(([cx, cy, rx, ry]) => {
+        const lk = _obLit(LEAF, cx - .6, cy - .8, rx + .4, ry + .4);
+        G.ell(cx, cy, rx, ry, (x, y) => (ss === 2 && _obH(x, y, 31) < .16 ? null : lk(x, y)));
+      });
+      [[9, 6], [21, 7], [27, 5], [39, 6]].forEach(([x, y]) => G.set(x, y, '#8a5a34'));        // slats peeking through
+      // hanging racemes (spring) / leafy drapes (summer, autumn) under the front beam
+      const WI = ['#6a4ab8', '#8a6ad8', '#a88ae8', '#c8b4f4', '#e4dafa'];
+      const HANG = ss === 0 ? [[4, 9], [8, 12], [12, 8], [16, 11], [20, 7], [25, 12], [29, 9], [33, 11], [37, 8], [41, 12], [44, 7]]
+        : [[4, 4], [9, 6], [14, 3], [19, 5], [25, 6], [30, 4], [35, 5], [40, 3], [44, 5]];
+      HANG.forEach(([cx, n], i) => {
+        if (ss === 2 && (i & 1)) n = Math.max(2, n - 2);
+        for (let j = 0; j < n; j++) {
+          const t = j / n, w = ss === 0 ? (t < .45 ? 2 : 1) : (t < .6 ? 2 : 1), x0 = cx - (w > 1 ? 1 : 0) + (ss === 0 && ((j >> 1) & 1) ? 1 : 0);
+          for (let k = 0; k < w; k++) {
+            const c = ss === 0 ? WI[clamp(Math.floor(t * 4.2 + ((x0 + k + j) & 1) * .6), 0, 4)] : LEAF[clamp(2 + ((x0 + k + j) & 1) * 2 - (t > .6 ? 1 : 0), 0, 5)];
+            G.set(x0 + k, 10 + j, c);
+          }
+        }
+      });
+    } else {
+      // bare vines twisting along the beams
+      for (let x = 1; x <= 46; x++) { const y = 5 + ((x >> 2) & 1) - ((x >> 3) & 1); if (_obH(x, 5, 41) < .8) G.set(x, y, '#6a4a34'); }
+      [[6, 10, 7, 13], [19, 10, 18, 12], [30, 10, 31, 14], [40, 10, 39, 12]].forEach(([a, b, c2, d]) => gLine(G, a, b, c2, d, '#6a4a34'));
+      _obSnowTop(G, 0, 3); _obSnowTop(G, 8, 8);
+      for (let x = 7; x <= 40; x++) if (_obH(x, 26, 43) < .5) G.set(x, 26, '#f4f8fc');   // a dusting on the seat
+    }
+  }, [[0, 3, 39, .34], [44, 47, 39, .34], [7, 40, 38, .26]], ss === 0 ? (x, px) => {
+    px('#c8b4f4', [[6, 38], [17, 39], [29, 38], [35, 39]]);
+  } : ss === 2 ? (x, px) => { px('#dca838', [[12, 38], [26, 39], [33, 38]]); px('#a8701e', [[19, 39]]); } : null));
+}
 // ==== end source:src/art/objects-v2.js ====
 
 // ==== source:src/art/objects-ui.js ====
@@ -8193,39 +8340,39 @@ const MAP = [
   'bfzzzpzzzfbfr~~~~~~~~~rfbfr~~~~~~~~~~~rb',
   'bfzzzpzzzfbfr~~~~~~~~~rfbfr~~~~~~~~~~~rb',   // r3  bathers sit in this row of water
   'bfzzzpppppDsssssssssssssDssssssssssssssb',   // r4  (10,4) shrine gate, (24,4) roten gate
-  'bffzzzzzzzDsssssssssssssDxxxxxxxxxxxxxxb',   // r5  roten deck r5-r7; v2.4: (10,5) / (24,5) the gates are 2 tall, (8-9,5) sand from the west wing gate
+  'bffzzpppppDsssssssssssssDxxxxxxxxxxxxxxb',   // r5  roten deck r5-r7; v2.4: (10,5) / (24,5) the gates are 2 tall, (8-9,5) sand from the west wing gate; v2.5: the approach r4-5 is 2 wide (5-9)
   'b#######DD#######DD######xxxxxxxxxxxxxxb',   // r6  (17-18,6) onsen door; v2.4 (8-9,6) west wing -> shrine gate
   'b#tttt#...#tttt#...#tttt#xxxxxxxxxxxxxxb',   // r7  W3 | R7 / R8
-  'b#ttttD...#ttttD...Dtttt#ffffffpppfffffb',   // r8  hedge gap (31-33,8): garden <-> roten
-  'b#tttt#...#tttt#...#tttt#ggggggpppgggggb',
-  'b######...######...######p######p######b',   // r10
-  'b#tttt#...#tttt#...#tttt#p#tttt#p#tttt#b',   // r11 W2 | R5 / R6 | suites C3 / C4
-  'b#ttttD...#ttttD...Dtttt#pDtttt#pDtttt#b',
-  'b#tttt#...#tttt#...#tttt#p#tttt#p#tttt#b',
-  'b######...######...######p######p######b',   // r14
-  'b#tttt#...#tttt#...#tttt#pgoooogpggggggb',   // r15 W1 | R3 / R4 | koi pond + dry garden
-  'b#ttttD...#ttttD...Dtttt#pgoooogpzzzzzzb',
-  'b#tttt#...#tttt#...#tttt#pgoooogpzzzzzzb',
-  'b#######DD######...######pggggggpggggggb',   // r18 (8-9,18) west wing door
-  'b#kkkkmmmm#tttt#...#tttt#p######p######b',   // r19 kitchen + dining | R1 / R2
-  'b#kkkkmmmm#ttttD...Dtttt#p#tttt#p#tttt#b',   // r20 cottages C1 / C2
-  'b#mmmmmmmm#tttt#...#tttt#pDtttt#pDtttt#b',
-  'b#mmmmmmmm######...######p#tttt#p#tttt#b',
-  'b#mmmmmmmm#lllllllllllll#p######p######b',   // r23 lobby (r23-r28)
-  'b#mmmmmmmm#lllllllllllll#pggggggpggggggb',
-  'b#mmmmmmmm#lllllllllllll#pggggggpggggggb',
-  'b#mmmmmmmmDlllllllllllllDppppppppggggggb',   // r26 (10,26-27) dining door, (24,26-27) garden door (v2.4: 2 tall)
-  'b#mmmmmmmmDlllllllllllllDpggggggpggggggb',
-  'b#mmmmmmmm#lllllllllllll#pggggggpggggggb',
+  'b#ttttD...#ttttD...Dtttt#ffffffppffffffb',   // r8  hedge gap (31-32,8): garden <-> roten (v2.5: the garden's one 2-wide walk, cols 31-32)
+  'b#tttt#...#tttt#...#tttt#ggggggppggggggb',
+  'b######...######...############pp######b',   // r10
+  'b#tttt#...#tttt#...#tttt##tttt#pp#tttt#b',   // r11 W2 | R5 / R6 | suites C3 / C4 (v2.5: C3 / C1 at 25-30, doors on their east wall)
+  'b#ttttD...#ttttD...Dtttt##ttttDppDtttt#b',
+  'b#tttt#...#tttt#...#tttt##tttt#pp#tttt#b',
+  'b######...######...############pp######b',   // r14
+  'b#tttt#...#tttt#...#tttt#goooogppggggggb',   // r15 W1 | R3 / R4 | koi pond (26-29) + dry garden
+  'b#ttttD...#ttttD...Dtttt#goooogppzzzzzzb',
+  'b#tttt#...#tttt#...#tttt#goooogppzzzzzzb',
+  'b#######DD######...######ggggggppggggggb',   // r18 (8-9,18) west wing door
+  'b#kkkkmmmm#tttt#...#tttt#######pp######b',   // r19 kitchen + dining | R1 / R2
+  'b#kkkkmmmm#ttttD...Dtttt##tttt#pp#tttt#b',   // r20 cottages C1 / C2
+  'b#mmmmmmmm#tttt#...#tttt##ttttDppDtttt#b',
+  'b#mmmmmmmm######...#######tttt#pp#tttt#b',
+  'b#mmmmmmmm#lllllllllllll#######pp######b',   // r23 lobby (r23-r28)
+  'b#mmmmmmmm#lllllllllllll#ggggggppggggggb',
+  'b#mmmmmmmm#lllllllllllll#ggggggppggggggb',
+  'b#mmmmmmmmDlllllllllllllDppppppppggggggb',   // r26 (10,26-27) dining door, (24,26-27) garden door (v2.4: 2 tall); v2.5: the garden row r26-27
+  'b#mmmmmmmmDlllllllllllllDppppppppggggggb',
+  'b#mmmmmmmm#lllllllllllll#ppggggggggggggb',
   'b#######DD######EEE######DDffffffffffffb',   // r29 (8-9,29) dining -> shop door (v2.4), (16-18,29) main entrance, (25-26,29) plaza gate (v2.1)
-  'bqqqqqqqqqgggggpppppgggggppffggggggffffb',   // r30 shop (v2.4: r30-r37) | front garden | the lower garden (festival plaza in v2.1)
-  'bqqqqqqqqqgggggpppppgggggpppppppppppppfb',
-  'bqqqqqqqqqgggggpppppgggggfgggggggggggpgb',
+  'bqqqqqqqqqgggggpppppgggggppggfggfggfggfb',   // r30 shop (v2.4: r30-r37) | front garden | the lower garden (festival plaza in v2.1)
+  'bqqqqqqqqqgggggpppppgggggppppppppppppffb',
+  'bqqqqqqqqqgggggpppppgggggfpppppppppppffb',
   'bqqqqqqqqqgggggpppppgggggfgggggggggggggb',
   'bqqqqqqqqqgggggpppppgggggfgggggggggggggb',
   'bqqqqqqqqqgggggpppppgggggfgggggggggggggb',
   'bqqqqqqqqqgggggpppppgggggfgggggggggggggb',
-  'bqqqqqqqqqgggggpppppgggggfffffggfffffffb',   // r37 (v2.4: the map grew 3 rows, MH 39)
+  'bqqqqqqqqqgggggpppppgggggfffggfffffffffb',   // r37 (v2.4: the map grew 3 rows, MH 39)
   'bbbbbbbbbbbbbbbpppppbbbbbbbbbbbbbbbbbbbb',   // r38 guests come in from (17,39)
 ];
 const WALK_CH = new Set(['s', 't', '.', 'l', 'E', 'g', 'p', 'k', 'm', 'z', 'x', 'q']);
@@ -8271,11 +8418,13 @@ const ROOM_DEF = [
 function roomGeom([id, name, emb, col, wing, trait, open]) {
   const r = { id, name, emb, col, wing, trait, open, vip: wing === 'suite', cottage: wing === 'cottage', mult: wing === 'cottage' ? 1.5 : 1, cleanMul: wing === 'cottage' ? 1.5 : 1 };
   if (wing === 'cottage' || wing === 'suite') {
-    const x0 = id === 'c1' || id === 'c3' ? 27 : 34, y0 = wing === 'cottage' ? 20 : 11;
-    Object.assign(r, { x0, y0, left: false, andon: [x0, y0], table: [x0 + 1, y0], futon: [x0 + 2, y0], stand: [x0 + 1, y0 + 1], pile: [x0, y0 + 2], door: [x0 - 1, y0 + 1], box: [x0, y0, x0 + 3, y0 + 2] });
-    if (wing === 'cottage') Object.assign(r, { futonB: [x0 + 3, y0], slotA: [x0 + 3, y0 + 2], slotB: [x0 + 2, y0 + 2] });
-    else Object.assign(r, { tub: [x0 + 3, y0 + 2], tap: [x0 + 2, y0 + 2] });
-    r.cleanC = [(x0 + 3) * TILE, (y0 + 1) * TILE]; r.cleanR = 24;
+    // v2.5 (all walks 2 wide): the west column (c1 / c3, x 26-29) faces the middle walk through its east wall (a 'left'
+    // room, mirrored: m), the east column (c2 / c4, x 34-37) through its west wall as before
+    const west = id === 'c1' || id === 'c3', x0 = west ? 26 : 34, y0 = wing === 'cottage' ? 20 : 11, m = west ? (x => 2 * x0 + 3 - x) : (x => x);
+    Object.assign(r, { x0, y0, left: west, andon: [m(x0), y0], table: [m(x0 + 1), y0], futon: [m(x0 + 2), y0], stand: [m(x0 + 1), y0 + 1], pile: [m(x0), y0 + 2], door: [west ? x0 + 4 : x0 - 1, y0 + 1], box: [x0, y0, x0 + 3, y0 + 2] });
+    if (wing === 'cottage') Object.assign(r, { futonB: [m(x0 + 3), y0], slotA: [m(x0 + 3), y0 + 2], slotB: [m(x0 + 2), y0 + 2] });
+    else Object.assign(r, { tub: [m(x0 + 3), y0 + 2], tap: [m(x0 + 2), y0 + 2] });
+    r.cleanC = [(Math.min(m(x0 + 2), m(x0 + 3)) + 1) * TILE, (y0 + 1) * TILE]; r.cleanR = 24;
   } else {
     // main left rooms are the reference; right rooms mirror them (x' = 34 - x); west rooms are the left layout 9 cols west
     const n = wing === 'west' ? +id.slice(1) : +id.slice(4), y0 = wing === 'west' ? [0, 15, 11, 7][n] : 19 - 4 * Math.floor((n - 1) / 2);
@@ -8335,9 +8484,9 @@ const SLOTS = SLOT_X.map((x, i) => ({ x, roten: false, need: i < 3 ? 'onsen' : '
 const REST = [[21, 25], [22, 25], [23, 25]];          // staff idle spots
 const EXIT = [17 * TILE + 8, MH * TILE + 8], EXIT_TILE = [17, MH - 1];   // half a tile below the map
 const SPOT = { carpet: [17, 26], clerk: [16, 23], owner: [6, 30], browse: [7, 32], mirror: [2, 35], petCushion: [8, 35], chef: [3, 20],   // v2.4: the bigger shop
-  waiterIdle: [[9, 20], [9, 21]], urn1: [12, 24], urn2: [26, 26], rotenPile: [32, 5] };
+  waiterIdle: [[9, 20], [9, 21]], urn1: [12, 24], urn2: [30, 26], rotenPile: [32, 5] };   // v2.5: the garden's tea stand (30,25) beside the walk
 // pick-up zones (4.1): centre px + radius
-const ZONE = { urn1: { c: [11 * TILE + 8, 24 * TILE + 8], r: 18 }, urn2: { c: [26 * TILE + 8, 25 * TILE + 8], r: 18 }, milk: { c: [22 * TILE + 8, 5 * TILE + 8], r: 18 },
+const ZONE = { urn1: { c: [11 * TILE + 8, 24 * TILE + 8], r: 18 }, urn2: { c: [30 * TILE + 8, 25 * TILE + 8], r: 18 }, milk: { c: [22 * TILE + 8, 5 * TILE + 8], r: 18 },
   milk2: { c: [MILK2_SPOT[0] * TILE + 8, MILK2_SPOT[1] * TILE + 8], r: 18 },
   stove: { c: [48, 312], r: 20 }, pass: { c: [56, 344], r: 22 } };
 // dining seats (cushions, not blocking) beside their tables; need = the unlock that brings the table
@@ -8370,11 +8519,13 @@ const TILE_LOOK = new Array(MW * MH).fill(null);
   for (let x = 25; x <= 38; x++) set(x, 4, 'sunoko');
   // the lower garden (A3): flower beds (v 0 hydrangea, 1 iris, 2 cosmos, 3 marigold), a clipped hedge and a low bamboo
   // fence on its west side (towards the front yard), stepping stones from the walk to the bench
-  [[27, 30, 0], [28, 30, 2], [35, 30, 3], [36, 30, 2], [37, 30, 0], [38, 30, 0], [38, 31, 1],
-    [26, 37, 1], [27, 37, 0], [28, 37, 0], [29, 37, 2], [32, 37, 2], [33, 37, 3], [34, 37, 3], [35, 37, 0], [36, 37, 0], [37, 37, 1], [38, 37, 1]].forEach(([x, y, v]) => set(x, y, 'bed|' + v));
+  // v2.5: beds between the stalls and along the east fence, the south border, a few by the yagura / pergola
+  [[29, 30, 0], [32, 30, 2], [35, 30, 3], [38, 30, 0], [37, 31, 1], [38, 31, 1], [37, 32, 2], [38, 32, 0],
+    [26, 37, 1], [27, 37, 3], [30, 37, 0], [31, 37, 2], [32, 37, 2], [33, 37, 3], [34, 37, 3], [35, 37, 0], [36, 37, 0], [37, 37, 1], [38, 37, 1]].forEach(([x, y, v]) => set(x, y, 'bed|' + v));
   for (let y = 32; y <= 37; y++) set(25, y, 'hedge|0,1');   // v2.4: the plaza runs to r37 (its south beds moved down 3)
-  set(25, 30, 'gd|0,1'); set(25, 31, 'gd|0,1'); set(29, 32, 'gd|1'); set(30, 33, 'gd|1');
+  set(25, 30, 'gd|0,1'); set(25, 31, 'gd|0,1');
 }
+const POND = [26, 29, 15, 17];   // v2.5: the koi pond's tiles x0, x1, y0, y1 (was 27-30)
 const tileLook = (tx, ty) => (tx < 0 || ty < 0 || tx >= MW || ty >= MH) ? null : TILE_LOOK[ty * MW + tx];
 
 // ---- v2.0.1 scenery props (FEEDBACK A2 / A3), spread into PROPS (core/pathfinding.js); same fields as PROPS.
@@ -8382,24 +8533,40 @@ const tileLook = (tx, ty) => (tx < 0 || ty < 0 || tx >= MW || ty >= MH) ? null :
 // A2: each tree unlock plants a small grove. The first tree of each stays where SPEC_v2 2.4 put it (it blocks); the
 // others are walk-over (block: false) on lawn tiles off the walks, so no walkable / reachable tile changes (map_check).
 const SCENERY = [
+  // v2.5 (player feedback "the trees look dropped wherever"): the garden composed like a Japanese garden. One walk down
+  // the middle; the sakura grove is a cluster of three on the lawn by the garden door, tallest at the back (the first one
+  // blocks), its fourth tree the focal tree at the koi pond's north-west corner, the water's south / east side left open
+  // for the reflection; the maple grove frames the dry garden opposite (back pair on the north lawn, front pair on the
+  // south lawn); small maples / pines along the north hedge as a backdrop. No canopy hangs over a walk, a pad or a door
+  // (map_check). Walk-over trees (block: false) stand on lawn tiles, so they change nothing reachable.
   { k: 'tree', at: [27, 24], need: 'g_sakura', img: () => treeArt('sakura', seasonNow()) },   // v2.1: the season's tree (16.1)
-  { k: 'tree', at: [29, 25], need: 'g_sakura', block: false, img: () => treeArt('sakura', seasonNow(), 1) },
-  { k: 'tree', at: [31, 24], need: 'g_sakura', block: false, img: () => treeArt('sakura', seasonNow(), 2) },
-  { k: 'tree', at: [29, 28], need: 'g_sakura', block: false, img: () => flipOf(treeArt('sakura', seasonNow(), 1)) },
-  { k: 'tree', at: [37, 18], need: 'g_maple', img: () => treeArt('maple', seasonNow()) },
-  { k: 'tree', at: [34, 18], need: 'g_maple', block: false, img: () => treeArt('maple', seasonNow(), 1) },
-  { k: 'tree', at: [36, 15], need: 'g_maple', block: false, img: () => flipOf(treeArt('maple', seasonNow(), 1)) },
-  { k: 'tree', at: [33, 15], need: 'g_maple', block: false, img: () => treeArt('maple', seasonNow(), 2) },
+  { k: 'tree', at: [25, 25], need: 'g_sakura', block: false, img: () => flipOf(treeArt('sakura', seasonNow(), 1)) },
+  { k: 'tree', at: [29, 25], need: 'g_sakura', block: false, img: () => treeArt('sakura', seasonNow(), 2) },
+  { k: 'tree', at: [25, 15], need: 'g_sakura', block: false, img: () => treeArt('sakura', seasonNow(), 1) },   // the pond's focal tree
+  { k: 'tree', at: [37, 15], need: 'g_maple', img: () => treeArt('maple', seasonNow()) },
+  { k: 'tree', at: [35, 15], need: 'g_maple', block: false, img: () => flipOf(treeArt('maple', seasonNow(), 2)) },
+  { k: 'tree', at: [38, 18], need: 'g_maple', block: false, img: () => treeArt('maple', seasonNow(), 1) },
+  { k: 'tree', at: [34, 18], need: 'g_maple', block: false, img: () => flipOf(treeArt('maple', seasonNow(), 2)) },
+  { k: 'tree', at: [26, 9], need: 'garden', block: false, img: () => treeArt('maple', seasonNow(), 2) },   // the backdrop under the hedge
+  { k: 'tree', at: [29, 9], need: 'garden', block: false, img: () => flipOf(treeArt('sakura', seasonNow(), 2)) },
+  { k: 'tree', at: [35, 9], need: 'garden', block: false, img: () => flipOf(treeArt('maple', seasonNow(), 2)) },
   // A4: bamboo lanterns at the star-view bath's two corners (on rock tiles: nothing walkable)
   { k: 'bambooLamp', at: [26, 3], need: 'roten', block: false, img: () => deckLanternArt(lampLit()), light: [10, 2, 'deck'] },
   { k: 'bambooLamp', at: [38, 2], need: 'roten', block: false, img: () => deckLanternArt(lampLit()), light: [10, 2, 'deck'] },
-  // A3: the lower garden. Shut (BLOCK) in v2.0; the lawn in the middle stays open for the v2.1 festival stalls.
-  { k: 'nodate', at: [30, 37], fw: 2, img: () => nodateArt('gray') },           // red bench under a parasol, a cat asleep on it
-  { k: 'tsukubai', at: [38, 32], img: () => tsukubaiArt() },                     // stone water basin at the end of the walk
-  { k: 'toro', at: [38, 30], img: () => toroArt(), light: [18, 0, 'lamp'] },     // its stone lantern, in the hydrangeas
-  { k: 'curl', at: [28, 32], block: false, img: () => catCurl('orange') },       // cats asleep in the sun
-  { k: 'curl', at: [34, 33], block: false, img: () => catCurl('calico') },
+  // A3: the lower garden = the v2.1 festival plaza. v2.5 (player feedback "the plaza's lower half is empty"): the stalls
+  // along the north, a 2-wide walk (r31-32) in front of them, and below it the dancing ground round a drum tower
+  // (yagura), a wisteria pergola with a bench, a notice board by the gate, the stone basin + lantern in the east beds,
+  // the parasol bench, sleeping cats; the lawn r33-34 stays open for the crowd
+  { k: 'yagura', at: [31, 35], fw: 3, fh: 2, need: 'plaza', img: () => yaguraArt(lampLit(), seasonNow()), light: [24, -20, 'lamp'] },
+  { k: 'pergola', at: [35, 36], fw: 3, img: () => pergolaArt(seasonNow()) },
+  { k: 'notice', at: [27, 34], need: 'plaza', img: () => noticeBoardArt(seasonNow()) },
+  { k: 'nodate', at: [28, 37], fw: 2, img: () => nodateArt('gray') },           // red bench under a parasol, a cat asleep on it
+  { k: 'tsukubai', at: [38, 34], img: () => tsukubaiArt() },                     // stone water basin in the east beds
+  { k: 'toro', at: [38, 33], img: () => toroArt(), light: [18, 0, 'lamp'] },     // its stone lantern
+  { k: 'curl', at: [29, 34], block: false, img: () => catCurl('orange') },       // cats asleep in the sun
+  { k: 'curl', at: [36, 35], block: false, img: () => catCurl('calico') },       // ... under the pergola
   { k: 'kitten', at: [37, 33], block: false, img: () => kittenSit('white') },    // a kitten watching the water drip
+  { k: 'kitten', at: [34, 35], block: false, img: () => kittenSit('gray') },     // and one watching the drum tower
 ];
 // ==== end source:src/data/map.js ====
 // ==== source:src/data/tables-v21a.js ====
@@ -8528,9 +8695,9 @@ const GOLD_PLUS = .4;   // a combo with a gold piece in it: room fee x(1.6 + 0.4
 // and the chime (34,24) -> (35,24): the v2.0.1 sakura grove hid the one, the path lamp crowded the other - 18.2)
 const GZ_PAD = [34, 26];
 const GARDEN_B = [
-  ['gd_chime', '风铃', 8000, [35, 24], 'r_boy', 6], ['gd_zen', '禅石', 10000, [36, 18], 'r_zen', 8], ['gd_mill', '水车', 18000, [38, 15], 'r_fisher', 10],
+  ['gd_chime', '风铃', 8000, [35, 24], 'r_boy', 6], ['gd_zen', '禅石', 10000, [36, 18], 'r_zen', 8], ['gd_mill', '水车', 18000, [30, 17], 'r_fisher', 10],
   ['gd_lantern', '石灯', 20000, [34, 28], 'r_yuki', 10], ['gd_tower', '爬塔', 30000, [36, 26], 'r_kits', 12], ['gd_wisteria', '紫藤', 35000, [37, 24], 'r_painter', 14],
-  ['gd_torii', '鸟居', 60000, [30, 28], 'r_bride', 20], ['gd_teahouse', '茶室', 120000, [38, 28], 'r_master', 30],
+  ['gd_torii', '鸟居', 60000, [38, 26], 'r_bride', 20], ['gd_teahouse', '茶室', 120000, [38, 28], 'r_master', 30],
 ];
 // the cat shrine (16.8): gate pad in the onsen, the offering pad in front of the hall; ten levels (all fees +1 % each)
 const SHRINE_GATE_PAD = [11, 4], OFFER_PAD = [5, 2];
@@ -8538,9 +8705,9 @@ const OFFER_B = [[10000, '小祠落成'], [20000, '红鸟居'], [35000, '石灯�
 const SHRINE_FEE = .01;
 // the festival plaza (16.9): gate pad in the front yard; four stalls on the north edge of the lower garden (a chain, one
 // pad at a time, each under its stall's left tile); the fireworks pad on the lawn
-const PLAZA_GATE_PAD = [23, 32], FW_PAD = [32, 33];
+const PLAZA_GATE_PAD = [23, 32], FW_PAD = [29, 33];   // v2.5: the fireworks pad on the dancing ground's west side
 const STALLS_B = [['st_goldfish', '金鱼', 8000, 'goldfish', 27, '金鱼捞屋台'], ['st_tako', '章鱼', 10000, 'takoyaki', 30, '章鱼烧屋台'], ['st_ice', '刨冰', 10000, 'ice', 33, '刨冰屋台'], ['st_shoot', '射的', 15000, 'shoot', 36, '射的屋台']];
-PILE_AT.plaza = [31, 32];   // stall money (the bench at (30-31,34) sits where 16.9 put it: 18.2)
+PILE_AT.plaza = [36, 33];   // v2.5 (was (31,32) on the walk)   // stall money (the bench at (30-31,34) sits where 16.9 put it: 18.2)
 // fireworks: 5,000 + 500 a show (8,000 at most), 8 min cool-down; a 45 s show: fees x1.3, guests x1.5, hearts +10
 const FW_PRICE = 5000, FW_STEP = 500, FW_MAX = 8000, FW_COOL = 480, FW_T = 45, FW_FEE = 1.3, FW_SPAWN = 1.5, FW_HEARTS = 10;
 // a burst: fireworkArt(k, 0..5) 32 x 32, one second, never brighter than .6; FW_DUSK: the show's own dusk over the view
@@ -8678,15 +8845,15 @@ const UNLOCKS = [
   UN('net2', '鱼网', 280, ['net1', 'clerk'], 1, [21, 28], 'net', '捡鱼干更远'),
   UN('w3', '客房', 520, ['w2'], 4, [7, 8], 'room', '静房爱点夜宵'),
   UN('bigbath', '浴池', 560, ['room8'], 3, [13, 5], 'bath', '多2个泡汤位', { at: [17, 3] }),
-  UN('garden', '庭园', 1000, ['w1', 'room7'], 20, [22, 26], 'garden', '贵宾会来住', { gate: true, star: true, at: [29, 16] }),
+  UN('garden', '庭园', 1000, ['w1', 'room7'], 20, [22, 26], 'garden', '贵宾会来住', { gate: true, star: true, at: [28, 16] }),
   // star 4 garden
-  UN('g_shishi', '惊鹿', 250, ['garden'], 4, [27, 27], 'shishi', '庭园更风雅', { at: [26, 16] }),
+  UN('g_shishi', '惊鹿', 250, ['garden'], 4, [29, 28], 'shishi', '庭园更风雅', { at: [30, 15] }),
   UN('d_maneki', '招财', 300, ['garden'], 5, 'decor', 'decor', '摆进客房加价', { decor: true }),
-  UN('g_sakura', '樱树', 320, ['g_shishi'], 4, [27, 27], 'sakura', '庭园更风雅', { at: [27, 24] }),
+  UN('g_sakura', '樱树', 320, ['g_shishi'], 4, [29, 28], 'sakura', '庭园更风雅', { at: [27, 24] }),
   UN('d_daruma', '达摩', 340, ['garden'], 5, 'decor', 'decor', '摆进客房加价', { decor: true }),
-  UN('g_maple', '枫树', 360, ['g_sakura'], 4, [27, 27], 'maple', '庭园更风雅', { at: [37, 18] }),
+  UN('g_maple', '枫树', 360, ['g_sakura'], 4, [29, 28], 'maple', '庭园更风雅', { at: [37, 15] }),
   UN('table4', '餐桌', 360, ['table3', 'chef', 'garden'], 2, [7, 26], 'table', '多两个座位'),
-  UN('koi', '锦鲤', 600, ['garden'], 4, [31, 16], 'koi', '池里来三条鱼', { at: [28, 16] }),
+  UN('koi', '锦鲤', 600, ['garden'], 4, [31, 16], 'koi', '池里来三条鱼', { at: [27, 16] }),
   UN('waiter2', '配膳', 600, ['waiter1', 'table4'], 2, [9, 22], 'waiter', '咪咪来上菜', { staff: true }),
   UN('net3', '鱼网', 600, ['net2', 'garden'], 1, [21, 28], 'net', '捡鱼干更远'),
   UN('c2', '别院', 700, ['garden'], 6, [32, 21], 'cottage', '一家人爱住'),
@@ -9066,7 +9233,8 @@ const PROPS = [
   { k: 'plant', at: [11, 23], img: () => plantArt('pot') },
   { k: 'bonsai', at: [23, 28], img: () => plantArt('bonsai') },
   { k: 'bench', at: [19, 23], fw: 2, img: () => benchArt() },
-  { k: 'toro', at: [13, 31], img: () => toroArt() }, { k: 'toro', at: [21, 32], img: () => toroArt() },
+  { k: 'toro', at: [10, 34], img: () => toroArt() },   // v2.5: off the way to the front-door milk machine (was (13,31), feet caught on it)
+  { k: 'toro', at: [21, 32], img: () => toroArt() },
   { k: 'sign', at: [20, 30], fw: 2, img: () => signArt(star() >= 5) },
   { k: 'shelf', at: [22, 23], fw: 2, need: 'onsen', img: () => shelfArt() },
   { k: 'basket', at: [15, 5], need: 'onsen', img: () => basketArt(S.basket, BASKET_MAX) },
@@ -9082,8 +9250,8 @@ const PROPS = [
   { k: 'statue', at: [11, 33], fw: 2, fh: 2, uid: () => S.unlocked.statue ? 'statue' : 'boutique', need: () => star() >= 5 && !!S.unlocked.shop, img: () => S.unlocked.statue ? statueArt('gold', 1) : statueArt('covered', clamp((S.paid.statue || 0) / UNLOCK.statue.price, 0, 1)) },
   // v2.4 (nights too dark): paper andons in the shop's back corners, path lamps either side of the front walk
   { k: 'andon', at: [1, 37], need: 'shop', img: () => andonArt(), light: [18, 6, 'lamp'] }, { k: 'andon', at: [9, 37], need: 'shop', img: () => andonArt(), light: [18, 6, 'lamp'] },
-  { k: 'lamp', at: [14, 35], img: () => gardenLampArt(lampLit()), light: [18, -3, 'lamp'] }, { k: 'lamp', at: [20, 35], img: () => gardenLampArt(lampLit()), light: [18, -3, 'lamp'] },
-  { k: 'lamp', at: [27, 35], need: 'plaza', img: () => gardenLampArt(lampLit()), light: [18, -3, 'lamp'] }, { k: 'lamp', at: [36, 35], need: 'plaza', img: () => gardenLampArt(lampLit()), light: [18, -3, 'lamp'] },
+  { k: 'lamp', at: [13, 35], img: () => gardenLampArt(lampLit()), light: [18, -3, 'lamp'] }, { k: 'lamp', at: [21, 35], img: () => gardenLampArt(lampLit()), light: [18, -3, 'lamp'] },
+  { k: 'lamp', at: [26, 36], need: 'plaza', img: () => gardenLampArt(lampLit()), light: [18, -3, 'lamp'] }, { k: 'lamp', at: [34, 33], need: 'plaza', img: () => gardenLampArt(lampLit()), light: [18, -3, 'lamp'] },
   // dining + kitchen
   { k: 'stove', at: [2, 19], fw: 2, need: 'dining', img: () => stoveArt(stoveBusy() ? Math.floor(T * 2) & 1 : 0) },   // fire + steam only while cooking
   { k: 'ricepot', at: [4, 19], need: 'dining', img: () => ricePotArt(stoveBusy() ? Math.floor(T * 1.5) & 1 : 0) },
@@ -9091,12 +9259,12 @@ const PROPS = [
   { k: 'dtable', at: [3, 23], need: 'dining', img: () => dTableArt(tableState(0)) }, { k: 'dtable', at: [7, 23], need: 'dining', img: () => dTableArt(tableState(1)) },
   { k: 'dtable', at: [3, 26], need: 'table3', img: () => dTableArt(tableState(2)) }, { k: 'dtable', at: [7, 26], need: 'table4', img: () => dTableArt(tableState(3)) },
   // garden
-  { k: 'urn', at: [26, 25], need: 'garden', img: () => urnArt() },
-  { k: 'shishi', at: [26, 16], need: 'g_shishi', img: () => shishiArt(T % 20 >= .3 && T % 20 < .9 ? 1 : 0) },   // tips over every 20 s (in step with the audio's knock)
+  { k: 'urn', at: [30, 25], need: 'garden', img: () => urnArt() },
+  { k: 'shishi', at: [30, 15], need: 'g_shishi', img: () => shishiArt(T % 20 >= .3 && T % 20 < .9 ? 1 : 0) },   // tips over every 20 s (in step with the audio's knock)
   { k: 'tree', at: [38, 9], need: 'garden', img: () => treeArt('pine', seasonNow()) },   // v2.1: the season's tree
-  { k: 'yukimi', at: [31, 17], need: 'garden', img: () => yukimiArt() },
+  { k: 'yukimi', at: [30, 16], need: 'garden', img: () => yukimiArt() },
   { k: 'rock', at: [35, 16], need: 'garden', img: () => rockArt(0) }, { k: 'rock', at: [37, 17], need: 'garden', img: () => rockArt(1) },
-  { k: 'lamp', at: [33, 18], need: 'garden', img: () => gardenLampArt(lampLit()) }, { k: 'lamp', at: [26, 27], need: 'garden', img: () => gardenLampArt(lampLit()) },
+  { k: 'lamp', at: [33, 18], need: 'garden', img: () => gardenLampArt(lampLit()) }, { k: 'lamp', at: [27, 28], need: 'garden', img: () => gardenLampArt(lampLit()) },
   { k: 'lamp', at: [33, 24], need: 'garden', img: () => gardenLampArt(lampLit()) },
   // roten deck
   // deck lanterns 4 tiles either side of the hedge gap (stage M: at the deck's ends (25,7) / (38,7) no view ever showed them)
@@ -10215,7 +10383,7 @@ function buildLights() {
   add(17, 29, 28, 2);                                             // the entrance noren
   if (S.unlocked.onsen) { add(12, 1, 18); add(22, 1, 18); }        // onsen stone lamps
   if (S.unlocked.dining) { add(4, 24, 18); add(7, 24, 18); add(3, 19, 10, 12, FIRE_COL); }   // dining lamps, the stove's fire
-  if (S.unlocked.garden) { add(33, 18, 18, -3); add(26, 27, 18, -3); add(33, 24, 18, -3); add(26, 10, 18); add(31, 17, 18, 4); }   // path lamps, wall lamp, snow lantern
+  if (S.unlocked.garden) { add(33, 18, 18, -3); add(27, 28, 18, -3); add(33, 24, 18, -3); add(26, 10, 18); add(30, 16, 18, 4); }   // path lamps, wall lamp, snow lantern
   if (S.unlocked.roten) { add(28, 7, 18, 0, DECK_COL); add(36, 7, 18, 0, DECK_COL); }        // star-view deck lanterns
   for (const rm of ROOMS) if (roomOpen(rm)) add(rm.andon[0], rm.andon[1], 10, 6, LAMP_COL, rm);
   // v2.4 (player feedback "the nights are a bit too dark"): a lantern over every open door and gate (on the side you
@@ -10230,7 +10398,7 @@ function buildLights() {
   if (S.unlocked.w1) for (const y of [8, 12, 16]) add(8, y, 18, 4);    // the west hall (Taisho ceiling lamps, soft)
   if (S.unlocked.dining) { add(4, 27, 18); add(7, 27, 18); add(7, 20, 18); }
   if (S.unlocked.shop) { add(3, 32, 24); add(5, 35, 24); add(8, 33, 18); }
-  if (S.unlocked.garden) { add(25, 12, 18); add(25, 21, 18); add(32, 21, 18); add(29, 9, 18); add(36, 9, 18); }   // porches of 月见亭 / 花见亭 / 萤见亭, the walk under the hedge
+  if (S.unlocked.garden) { add(31, 12, 18); add(31, 21, 18); add(32, 21, 18); add(29, 9, 18); add(36, 9, 18); }   // porches of 月见亭 / 花见亭 / 萤见亭, the walk under the hedge
   if (S.unlocked.suiteB) add(32, 12, 18);
   if (S.unlocked.shrine) { add(7, 4, 18); add(3, 4, 10); }            // the approach
 }
@@ -10541,8 +10709,9 @@ function unlock(id) {
   for (const a of AREAS) if (a.open === id) AREA_FADE.push({ a, t0: T });
   POPA[id] = T; P.pourAcc = 0; P.pouring = null;
   const had = new Set(STAFF.map(s => s.id)), b0 = BLOCK.slice();
-  rebuildWorld(); ensureStaff(); unstick(P); P.padLock = tileOf(P);
+  rebuildWorld(); ensureStaff(); const px0 = P.x, py0 = P.y; unstick(P); P.padLock = tileOf(P);
   for (const e of GUESTS.concat(STAFF, VIPG ? [VIPG] : [], PET ? [PET] : [])) { const [tx, ty] = tileOf(e), i = ty * MW + tx; if (BLOCK[i] && !b0[i]) unstick(e); }   // newly blocked (a table): step off it
+  if (P.x !== px0 || P.y !== py0) for (const f of [VIPG, PET]) if (f && Array.isArray(f.q) && (f !== VIPG || f.st === 'follow')) { const [fx, fy] = tileOf(f), [tx, ty] = tileOf(P), p = findPath(fx, fy, tx, ty); f.q = (p || []).map(([x, y]) => [x * TILE + 8, y * TILE + 8]); }   // v2.5: you were pushed off a new table: whoever follows you walks round it (novice seed 7: the VIP cut across the table)
   for (const s of STAFF) if (!had.has(s.id)) Object.assign(s, { x: 17 * TILE + 8, y: 31 * TILE + 8, arrive: true, newT: T, path: [], goal: null, dir: 'up' });   // in through the front door (7.3.4)
   if (star() > s0) starPopAt = T;   // the new HUD star pops (the unlock chime already plays)
   S.peak = Math.max(S.peak, star());
@@ -12096,9 +12265,9 @@ function drawScene(vw, vh, live, noPlayer, card) {
   const fr = Math.floor(T / .4) & 3, sea = seasonNow(), water = (x0, x1, y0, y1, fn) => { for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) if (VIS(tx * TILE + 8, ty * TILE + 8, 12)) g.drawImage(fn(fr, tx, ty, sea), tx * TILE - CX, ty * TILE - CY); };   // v2.1: + the season (pondArt)
   if (S.unlocked.onsen) water(13, 21, 2, 3, waterArt);   // jade-green rock bath
   if (S.unlocked.roten) { water(27, 37, 2, 3, rotenWaterArt); if (VIS(32 * TILE, 20, 40)) g.drawImage(waterfallArt(fr, seasonNow()), 31 * TILE - CX, -CY); }   // milky water in a hinoki rim (A4)
-  if (S.unlocked.garden) water(27, 30, 15, 17, pondArt);
+  if (S.unlocked.garden) water(POND[0], POND[1], POND[2], POND[3], pondArt);
   if (S.unlocked.koi) for (let i = 0; i < 3; i++) {   // three koi circle the pond
-    const a = T * .35 + i * 2.1, x = 29 * TILE + Math.cos(a) * 22, y = 16 * TILE + 8 + Math.sin(a) * 12;
+    const a = T * .35 + i * 2.1, x = (POND[0] + POND[1] + 1) / 2 * TILE + Math.cos(a) * 22, y = 16 * TILE + 8 + Math.sin(a) * 12;
     if (VIS(x, y, 8)) { let c = koiArt(['red', 'gold', 'black'][i], Math.floor(T * 3 + i) & 1); if (Math.sin(a) > 0) c = flipOf(c); drawA(c, x, y, 4, 2); }
   }
   // an area that just opened: its shade fades out (0.8 s)
@@ -12917,7 +13086,7 @@ function drawMoon() {
   };
   if (S.unlocked.onsen) one(17 * TILE + 8, 2 * TILE + 8, 5);
   if (S.unlocked.roten) one(32 * TILE + 8, 2 * TILE + 8, 6);
-  if (S.unlocked.garden) one(28 * TILE + 8, 16 * TILE + 4, 4);
+  if (S.unlocked.garden) one((POND[0] + POND[1] + 1) / 2 * TILE, 16 * TILE + 4, 4);
 }
 // ---- the lobby's north wall (drawScene, before the cats): the trophies (23,22), the newest magazine cover (19,22), the
 // family photo (15,22); during a festival the lantern strings over the front door and along the lobby wall
@@ -13445,7 +13614,7 @@ function drawPreview(u) {
   }
   SLOTS.forEach(sl => { if (sl.need === u.id && VIS(sl.x * TILE + 8, 3 * TILE + 10, 24)) drawA(gh(catBathing('white', 0)), sl.x * TILE + 8, 3 * TILE + 10, 9, 9); });   // new bath places
   SEATS.forEach(se => { if (se.need === u.id && VIS(tcx(se.at), tcy(se.at), 16)) drawA(gh(cushionArt()), tcx(se.at), tcy(se.at), 6, 3); });            // new seats
-  if (u.id === 'koi') for (let i = 0; i < 3; i++) { const x = 29 * TILE + (i - 1) * 14, y = 16 * TILE + 8 + (i & 1) * 6; if (VIS(x, y, 8)) drawA(gh(koiArt(['red', 'gold', 'black'][i], 0)), x, y, 4, 2); }
+  if (u.id === 'koi') for (let i = 0; i < 3; i++) { const x = (POND[0] + POND[1] + 1) / 2 * TILE + (i - 1) * 14, y = 16 * TILE + 8 + (i & 1) * 6; if (VIS(x, y, 8)) drawA(gh(koiArt(['red', 'gold', 'black'][i], 0)), x, y, 4, 2); }
   drawPreviewB(u, gh);   // v2.1 core B: the next shrine hall, an outfit / uniform on you
   if (/^net\d$/.test(u.id)) {   // the net: its new reach round your feet
     const r = NET_R[Math.min(3, netLvl() + 1)], n = Math.ceil(r * 1.6); g.fillStyle = '#fff6d8';

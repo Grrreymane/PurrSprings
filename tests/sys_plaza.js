@@ -30,7 +30,7 @@ setupB();
 { eq(PADPOS.get('plaza') + '', PLAZA_GATE_PAD + '', 'star 5: the plaza gate pad (23,32)'); ok(BLOCK[31 * MW + 30] === 1, 'the plaza is shut');
   S.money = 20000; walkB(23, 32); runB(3, () => !!S.unlocked.plaza); ok(S.unlocked.plaza, 'bought'); ok(BANNER_Q.some(b => b.kind === 'area' && b.id === 'plaza'), 'area banner');
   ok(!!findPath(23, 31, 30, 32), 'walk in from the front yard'); ok(!!findPath(25, 28, 25, 31), 'through its hedge gate from the garden');
-  eq(PADPOS.get('st_goldfish') + '', '27,31', 'the first stall pad (27,31)'); eq(PADPOS.get('fw') + '', FW_PAD + '', 'the fireworks pad (32,33)');
+  eq(PADPOS.get('st_goldfish') + '', '27,31', 'the first stall pad (27,31)'); eq(PADPOS.get('fw') + '', FW_PAD + '', 'the fireworks pad');
   ok(OBJS.some(o => o.k === 'chochin'), 'the lantern string along the hedge'); ok(LIGHTS.filter(L => L.y > 29 * 16 && L.y < 31 * 16 && L.x > 25 * 16).length >= 3, 'its lanterns light up at night'); }
 // ---- stalls: a chain; each stands on its two tiles, closed until a festival / a show
 { for (const [id, , price, kind, x] of STALLS_B) { eq([...PADPOS.keys()].filter(k => UNLOCK[k].stall).join(), id, 'one stall pad at a time: ' + id); S.money = price; walkB(x, 31); runB(3, () => !!S.unlocked[id]); ok(S.unlocked[id], kind + ' stall bought'); walkB(30, 32);
@@ -41,7 +41,7 @@ setupB();
 // ---- fireworks: a show; price steps; cool-down; the arrow never points at it
 { const h0 = S.hearts, fee0 = fee('room', { rm: ROOM.room1 }), gap0 = spawnGap();
   S.money = 100000; guideClock = 0; P.x = 30 * 16 + 8; P.y = 33 * 16 + 8; update(DT); ok(!(GUIDE && GUIDE.id === 'fw'), 'the arrow never points at the fireworks');
-  eq(padNeed(UNLOCK.fw), 5000, 'first show 5,000'); S.money = 5000; walkB(32, 33); runB(2, () => fwOn());
+  eq(padNeed(UNLOCK.fw), 5000, 'first show 5,000'); S.money = 5000; walkB(FW_PAD[0], FW_PAD[1]); runB(2, () => fwOn());
   ok(fwOn() && fireworksOn(), 'a show is on (fireworksOn for the music)'); eq(S.fw.n, 1, 'one show'); eq(S.money, 0, 'paid 5,000'); ok(S.hearts - h0 >= FW_HEARTS, 'hearts +10');
   ok(!S.unlocked.fw, 'never "unlocked": bought again later'); eq(S.paid.fw, undefined, 'its pad is empty again'); ok(BANNER_Q.some(b => b.kind === 'fw'), 'a banner');
   eq(fee('room', { rm: ROOM.room1 }), R(fee0 * 1.3), 'fees x1.3 during the show'); ok(Math.abs(spawnGap() - gap0 / 1.5) < 1e-9, 'guests x1.5'); eq(stallsOpen(), true, 'the stalls open');

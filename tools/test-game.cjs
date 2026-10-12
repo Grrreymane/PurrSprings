@@ -1,7 +1,7 @@
 'use strict';
 // Run the game's headless checks (D:/Minigame/_workflow/tools/headless.js) against index.html and report pass / fail.
 //   node tools/test-game.cjs          quick: smoke seed 1, map_check, ui_check seed 2 (part of npm test)
-//   node tools/test-game.cjs full     the split baseline set: + smoke seed 2, migrate_v1, lines_check, music_check, sys_chars21, migrate_v201, door_check, smooth_walk, repro_waiter_rice,
+//   node tools/test-game.cjs full     the split baseline set: + smoke seed 2, migrate_v1, lines_check, music_check, sys_chars21, migrate_v201, door_check, smooth_walk, front_walk (v2.5), repro_waiter_rice,
 //                                     then perf_render alone (it times frames)        (npm run test:full)
 // Balance is separate and slower: node tests/balance_all.js [seeds=3].
 const { execFile } = require('node:child_process');
@@ -12,7 +12,7 @@ const root = path.resolve(__dirname, '..');
 const headless = (() => { for (let d = root, i = 0; i < 6; i++, d = path.dirname(d)) { const f = path.resolve(d, '../_workflow/tools/headless.js'); if (fs.existsSync(f)) return f; } return path.resolve(root, '../_workflow/tools/headless.js'); })();
 const QUICK = [['smoke.js', 1], ['map_check.js', 1], ['ui_check.js', 2]];
 const FULL = QUICK.concat([['smoke.js', 2], ['migrate_v1.js', 1], ['lines_check.js', 3], ['music_check.js', 1], ['sys_chars21.js', 1], ['migrate_v201.js', 1],
-  ['door_check.js', 1], ['smooth_walk.js', 1], ['repro_waiter_rice.js', 1],
+  ['door_check.js', 1], ['smooth_walk.js', 1], ['front_walk.js', 1], ['repro_waiter_rice.js', 1],
   ['sys_vipguide.js', 4], ['sys_reputation.js', 2], ['sys_rush.js', 3], ['sys_caps.js', 5],
   ['sys_v24.js', 1], ['sys_vipsleep.js', 1], ['sys_towel_overflow.js', 1], ['sys_vip.js', 1], ['sys_mom.js', 3], ['sys_world.js', 2]]);   // v2.4: the map, the sleeping guests of honour, towels   // v2.2 (SPEC_v2 19)   // 18.2: doorways, even scrolling, the waiter's counter
 const run = ([file, seed]) => new Promise(done => {

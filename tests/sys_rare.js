@@ -63,7 +63,8 @@ setupB();
 { const h0 = S.hearts, gifts = S.gifts.slice(), m0 = S.earned;
   ok(followB(60, () => VIPG && VIPG.st === 'seated'), 'led to a suite by the arrow'); ok(SAID.some(([w, k]) => w === VIPG && k === 'E11a'), 'its greeting line E11a');
   eq(vipWish(), 'tea', 'first wish: tea'); ok(followB(60, () => VIPG.wi === 1 && !(VIPG.hold > 0)), 'tea brought (arrow)');
-  eq(vipWish(), 'stay', 'second wish: stay'); guideClock = 0; update(DT); ok(FIRST_Q.some(f => f.key === 'stay') || S.seen.stay, 'the stay picture card'); eq(GUIDE && GUIDE.kind, 'stay', 'the arrow: stand by it (' + (GUIDE && GUIDE.key + ' rule ' + GUIDE.rule + ' P ' + tileOf(P)) + ')');
+  eq(vipWish(), 'stay', 'second wish: stay'); { const d = ROOM[VIPG.suite].door; P.x = tcx(d); P.y = tcy(d); }   // (by its door: while it drank, the bot may have gone off to dress a room's decor slot)
+  guideClock = 0; update(DT); ok(FIRST_Q.some(f => f.key === 'stay') || S.seen.stay, 'the stay picture card'); eq(GUIDE && GUIDE.kind, 'stay', 'the arrow: stand by it (' + (GUIDE && GUIDE.key + ' rule ' + GUIDE.rule + ' P ' + tileOf(P)) + ')');
   const bub = bubbleArt('stay', 0, true); ok(bub !== bubbleArt('dots', 0, true) && bub.width === 14, 'its own gold bubble (14 x 13)');
   // moving beside it resets the ring
   P.x = VIPG.x; P.y = VIPG.y; runB(1.5); ok(VIPG.actT > 1.3, 'standing still: the ring fills'); botMove = { x: .3, y: 0 }; update(DT); botMove = null; update(DT); ok(VIPG.actT < .1, 'a step: it starts over');
@@ -74,7 +75,7 @@ setupB();
 // ---- show: the kitten brothers want to see their tower first, then milk (the tray), then the photo
 setupB(['gd_tower']);
 { RARE_DUE.r_kits = S.stats.time; vipT = S.stats.time; runB(.2); ok(VIPG && VIPG.id === 'r_kits', 'the kitten brothers'); eq(VIPG.kits && VIPG.kits.length, 2, 'two little ones follow the first');
-  ok(followB(60, () => VIPG.st === 'seated'), 'seated'); eq(vipWish(), 'show', 'first wish: show'); eq(GUIDE && GUIDE.kind, 'vip', 'the arrow: fetch it');
+  ok(followB(60, () => VIPG.st === 'seated'), 'seated'); eq(vipWish(), 'show', 'first wish: show'); runB(.3); eq(GUIDE && GUIDE.kind, 'vip', 'the arrow: fetch it');
   ok(followB(20, () => VIPG.st === 'show'), 'it got up and follows'); runB(.3); eq(GUIDE && GUIDE.kind, 'showto', 'the arrow: to its piece'); eq(GUIDE && GUIDE.piece, 'gd_tower', 'the tower');
   ok(guideIcon(GUIDE) !== null, 'the arrow carries the piece as its icon');
   ok(followB(60, () => VIPG.wi === 1), 'reached the tower: done'); eq(VIPG.st, 'back', 'it admires it, then walks back');

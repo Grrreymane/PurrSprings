@@ -9,7 +9,8 @@ const PROPS = [
   { k: 'plant', at: [11, 23], img: () => plantArt('pot') },
   { k: 'bonsai', at: [23, 28], img: () => plantArt('bonsai') },
   { k: 'bench', at: [19, 23], fw: 2, img: () => benchArt() },
-  { k: 'toro', at: [13, 31], img: () => toroArt() }, { k: 'toro', at: [21, 32], img: () => toroArt() },
+  { k: 'toro', at: [10, 34], img: () => toroArt() },   // v2.5: off the way to the front-door milk machine (was (13,31), feet caught on it)
+  { k: 'toro', at: [21, 32], img: () => toroArt() },
   { k: 'sign', at: [20, 30], fw: 2, img: () => signArt(star() >= 5) },
   { k: 'shelf', at: [22, 23], fw: 2, need: 'onsen', img: () => shelfArt() },
   { k: 'basket', at: [15, 5], need: 'onsen', img: () => basketArt(S.basket, BASKET_MAX) },
@@ -25,8 +26,8 @@ const PROPS = [
   { k: 'statue', at: [11, 33], fw: 2, fh: 2, uid: () => S.unlocked.statue ? 'statue' : 'boutique', need: () => star() >= 5 && !!S.unlocked.shop, img: () => S.unlocked.statue ? statueArt('gold', 1) : statueArt('covered', clamp((S.paid.statue || 0) / UNLOCK.statue.price, 0, 1)) },
   // v2.4 (nights too dark): paper andons in the shop's back corners, path lamps either side of the front walk
   { k: 'andon', at: [1, 37], need: 'shop', img: () => andonArt(), light: [18, 6, 'lamp'] }, { k: 'andon', at: [9, 37], need: 'shop', img: () => andonArt(), light: [18, 6, 'lamp'] },
-  { k: 'lamp', at: [14, 35], img: () => gardenLampArt(lampLit()), light: [18, -3, 'lamp'] }, { k: 'lamp', at: [20, 35], img: () => gardenLampArt(lampLit()), light: [18, -3, 'lamp'] },
-  { k: 'lamp', at: [27, 35], need: 'plaza', img: () => gardenLampArt(lampLit()), light: [18, -3, 'lamp'] }, { k: 'lamp', at: [36, 35], need: 'plaza', img: () => gardenLampArt(lampLit()), light: [18, -3, 'lamp'] },
+  { k: 'lamp', at: [13, 35], img: () => gardenLampArt(lampLit()), light: [18, -3, 'lamp'] }, { k: 'lamp', at: [21, 35], img: () => gardenLampArt(lampLit()), light: [18, -3, 'lamp'] },
+  { k: 'lamp', at: [26, 36], need: 'plaza', img: () => gardenLampArt(lampLit()), light: [18, -3, 'lamp'] }, { k: 'lamp', at: [34, 33], need: 'plaza', img: () => gardenLampArt(lampLit()), light: [18, -3, 'lamp'] },
   // dining + kitchen
   { k: 'stove', at: [2, 19], fw: 2, need: 'dining', img: () => stoveArt(stoveBusy() ? Math.floor(T * 2) & 1 : 0) },   // fire + steam only while cooking
   { k: 'ricepot', at: [4, 19], need: 'dining', img: () => ricePotArt(stoveBusy() ? Math.floor(T * 1.5) & 1 : 0) },
@@ -34,12 +35,12 @@ const PROPS = [
   { k: 'dtable', at: [3, 23], need: 'dining', img: () => dTableArt(tableState(0)) }, { k: 'dtable', at: [7, 23], need: 'dining', img: () => dTableArt(tableState(1)) },
   { k: 'dtable', at: [3, 26], need: 'table3', img: () => dTableArt(tableState(2)) }, { k: 'dtable', at: [7, 26], need: 'table4', img: () => dTableArt(tableState(3)) },
   // garden
-  { k: 'urn', at: [26, 25], need: 'garden', img: () => urnArt() },
-  { k: 'shishi', at: [26, 16], need: 'g_shishi', img: () => shishiArt(T % 20 >= .3 && T % 20 < .9 ? 1 : 0) },   // tips over every 20 s (in step with the audio's knock)
+  { k: 'urn', at: [30, 25], need: 'garden', img: () => urnArt() },
+  { k: 'shishi', at: [30, 15], need: 'g_shishi', img: () => shishiArt(T % 20 >= .3 && T % 20 < .9 ? 1 : 0) },   // tips over every 20 s (in step with the audio's knock)
   { k: 'tree', at: [38, 9], need: 'garden', img: () => treeArt('pine', seasonNow()) },   // v2.1: the season's tree
-  { k: 'yukimi', at: [31, 17], need: 'garden', img: () => yukimiArt() },
+  { k: 'yukimi', at: [30, 16], need: 'garden', img: () => yukimiArt() },
   { k: 'rock', at: [35, 16], need: 'garden', img: () => rockArt(0) }, { k: 'rock', at: [37, 17], need: 'garden', img: () => rockArt(1) },
-  { k: 'lamp', at: [33, 18], need: 'garden', img: () => gardenLampArt(lampLit()) }, { k: 'lamp', at: [26, 27], need: 'garden', img: () => gardenLampArt(lampLit()) },
+  { k: 'lamp', at: [33, 18], need: 'garden', img: () => gardenLampArt(lampLit()) }, { k: 'lamp', at: [27, 28], need: 'garden', img: () => gardenLampArt(lampLit()) },
   { k: 'lamp', at: [33, 24], need: 'garden', img: () => gardenLampArt(lampLit()) },
   // roten deck
   // deck lanterns 4 tiles either side of the hedge gap (stage M: at the deck's ends (25,7) / (38,7) no view ever showed them)

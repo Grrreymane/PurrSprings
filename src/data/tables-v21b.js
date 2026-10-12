@@ -32,9 +32,9 @@ const GOLD_PLUS = .4;   // a combo with a gold piece in it: room fee x(1.6 + 0.4
 // and the chime (34,24) -> (35,24): the v2.0.1 sakura grove hid the one, the path lamp crowded the other - 18.2)
 const GZ_PAD = [34, 26];
 const GARDEN_B = [
-  ['gd_chime', '风铃', 8000, [35, 24], 'r_boy', 6], ['gd_zen', '禅石', 10000, [36, 18], 'r_zen', 8], ['gd_mill', '水车', 18000, [38, 15], 'r_fisher', 10],
+  ['gd_chime', '风铃', 8000, [35, 24], 'r_boy', 6], ['gd_zen', '禅石', 10000, [36, 18], 'r_zen', 8], ['gd_mill', '水车', 18000, [30, 17], 'r_fisher', 10],
   ['gd_lantern', '石灯', 20000, [34, 28], 'r_yuki', 10], ['gd_tower', '爬塔', 30000, [36, 26], 'r_kits', 12], ['gd_wisteria', '紫藤', 35000, [37, 24], 'r_painter', 14],
-  ['gd_torii', '鸟居', 60000, [30, 28], 'r_bride', 20], ['gd_teahouse', '茶室', 120000, [38, 28], 'r_master', 30],
+  ['gd_torii', '鸟居', 60000, [38, 26], 'r_bride', 20], ['gd_teahouse', '茶室', 120000, [38, 28], 'r_master', 30],
 ];
 // the cat shrine (16.8): gate pad in the onsen, the offering pad in front of the hall; ten levels (all fees +1 % each)
 const SHRINE_GATE_PAD = [11, 4], OFFER_PAD = [5, 2];
@@ -42,9 +42,9 @@ const OFFER_B = [[10000, '小祠落成'], [20000, '红鸟居'], [35000, '石灯�
 const SHRINE_FEE = .01;
 // the festival plaza (16.9): gate pad in the front yard; four stalls on the north edge of the lower garden (a chain, one
 // pad at a time, each under its stall's left tile); the fireworks pad on the lawn
-const PLAZA_GATE_PAD = [23, 32], FW_PAD = [32, 33];
+const PLAZA_GATE_PAD = [23, 32], FW_PAD = [29, 33];   // v2.5: the fireworks pad on the dancing ground's west side
 const STALLS_B = [['st_goldfish', '金鱼', 8000, 'goldfish', 27, '金鱼捞屋台'], ['st_tako', '章鱼', 10000, 'takoyaki', 30, '章鱼烧屋台'], ['st_ice', '刨冰', 10000, 'ice', 33, '刨冰屋台'], ['st_shoot', '射的', 15000, 'shoot', 36, '射的屋台']];
-PILE_AT.plaza = [31, 32];   // stall money (the bench at (30-31,34) sits where 16.9 put it: 18.2)
+PILE_AT.plaza = [36, 33];   // v2.5 (was (31,32) on the walk)   // stall money (the bench at (30-31,34) sits where 16.9 put it: 18.2)
 // fireworks: 5,000 + 500 a show (8,000 at most), 8 min cool-down; a 45 s show: fees x1.3, guests x1.5, hearts +10
 const FW_PRICE = 5000, FW_STEP = 500, FW_MAX = 8000, FW_COOL = 480, FW_T = 45, FW_FEE = 1.3, FW_SPAWN = 1.5, FW_HEARTS = 10;
 // a burst: fireworkArt(k, 0..5) 32 x 32, one second, never brighter than .6; FW_DUSK: the show's own dusk over the view

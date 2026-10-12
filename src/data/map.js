@@ -6,39 +6,39 @@ const MAP = [
   'bfzzzpzzzfbfr~~~~~~~~~rfbfr~~~~~~~~~~~rb',
   'bfzzzpzzzfbfr~~~~~~~~~rfbfr~~~~~~~~~~~rb',   // r3  bathers sit in this row of water
   'bfzzzpppppDsssssssssssssDssssssssssssssb',   // r4  (10,4) shrine gate, (24,4) roten gate
-  'bffzzzzzzzDsssssssssssssDxxxxxxxxxxxxxxb',   // r5  roten deck r5-r7; v2.4: (10,5) / (24,5) the gates are 2 tall, (8-9,5) sand from the west wing gate
+  'bffzzpppppDsssssssssssssDxxxxxxxxxxxxxxb',   // r5  roten deck r5-r7; v2.4: (10,5) / (24,5) the gates are 2 tall, (8-9,5) sand from the west wing gate; v2.5: the approach r4-5 is 2 wide (5-9)
   'b#######DD#######DD######xxxxxxxxxxxxxxb',   // r6  (17-18,6) onsen door; v2.4 (8-9,6) west wing -> shrine gate
   'b#tttt#...#tttt#...#tttt#xxxxxxxxxxxxxxb',   // r7  W3 | R7 / R8
-  'b#ttttD...#ttttD...Dtttt#ffffffpppfffffb',   // r8  hedge gap (31-33,8): garden <-> roten
-  'b#tttt#...#tttt#...#tttt#ggggggpppgggggb',
-  'b######...######...######p######p######b',   // r10
-  'b#tttt#...#tttt#...#tttt#p#tttt#p#tttt#b',   // r11 W2 | R5 / R6 | suites C3 / C4
-  'b#ttttD...#ttttD...Dtttt#pDtttt#pDtttt#b',
-  'b#tttt#...#tttt#...#tttt#p#tttt#p#tttt#b',
-  'b######...######...######p######p######b',   // r14
-  'b#tttt#...#tttt#...#tttt#pgoooogpggggggb',   // r15 W1 | R3 / R4 | koi pond + dry garden
-  'b#ttttD...#ttttD...Dtttt#pgoooogpzzzzzzb',
-  'b#tttt#...#tttt#...#tttt#pgoooogpzzzzzzb',
-  'b#######DD######...######pggggggpggggggb',   // r18 (8-9,18) west wing door
-  'b#kkkkmmmm#tttt#...#tttt#p######p######b',   // r19 kitchen + dining | R1 / R2
-  'b#kkkkmmmm#ttttD...Dtttt#p#tttt#p#tttt#b',   // r20 cottages C1 / C2
-  'b#mmmmmmmm#tttt#...#tttt#pDtttt#pDtttt#b',
-  'b#mmmmmmmm######...######p#tttt#p#tttt#b',
-  'b#mmmmmmmm#lllllllllllll#p######p######b',   // r23 lobby (r23-r28)
-  'b#mmmmmmmm#lllllllllllll#pggggggpggggggb',
-  'b#mmmmmmmm#lllllllllllll#pggggggpggggggb',
-  'b#mmmmmmmmDlllllllllllllDppppppppggggggb',   // r26 (10,26-27) dining door, (24,26-27) garden door (v2.4: 2 tall)
-  'b#mmmmmmmmDlllllllllllllDpggggggpggggggb',
-  'b#mmmmmmmm#lllllllllllll#pggggggpggggggb',
+  'b#ttttD...#ttttD...Dtttt#ffffffppffffffb',   // r8  hedge gap (31-32,8): garden <-> roten (v2.5: the garden's one 2-wide walk, cols 31-32)
+  'b#tttt#...#tttt#...#tttt#ggggggppggggggb',
+  'b######...######...############pp######b',   // r10
+  'b#tttt#...#tttt#...#tttt##tttt#pp#tttt#b',   // r11 W2 | R5 / R6 | suites C3 / C4 (v2.5: C3 / C1 at 25-30, doors on their east wall)
+  'b#ttttD...#ttttD...Dtttt##ttttDppDtttt#b',
+  'b#tttt#...#tttt#...#tttt##tttt#pp#tttt#b',
+  'b######...######...############pp######b',   // r14
+  'b#tttt#...#tttt#...#tttt#goooogppggggggb',   // r15 W1 | R3 / R4 | koi pond (26-29) + dry garden
+  'b#ttttD...#ttttD...Dtttt#goooogppzzzzzzb',
+  'b#tttt#...#tttt#...#tttt#goooogppzzzzzzb',
+  'b#######DD######...######ggggggppggggggb',   // r18 (8-9,18) west wing door
+  'b#kkkkmmmm#tttt#...#tttt#######pp######b',   // r19 kitchen + dining | R1 / R2
+  'b#kkkkmmmm#ttttD...Dtttt##tttt#pp#tttt#b',   // r20 cottages C1 / C2
+  'b#mmmmmmmm#tttt#...#tttt##ttttDppDtttt#b',
+  'b#mmmmmmmm######...#######tttt#pp#tttt#b',
+  'b#mmmmmmmm#lllllllllllll#######pp######b',   // r23 lobby (r23-r28)
+  'b#mmmmmmmm#lllllllllllll#ggggggppggggggb',
+  'b#mmmmmmmm#lllllllllllll#ggggggppggggggb',
+  'b#mmmmmmmmDlllllllllllllDppppppppggggggb',   // r26 (10,26-27) dining door, (24,26-27) garden door (v2.4: 2 tall); v2.5: the garden row r26-27
+  'b#mmmmmmmmDlllllllllllllDppppppppggggggb',
+  'b#mmmmmmmm#lllllllllllll#ppggggggggggggb',
   'b#######DD######EEE######DDffffffffffffb',   // r29 (8-9,29) dining -> shop door (v2.4), (16-18,29) main entrance, (25-26,29) plaza gate (v2.1)
-  'bqqqqqqqqqgggggpppppgggggppffggggggffffb',   // r30 shop (v2.4: r30-r37) | front garden | the lower garden (festival plaza in v2.1)
-  'bqqqqqqqqqgggggpppppgggggpppppppppppppfb',
-  'bqqqqqqqqqgggggpppppgggggfgggggggggggpgb',
+  'bqqqqqqqqqgggggpppppgggggppggfggfggfggfb',   // r30 shop (v2.4: r30-r37) | front garden | the lower garden (festival plaza in v2.1)
+  'bqqqqqqqqqgggggpppppgggggppppppppppppffb',
+  'bqqqqqqqqqgggggpppppgggggfpppppppppppffb',
   'bqqqqqqqqqgggggpppppgggggfgggggggggggggb',
   'bqqqqqqqqqgggggpppppgggggfgggggggggggggb',
   'bqqqqqqqqqgggggpppppgggggfgggggggggggggb',
   'bqqqqqqqqqgggggpppppgggggfgggggggggggggb',
-  'bqqqqqqqqqgggggpppppgggggfffffggfffffffb',   // r37 (v2.4: the map grew 3 rows, MH 39)
+  'bqqqqqqqqqgggggpppppgggggfffggfffffffffb',   // r37 (v2.4: the map grew 3 rows, MH 39)
   'bbbbbbbbbbbbbbbpppppbbbbbbbbbbbbbbbbbbbb',   // r38 guests come in from (17,39)
 ];
 const WALK_CH = new Set(['s', 't', '.', 'l', 'E', 'g', 'p', 'k', 'm', 'z', 'x', 'q']);
@@ -84,11 +84,13 @@ const ROOM_DEF = [
 function roomGeom([id, name, emb, col, wing, trait, open]) {
   const r = { id, name, emb, col, wing, trait, open, vip: wing === 'suite', cottage: wing === 'cottage', mult: wing === 'cottage' ? 1.5 : 1, cleanMul: wing === 'cottage' ? 1.5 : 1 };
   if (wing === 'cottage' || wing === 'suite') {
-    const x0 = id === 'c1' || id === 'c3' ? 27 : 34, y0 = wing === 'cottage' ? 20 : 11;
-    Object.assign(r, { x0, y0, left: false, andon: [x0, y0], table: [x0 + 1, y0], futon: [x0 + 2, y0], stand: [x0 + 1, y0 + 1], pile: [x0, y0 + 2], door: [x0 - 1, y0 + 1], box: [x0, y0, x0 + 3, y0 + 2] });
-    if (wing === 'cottage') Object.assign(r, { futonB: [x0 + 3, y0], slotA: [x0 + 3, y0 + 2], slotB: [x0 + 2, y0 + 2] });
-    else Object.assign(r, { tub: [x0 + 3, y0 + 2], tap: [x0 + 2, y0 + 2] });
-    r.cleanC = [(x0 + 3) * TILE, (y0 + 1) * TILE]; r.cleanR = 24;
+    // v2.5 (all walks 2 wide): the west column (c1 / c3, x 26-29) faces the middle walk through its east wall (a 'left'
+    // room, mirrored: m), the east column (c2 / c4, x 34-37) through its west wall as before
+    const west = id === 'c1' || id === 'c3', x0 = west ? 26 : 34, y0 = wing === 'cottage' ? 20 : 11, m = west ? (x => 2 * x0 + 3 - x) : (x => x);
+    Object.assign(r, { x0, y0, left: west, andon: [m(x0), y0], table: [m(x0 + 1), y0], futon: [m(x0 + 2), y0], stand: [m(x0 + 1), y0 + 1], pile: [m(x0), y0 + 2], door: [west ? x0 + 4 : x0 - 1, y0 + 1], box: [x0, y0, x0 + 3, y0 + 2] });
+    if (wing === 'cottage') Object.assign(r, { futonB: [m(x0 + 3), y0], slotA: [m(x0 + 3), y0 + 2], slotB: [m(x0 + 2), y0 + 2] });
+    else Object.assign(r, { tub: [m(x0 + 3), y0 + 2], tap: [m(x0 + 2), y0 + 2] });
+    r.cleanC = [(Math.min(m(x0 + 2), m(x0 + 3)) + 1) * TILE, (y0 + 1) * TILE]; r.cleanR = 24;
   } else {
     // main left rooms are the reference; right rooms mirror them (x' = 34 - x); west rooms are the left layout 9 cols west
     const n = wing === 'west' ? +id.slice(1) : +id.slice(4), y0 = wing === 'west' ? [0, 15, 11, 7][n] : 19 - 4 * Math.floor((n - 1) / 2);
@@ -148,9 +150,9 @@ const SLOTS = SLOT_X.map((x, i) => ({ x, roten: false, need: i < 3 ? 'onsen' : '
 const REST = [[21, 25], [22, 25], [23, 25]];          // staff idle spots
 const EXIT = [17 * TILE + 8, MH * TILE + 8], EXIT_TILE = [17, MH - 1];   // half a tile below the map
 const SPOT = { carpet: [17, 26], clerk: [16, 23], owner: [6, 30], browse: [7, 32], mirror: [2, 35], petCushion: [8, 35], chef: [3, 20],   // v2.4: the bigger shop
-  waiterIdle: [[9, 20], [9, 21]], urn1: [12, 24], urn2: [26, 26], rotenPile: [32, 5] };
+  waiterIdle: [[9, 20], [9, 21]], urn1: [12, 24], urn2: [30, 26], rotenPile: [32, 5] };   // v2.5: the garden's tea stand (30,25) beside the walk
 // pick-up zones (4.1): centre px + radius
-const ZONE = { urn1: { c: [11 * TILE + 8, 24 * TILE + 8], r: 18 }, urn2: { c: [26 * TILE + 8, 25 * TILE + 8], r: 18 }, milk: { c: [22 * TILE + 8, 5 * TILE + 8], r: 18 },
+const ZONE = { urn1: { c: [11 * TILE + 8, 24 * TILE + 8], r: 18 }, urn2: { c: [30 * TILE + 8, 25 * TILE + 8], r: 18 }, milk: { c: [22 * TILE + 8, 5 * TILE + 8], r: 18 },
   milk2: { c: [MILK2_SPOT[0] * TILE + 8, MILK2_SPOT[1] * TILE + 8], r: 18 },
   stove: { c: [48, 312], r: 20 }, pass: { c: [56, 344], r: 22 } };
 // dining seats (cushions, not blocking) beside their tables; need = the unlock that brings the table
@@ -183,11 +185,13 @@ const TILE_LOOK = new Array(MW * MH).fill(null);
   for (let x = 25; x <= 38; x++) set(x, 4, 'sunoko');
   // the lower garden (A3): flower beds (v 0 hydrangea, 1 iris, 2 cosmos, 3 marigold), a clipped hedge and a low bamboo
   // fence on its west side (towards the front yard), stepping stones from the walk to the bench
-  [[27, 30, 0], [28, 30, 2], [35, 30, 3], [36, 30, 2], [37, 30, 0], [38, 30, 0], [38, 31, 1],
-    [26, 37, 1], [27, 37, 0], [28, 37, 0], [29, 37, 2], [32, 37, 2], [33, 37, 3], [34, 37, 3], [35, 37, 0], [36, 37, 0], [37, 37, 1], [38, 37, 1]].forEach(([x, y, v]) => set(x, y, 'bed|' + v));
+  // v2.5: beds between the stalls and along the east fence, the south border, a few by the yagura / pergola
+  [[29, 30, 0], [32, 30, 2], [35, 30, 3], [38, 30, 0], [37, 31, 1], [38, 31, 1], [37, 32, 2], [38, 32, 0],
+    [26, 37, 1], [27, 37, 3], [30, 37, 0], [31, 37, 2], [32, 37, 2], [33, 37, 3], [34, 37, 3], [35, 37, 0], [36, 37, 0], [37, 37, 1], [38, 37, 1]].forEach(([x, y, v]) => set(x, y, 'bed|' + v));
   for (let y = 32; y <= 37; y++) set(25, y, 'hedge|0,1');   // v2.4: the plaza runs to r37 (its south beds moved down 3)
-  set(25, 30, 'gd|0,1'); set(25, 31, 'gd|0,1'); set(29, 32, 'gd|1'); set(30, 33, 'gd|1');
+  set(25, 30, 'gd|0,1'); set(25, 31, 'gd|0,1');
 }
+const POND = [26, 29, 15, 17];   // v2.5: the koi pond's tiles x0, x1, y0, y1 (was 27-30)
 const tileLook = (tx, ty) => (tx < 0 || ty < 0 || tx >= MW || ty >= MH) ? null : TILE_LOOK[ty * MW + tx];
 
 // ---- v2.0.1 scenery props (FEEDBACK A2 / A3), spread into PROPS (core/pathfinding.js); same fields as PROPS.
@@ -195,22 +199,38 @@ const tileLook = (tx, ty) => (tx < 0 || ty < 0 || tx >= MW || ty >= MH) ? null :
 // A2: each tree unlock plants a small grove. The first tree of each stays where SPEC_v2 2.4 put it (it blocks); the
 // others are walk-over (block: false) on lawn tiles off the walks, so no walkable / reachable tile changes (map_check).
 const SCENERY = [
+  // v2.5 (player feedback "the trees look dropped wherever"): the garden composed like a Japanese garden. One walk down
+  // the middle; the sakura grove is a cluster of three on the lawn by the garden door, tallest at the back (the first one
+  // blocks), its fourth tree the focal tree at the koi pond's north-west corner, the water's south / east side left open
+  // for the reflection; the maple grove frames the dry garden opposite (back pair on the north lawn, front pair on the
+  // south lawn); small maples / pines along the north hedge as a backdrop. No canopy hangs over a walk, a pad or a door
+  // (map_check). Walk-over trees (block: false) stand on lawn tiles, so they change nothing reachable.
   { k: 'tree', at: [27, 24], need: 'g_sakura', img: () => treeArt('sakura', seasonNow()) },   // v2.1: the season's tree (16.1)
-  { k: 'tree', at: [29, 25], need: 'g_sakura', block: false, img: () => treeArt('sakura', seasonNow(), 1) },
-  { k: 'tree', at: [31, 24], need: 'g_sakura', block: false, img: () => treeArt('sakura', seasonNow(), 2) },
-  { k: 'tree', at: [29, 28], need: 'g_sakura', block: false, img: () => flipOf(treeArt('sakura', seasonNow(), 1)) },
-  { k: 'tree', at: [37, 18], need: 'g_maple', img: () => treeArt('maple', seasonNow()) },
-  { k: 'tree', at: [34, 18], need: 'g_maple', block: false, img: () => treeArt('maple', seasonNow(), 1) },
-  { k: 'tree', at: [36, 15], need: 'g_maple', block: false, img: () => flipOf(treeArt('maple', seasonNow(), 1)) },
-  { k: 'tree', at: [33, 15], need: 'g_maple', block: false, img: () => treeArt('maple', seasonNow(), 2) },
+  { k: 'tree', at: [25, 25], need: 'g_sakura', block: false, img: () => flipOf(treeArt('sakura', seasonNow(), 1)) },
+  { k: 'tree', at: [29, 25], need: 'g_sakura', block: false, img: () => treeArt('sakura', seasonNow(), 2) },
+  { k: 'tree', at: [25, 15], need: 'g_sakura', block: false, img: () => treeArt('sakura', seasonNow(), 1) },   // the pond's focal tree
+  { k: 'tree', at: [37, 15], need: 'g_maple', img: () => treeArt('maple', seasonNow()) },
+  { k: 'tree', at: [35, 15], need: 'g_maple', block: false, img: () => flipOf(treeArt('maple', seasonNow(), 2)) },
+  { k: 'tree', at: [38, 18], need: 'g_maple', block: false, img: () => treeArt('maple', seasonNow(), 1) },
+  { k: 'tree', at: [34, 18], need: 'g_maple', block: false, img: () => flipOf(treeArt('maple', seasonNow(), 2)) },
+  { k: 'tree', at: [26, 9], need: 'garden', block: false, img: () => treeArt('maple', seasonNow(), 2) },   // the backdrop under the hedge
+  { k: 'tree', at: [29, 9], need: 'garden', block: false, img: () => flipOf(treeArt('sakura', seasonNow(), 2)) },
+  { k: 'tree', at: [35, 9], need: 'garden', block: false, img: () => flipOf(treeArt('maple', seasonNow(), 2)) },
   // A4: bamboo lanterns at the star-view bath's two corners (on rock tiles: nothing walkable)
   { k: 'bambooLamp', at: [26, 3], need: 'roten', block: false, img: () => deckLanternArt(lampLit()), light: [10, 2, 'deck'] },
   { k: 'bambooLamp', at: [38, 2], need: 'roten', block: false, img: () => deckLanternArt(lampLit()), light: [10, 2, 'deck'] },
-  // A3: the lower garden. Shut (BLOCK) in v2.0; the lawn in the middle stays open for the v2.1 festival stalls.
-  { k: 'nodate', at: [30, 37], fw: 2, img: () => nodateArt('gray') },           // red bench under a parasol, a cat asleep on it
-  { k: 'tsukubai', at: [38, 32], img: () => tsukubaiArt() },                     // stone water basin at the end of the walk
-  { k: 'toro', at: [38, 30], img: () => toroArt(), light: [18, 0, 'lamp'] },     // its stone lantern, in the hydrangeas
-  { k: 'curl', at: [28, 32], block: false, img: () => catCurl('orange') },       // cats asleep in the sun
-  { k: 'curl', at: [34, 33], block: false, img: () => catCurl('calico') },
+  // A3: the lower garden = the v2.1 festival plaza. v2.5 (player feedback "the plaza's lower half is empty"): the stalls
+  // along the north, a 2-wide walk (r31-32) in front of them, and below it the dancing ground round a drum tower
+  // (yagura), a wisteria pergola with a bench, a notice board by the gate, the stone basin + lantern in the east beds,
+  // the parasol bench, sleeping cats; the lawn r33-34 stays open for the crowd
+  { k: 'yagura', at: [31, 35], fw: 3, fh: 2, need: 'plaza', img: () => yaguraArt(lampLit(), seasonNow()), light: [24, -20, 'lamp'] },
+  { k: 'pergola', at: [35, 36], fw: 3, img: () => pergolaArt(seasonNow()) },
+  { k: 'notice', at: [27, 34], need: 'plaza', img: () => noticeBoardArt(seasonNow()) },
+  { k: 'nodate', at: [28, 37], fw: 2, img: () => nodateArt('gray') },           // red bench under a parasol, a cat asleep on it
+  { k: 'tsukubai', at: [38, 34], img: () => tsukubaiArt() },                     // stone water basin in the east beds
+  { k: 'toro', at: [38, 33], img: () => toroArt(), light: [18, 0, 'lamp'] },     // its stone lantern
+  { k: 'curl', at: [29, 34], block: false, img: () => catCurl('orange') },       // cats asleep in the sun
+  { k: 'curl', at: [36, 35], block: false, img: () => catCurl('calico') },       // ... under the pergola
   { k: 'kitten', at: [37, 33], block: false, img: () => kittenSit('white') },    // a kitten watching the water drip
+  { k: 'kitten', at: [34, 35], block: false, img: () => kittenSit('gray') },     // and one watching the drum tower
 ];

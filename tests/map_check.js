@@ -3,7 +3,7 @@
 //   node D:/Minigame/_workflow/tools/headless.js D:/Minigame/Hotelgame tests/map_check.js
 // 1. static: every 'D' has a DOORS entry (and back), room furniture stands on tatami, pads are never on a queue spot,
 //    the desk spot, a door, a seat, a room stand or inside a pick-up zone (3.5 rule 5)
-// 2. the SPEC states (start ... v2.0 final): walkable / reached counts (v2.4: start 511 / 252, final 792 / 792; v2.1 892 / 892)
+// 2. the SPEC states (start ... v2.0 final): walkable / reached counts (v2.4: start 511 / 252, final 791 / 791; v2.1 875 / 875 - v2.5)
 // 3. EVERY unlock state along a full buy order: from the desk, every spot / pad / pile / seat / slot that is in use
 //    in that state is reachable, and no open floor is cut off (cells behind a closed room door don't count)
 const errs = [], bad = m => { if (errs.length < 60) errs.push(m); };
@@ -105,7 +105,7 @@ for (const rm of ROOMS) for (const k of ['andon', 'table', 'futon', 'stand', 'pi
 // ---- 2. the SPEC 2.8 states
 const lines = [];
 const ALLV2 = UNLOCKS.filter(u => !u.need5 && u.id !== 'maid4').map(u => u.id);
-const V21_FINAL = [892, 892];   // v2.4: 39 rows, the bigger shop, the new doors and lamps (v2.1: 773)   // v2.1 core B: + the shrine approach and the plaza (lawn + path), less what the shrine parts, garden pieces and stalls block
+const V21_FINAL = [875, 875];   // v2.5: the garden re-laid (2-wide walks), the plaza's yagura / pergola / notice board / beds (v2.4: 892); v2.4: 39 rows, the bigger shop, the new doors and lamps (v2.1: 773)   // v2.1 core B: + the shrine approach and the plaza (lawn + path), less what the shrine parts, garden pieces and stalls block
 const SPECSTATES = [
   ['start', [], false, [511, 252]],
   ['onsen', ['room2', 'room3', 'onsen']],
@@ -113,7 +113,7 @@ const SPECSTATES = [
   ['dining', ['room2', 'room3', 'room4', 'room5', 'onsen', 'recep', 'tea', 'shop', 'milk', 'maid1', 'dining']],
   ['west', ['room2', 'room3', 'room4', 'room5', 'room6', 'onsen', 'recep', 'tea', 'shop', 'milk', 'maid1', 'dining', 'w1', 'w2', 'w3', 'waiter1', 'table3']],
   ['garden', ALLV2.filter(id => id !== 'c2' && id !== 'suiteB' && id !== 'roten')],
-  ['v2.0 final', UNLOCKS.filter(u => !u.v21b).map(u => u.id), true, [792, 792]],
+  ['v2.0 final', UNLOCKS.filter(u => !u.v21b).map(u => u.id), true, [791, 791]],   // v2.5 (v2.4: 792)
   ['v2.1 final', UNLOCKS.filter(u => !u.repeat).map(u => u.id), true, [V21_FINAL[0], V21_FINAL[1]]],   // core B: shrine + plaza open, every garden piece / shrine part / stall placed
 ];
 for (const [name, ids, s5, exp] of SPECSTATES) { setState(ids, s5); const r = check(name, exp); lines.push(name.padEnd(11) + ' walkable ' + r.walk + ' reached ' + r.reached + ' points ' + r.pts); }
@@ -133,8 +133,34 @@ if (left.length) bad('never buyable along the buy order: ' + left.join(' '));
 // distances the SPEC quotes (2.8), v2.0 final
 setState(UNLOCKS.filter(u => !u.v21b).map(u => u.id), true);
 const Dd = reachFrom(DESK_SPOT[0], DESK_SPOT[1]), dd = (x, y) => Dd[y * MW + x];
-const quoted = [['R1 stand', 13, 20, 10], ['R8 stand', 21, 8, 24], ['basket spot', 14, 5, 28], ['tea pick-up', 12, 24, 1], ['stove', 3, 20, 22], ['pass', 3, 22, 20], ['W1 stand', 4, 16, 25], ['W3 stand', 4, 8, 33], ['C1 stand', 28, 21, 22], ['C2 stand', 35, 21, 29], ['roten slot 37', 37, 4, 44], ['exit', 17, 38, 18], ['shop decor pad via the dining door', 2, 32, 23]];   // v2.4: the exit 3 rows further down; the shop through the dining hall
+const quoted = [['R1 stand', 13, 20, 10], ['R8 stand', 21, 8, 24], ['basket spot', 14, 5, 28], ['tea pick-up', 12, 24, 1], ['stove', 3, 20, 22], ['pass', 3, 22, 20], ['W1 stand', 4, 16, 25], ['W3 stand', 4, 8, 33], ['C1 stand', 28, 21, 28], ['C2 stand', 35, 21, 29], ['roten slot 37', 37, 4, 44], ['exit', 17, 38, 18], ['shop decor pad via the dining door', 2, 32, 23]];   // v2.4: the exit 3 rows further down; the shop through the dining hall
 for (const [nm, x, y, want] of quoted) if (dd(x, y) !== want) bad('desk -> ' + nm + ' is ' + dd(x, y) + ' tiles (SPEC 2.8: ' + want + ')');
+// ---- 4. v2.5 layout rules (player feedback "paths should be 2 wide too", "the trees look dropped wherever"), v2.1 final:
+// every walk tile ('p', outdoors) is part of a 2 x 2 block of walk / door tiles (the shrine's single opening under its
+// torii excepted: the posts sit at both ends of the 3-tile art, sand is walkable round it); no tree canopy overlaps a walk,
+// a door, a pad or a pile tile above its trunk; no two pads touch (incl. diagonally)
+setState(UNLOCKS.filter(u => !u.repeat).map(u => u.id), true);
+{ const W2 = (x, y) => { const c = ch(x, y); return c === 'p' || c === 'D' || c === 'E'; };
+  const EXEMPT = new Set(['5,2', '5,3']);
+  let walks = 0;
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
+    if (ch(x, y) !== 'p' || EXEMPT.has(K(x, y))) continue; walks++;
+    const sq = [[0, 0], [-1, 0], [0, -1], [-1, -1]].some(([dx, dy]) => W2(x + dx, y + dy) && W2(x + dx + 1, y + dy) && W2(x + dx, y + dy + 1) && W2(x + dx + 1, y + dy + 1));
+    if (!sq) bad('walk ' + x + ',' + y + ' is only 1 tile wide');
+  }
+  const pads = new Set([...PADPOS.values()].map(([x, y]) => K(x, y))), piles = new Set(Object.keys(PILE_AT).filter(id => pileOpen(id)).map(id => K(PILE_AT[id][0], PILE_AT[id][1])));
+  let trees = 0;
+  for (const o of OBJS) {
+    if (o.k !== 'tree') continue; trees++;
+    const c = o.img(), x0 = o.tx * TILE + ((o.fw * TILE - c.width) >> 1), y0 = (o.ty + o.fh) * TILE - c.height;
+    for (let ty = Math.floor(y0 / TILE); ty < o.ty; ty++) for (let tx = Math.floor((x0 + 2) / TILE); tx <= Math.floor((x0 + c.width - 3) / TILE); tx++) {
+      const k = K(tx, ty), cc = ch(tx, ty);
+      if (cc === 'p' || cc === 'D' || cc === 'E' || pads.has(k) || piles.has(k)) bad('tree ' + o.tx + ',' + o.ty + ' hangs over ' + (pads.has(k) ? 'a pad' : piles.has(k) ? 'a pile' : 'the walk') + ' at ' + k);
+    }
+  }
+  const pl = [...PADPOS.values()];
+  for (let i = 0; i < pl.length; i++) for (let j = i + 1; j < pl.length; j++) if (Math.max(Math.abs(pl[i][0] - pl[j][0]), Math.abs(pl[i][1] - pl[j][1])) === 1) bad('pads touch: ' + pl[i] + ' ' + pl[j]);
+  lines.push('v2.5 rules: ' + walks + ' walk tiles 2 wide, ' + trees + ' trees clear of walks / pads / piles'); }
 console.log(lines.join('\n'));
 console.log('buy-order states checked: ' + n + ' (all ' + UNLOCKS.length + ' unlocks bought: ' + (left.length ? 'NO' : 'yes') + ')');
 console.log(errs.length ? 'MAP CHECK FAIL\n  ' + errs.join('\n  ') : 'MAP CHECK OK');

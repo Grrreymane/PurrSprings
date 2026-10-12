@@ -1150,3 +1150,150 @@ function fireworkArt(k, frame) {
     return c;
   });
 }
+
+// ------------------------------------------------------------ v2.1 festival plaza, lower half: scenery
+// thin snow line (winter): in rows y0..y1, top pixels (nothing above) that sit in a level run of >= 2 turn to snow
+// (thin diagonal sticks stay bare); long flat runs get a broken 2nd row
+function _obSnowTop(G, y0, y1) {
+  const src = G.d.slice(), at = (x, y) => (x < 0 || y < 0 || x >= G.w || y >= G.h) ? null : src[y * G.w + x];
+  const top = (x, y) => at(x, y) && !at(x, y - 1);
+  for (let y = Math.max(0, y0); y <= Math.min(G.h - 1, y1); y++) for (let x = 0; x < G.w; x++) {
+    if (!top(x, y) || !(top(x - 1, y) || top(x + 1, y))) continue;
+    G.set(x, y, '#f4f8fc');
+    if (at(x - 1, y) && at(x + 1, y) && !at(x - 1, y - 1) && !at(x + 1, y - 1) && at(x, y + 1) && _obH(x, y, 77) < .55) G.set(x, y + 1, '#dce5f0');
+  }
+}
+// small paper lantern (3x6) hanging from (x, y) = its cap; on = warm lit paper
+function _obChochin(G, x, y, on) {
+  G.set(x + 1, y, '#3a2a2e'); G.rect(x, y + 1, 3, 1, '#3a2a2e'); G.rect(x, y + 5, 3, 1, '#3a2a2e');
+  if (on) { G.rect(x, y + 2, 3, 3, '#ffd27a'); G.set(x + 1, y + 3, '#fff2c0'); G.set(x + 1, y + 2, '#fff2c0'); G.set(x + 2, y + 4, '#f0a850'); }
+  else { G.rect(x, y + 2, 3, 3, '#e0503a'); G.set(x, y + 2, '#f07a5a'); G.set(x, y + 3, '#f07a5a'); G.set(x + 2, y + 4, '#a8302a'); }
+}
+// bon-odori drum tower: 48x56, footprint 3x2, anchor (0,56) = bottom-left of the footprint (rows 24..55 are the
+// footprint). lit = the lanterns glow (static); s = season 0..3, winter puts snow on the rails, drum and lanterns.
+function yaguraArt(lit, s) {
+  const on = !!lit, ss = (s | 0) & 3;
+  return art('ob:yagura:' + (on ? 1 : 0) + ':' + ss, () => _obObj(48, 56, G => {
+    const P = _obP;
+    // back legs + tie, front legs
+    G.rect(6, 36, 2, 5, P.dk2); G.rect(40, 36, 2, 5, P.dk2); G.rect(8, 39, 32, 1, P.dk2);
+    [3, 42].forEach(x0 => { G.rect(x0, 36, 3, 19, P.dk); G.rect(x0, 36, 1, 19, P.dkL); });
+    G.rect(6, 45, 36, 1, P.dk2);                                                                // front tie beam
+    gLine(G, 6, 37, 13, 44, P.dk2); gLine(G, 41, 37, 34, 44, P.dk2);                          // braces
+    // deck (planks run left-right) + front beam
+    G.rect(2, 17, 44, 8, P.woodL);
+    for (let x = 2; x < 46; x++) { G.set(x, 19, _obH(x, 19, 5) < .5 ? '#cf9c66' : P.wood); G.set(x, 22, _obH(x, 22, 6) < .5 ? '#cf9c66' : P.wood); }
+    G.rect(2, 25, 44, 1, P.dk); G.rect(2, 26, 44, 1, P.dk2);
+    // kohaku maku: red and white stripes, black rope band on top
+    G.rect(2, 27, 44, 1, '#3a2a2e');
+    for (let y = 28; y <= 35; y++) for (let x = 2; x <= 45; x++) {
+      const red = ((x - 2) >> 2) & 1, bot = y === 35;
+      G.set(x, y, red ? (bot ? '#a83a30' : '#d0483a') : (bot ? '#d8d0c0' : '#f4f0e6'));
+    }
+    // back rail
+    G.rect(5, 11, 1, 7, P.dk); G.rect(42, 11, 1, 7, P.dk);
+    G.rect(5, 11, 38, 1, P.dk); G.rect(5, 14, 38, 1, P.dk2);
+    // the taiko on its stand
+    G.rect(18, 15, 2, 7, P.dk2); G.rect(28, 15, 2, 7, P.dk2); G.rect(17, 20, 14, 1, P.dk);
+    const BP = ['#4a1e12', '#6a2c1a', '#8a3e24', '#a8562e', '#c8743c'], bk = _obLit(BP, 22, 9, 9, 6.4);
+    for (let x = 17; x <= 31; x++) {                                                            // barrel, bulging in the middle
+      const u = (x + .5 - 24.5) / 7.5, hh = 4.6 + 1.6 * (1 - u * u);
+      for (let y = R(11 - hh); y <= R(11 + hh); y++) G.set(x, y, bk(x, y));
+    }
+    for (let x = 18; x <= 30; x++) G.set(x, 11, (x & 1) ? '#d8a040' : '#b07818');               // rope band
+    [16, 32].forEach(hx => {                                                                    // drum heads, tacks on the rims
+      G.ell(hx + .5, 11, 1.6, 5.6, hx < 24 ? '#f4ecd8' : '#d8ccb0');
+      for (let y = 6; y <= 16; y += 2) G.set(hx < 24 ? hx + 1 : hx - 1, y, '#2e1e14');
+    });
+    gLine(G, 30, 3, 35, 7, '#e8c890'); gLine(G, 33, 2, 36, 6, '#d8b070');                       // bachi (sticks)
+    // front corner poles, a low front rail with a gap for the ladder, a sagging lantern string
+    G.rect(2, 3, 2, 22, P.dk); G.set(2, 3, P.dkL); G.rect(44, 3, 2, 22, P.dk); G.set(44, 3, P.dkL);
+    G.rect(4, 18, 16, 1, P.dk); G.rect(28, 18, 16, 1, P.dk);
+    // ladder up the front
+    [20, 27].forEach(x0 => { G.rect(x0, 24, 1, 31, P.dk); });
+    for (let y = 28; y <= 52; y += 4) { G.rect(21, y, 6, 1, P.woodL); G.rect(21, y + 1, 6, 1, P.woodD); }
+    if (ss === 3) _obSnowTop(G, 0, 12);
+    for (let x = 4; x <= 43; x++) G.set(x, 4 + R(Math.sin((x - 4) / 39 * Math.PI) * 2), '#5a4a40');
+    [[5, 4], [11, 5], [36, 5], [41, 4]].forEach(([lx, ly]) => { _obChochin(G, lx, ly + 1, on); if (ss === 3) G.rect(lx, ly + 2, 3, 1, '#f4f8fc'); });
+  }, [[3, 6, 55, .34], [42, 45, 55, .34], [19, 28, 55, .3], [6, 41, 41, .2]], on ? (x, px) => {
+    const halo = [];
+    [[5, 5], [11, 6], [36, 6], [41, 5]].forEach(([lx, ly]) => { halo.push([lx - 1, ly + 3], [lx + 3, ly + 3], [lx + 1, ly + 7]); });
+    px('rgba(255,210,122,.45)', halo);
+  } : null));
+}
+
+// keijiban: little notice board with a gabled roof on two posts, three pinned papers. 16x26, anchor (0,26)
+// = bottom-left of the 1x1 footprint (the board is centred in it). s = season: one paper's colour, winter snow.
+function noticeBoardArt(s) {
+  const ss = (s | 0) & 3;
+  return art('ob:notice:' + ss, () => _obObj(16, 26, G => {
+    const P = _obP;
+    G.rect(2, 6, 2, 19, P.dk); G.rect(2, 6, 1, 19, P.dkL); G.rect(12, 6, 2, 19, P.dk); G.rect(12, 6, 1, 19, P.dkL);   // posts
+    G.rect(1, 7, 14, 12, P.dk2);                                                                // frame
+    G.rect(2, 8, 12, 10, '#b88a58'); for (let y = 9; y < 18; y += 3) G.rect(2, y, 12, 1, '#a87a4a');   // board
+    const PAP = { L: '#fbfaf4', l: '#8a7a6a' };
+    _obPat(G, 3, 9, ['LLLL', 'LllL', 'LLLL', 'LlLL', 'LLLL'], PAP);
+    _obPat(G, 8, 9, ['LLLLL', 'LlllL', 'LLLLL', 'LllLL', 'LLLLL', 'LlllL', 'LLLLL'], PAP);
+    const TC = ['#f8c8d8', '#c8e4f4', '#f8d098', '#eef2f6'][ss];
+    _obPat(G, 3, 15, ['CCCC', 'CkkC'], { C: TC, k: '#7a5a5a' });
+    G.set(4, 9, '#e8453c'); G.set(10, 9, '#4a8ad8'); G.set(4, 15, '#e8453c');                 // pins
+    G.tri(-.6, 6.2, 8, -.2, 16.6, 6.2, '#5c4c4a');                                              // gabled roof
+    for (let y = 1; y <= 5; y++) for (let x = 0; x < 16; x++) if (G.get(x, y)) G.set(x, y, x < 8 - (y & 1) ? '#76625c' : (x + y) % 3 ? '#5c4c4a' : '#46393a');
+    G.rect(0, 6, 16, 1, '#342a2c'); G.rect(7, 0, 2, 1, '#342a2c');
+    if (ss === 3) _obSnowTop(G, 0, 7);
+  }, [[1, 4, 25, .32], [11, 14, 25, .32], [5, 10, 25, .14]]));
+}
+
+// fujidana: wisteria pergola over a long bench. 48x40, footprint 3x1, anchor (0,40) = bottom-left of the footprint.
+// s = season: 0 purple racemes, 1 green leaves, 2 yellow-brown leaves, 3 bare vines + snow. The seat (rows 26..29,
+// x 6..41) stays clear for cats.
+function pergolaArt(s) {
+  const ss = (s | 0) & 3;
+  return art('ob:pergola:' + ss, () => _obObj(48, 40, G => {
+    const P = _obP;
+    G.rect(5, 6, 2, 20, P.dk2); G.rect(41, 6, 2, 20, P.dk2);                                   // back posts
+    // bench
+    G.rect(6, 26, 36, 3, P.woodL); for (let x = 6; x < 42; x++) if (_obH(x, 27, 9) < .3) G.set(x, 27, '#cf9c66');
+    G.rect(6, 29, 36, 1, P.wood); G.rect(6, 30, 36, 1, P.woodD);
+    [8, 23, 38].forEach(x0 => { G.rect(x0, 31, 2, 7, P.dk); G.set(x0, 31, P.dkL); });
+    G.rect(8, 34, 32, 1, P.dk2);
+    // front posts
+    [1, 45].forEach(x0 => { G.rect(x0, 8, 2, 31, P.dk); G.rect(x0, 8, 1, 31, P.dkL); });
+    // lattice: back beam, front beam, cross slats, a middle purlin
+    G.rect(2, 3, 44, 1, P.dk2); G.rect(1, 6, 46, 1, '#8a5a34');
+    for (let x = 3; x <= 45; x += 6) G.rect(x, 3, 1, 6, '#8a5a34');
+    G.rect(0, 8, 48, 2, P.dk); G.rect(0, 8, 48, 1, P.dkL);
+    const LEAF = [[P.leafD, P.leafD, P.leaf, P.leaf, P.leafL, P.leafLL],
+      ['#2e6a32', '#3d7a3a', '#4a8a3a', '#5a9a3a', '#72b04a', '#8ac85a'],
+      ['#8a5a1a', '#a8701e', '#c88a2a', '#dca838', '#ecc456', '#f6dc80']][Math.min(ss, 2)];
+    if (ss < 3) {
+      [[5, 4.6, 5.4, 3], [14, 3.8, 5.6, 3.2], [24, 4.4, 6, 3], [34, 3.8, 5.6, 3.2], [43, 4.6, 5, 3]].forEach(([cx, cy, rx, ry]) => {
+        const lk = _obLit(LEAF, cx - .6, cy - .8, rx + .4, ry + .4);
+        G.ell(cx, cy, rx, ry, (x, y) => (ss === 2 && _obH(x, y, 31) < .16 ? null : lk(x, y)));
+      });
+      [[9, 6], [21, 7], [27, 5], [39, 6]].forEach(([x, y]) => G.set(x, y, '#8a5a34'));        // slats peeking through
+      // hanging racemes (spring) / leafy drapes (summer, autumn) under the front beam
+      const WI = ['#6a4ab8', '#8a6ad8', '#a88ae8', '#c8b4f4', '#e4dafa'];
+      const HANG = ss === 0 ? [[4, 9], [8, 12], [12, 8], [16, 11], [20, 7], [25, 12], [29, 9], [33, 11], [37, 8], [41, 12], [44, 7]]
+        : [[4, 4], [9, 6], [14, 3], [19, 5], [25, 6], [30, 4], [35, 5], [40, 3], [44, 5]];
+      HANG.forEach(([cx, n], i) => {
+        if (ss === 2 && (i & 1)) n = Math.max(2, n - 2);
+        for (let j = 0; j < n; j++) {
+          const t = j / n, w = ss === 0 ? (t < .45 ? 2 : 1) : (t < .6 ? 2 : 1), x0 = cx - (w > 1 ? 1 : 0) + (ss === 0 && ((j >> 1) & 1) ? 1 : 0);
+          for (let k = 0; k < w; k++) {
+            const c = ss === 0 ? WI[clamp(Math.floor(t * 4.2 + ((x0 + k + j) & 1) * .6), 0, 4)] : LEAF[clamp(2 + ((x0 + k + j) & 1) * 2 - (t > .6 ? 1 : 0), 0, 5)];
+            G.set(x0 + k, 10 + j, c);
+          }
+        }
+      });
+    } else {
+      // bare vines twisting along the beams
+      for (let x = 1; x <= 46; x++) { const y = 5 + ((x >> 2) & 1) - ((x >> 3) & 1); if (_obH(x, 5, 41) < .8) G.set(x, y, '#6a4a34'); }
+      [[6, 10, 7, 13], [19, 10, 18, 12], [30, 10, 31, 14], [40, 10, 39, 12]].forEach(([a, b, c2, d]) => gLine(G, a, b, c2, d, '#6a4a34'));
+      _obSnowTop(G, 0, 3); _obSnowTop(G, 8, 8);
+      for (let x = 7; x <= 40; x++) if (_obH(x, 26, 43) < .5) G.set(x, 26, '#f4f8fc');   // a dusting on the seat
+    }
+  }, [[0, 3, 39, .34], [44, 47, 39, .34], [7, 40, 38, .26]], ss === 0 ? (x, px) => {
+    px('#c8b4f4', [[6, 38], [17, 39], [29, 38], [35, 39]]);
+  } : ss === 2 ? (x, px) => { px('#dca838', [[12, 38], [26, 39], [33, 38]]); px('#a8701e', [[19, 39]]); } : null));
+}

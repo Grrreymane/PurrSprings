@@ -104,7 +104,7 @@ function drawPreview(u) {
   }
   SLOTS.forEach(sl => { if (sl.need === u.id && VIS(sl.x * TILE + 8, 3 * TILE + 10, 24)) drawA(gh(catBathing('white', 0)), sl.x * TILE + 8, 3 * TILE + 10, 9, 9); });   // new bath places
   SEATS.forEach(se => { if (se.need === u.id && VIS(tcx(se.at), tcy(se.at), 16)) drawA(gh(cushionArt()), tcx(se.at), tcy(se.at), 6, 3); });            // new seats
-  if (u.id === 'koi') for (let i = 0; i < 3; i++) { const x = 29 * TILE + (i - 1) * 14, y = 16 * TILE + 8 + (i & 1) * 6; if (VIS(x, y, 8)) drawA(gh(koiArt(['red', 'gold', 'black'][i], 0)), x, y, 4, 2); }
+  if (u.id === 'koi') for (let i = 0; i < 3; i++) { const x = (POND[0] + POND[1] + 1) / 2 * TILE + (i - 1) * 14, y = 16 * TILE + 8 + (i & 1) * 6; if (VIS(x, y, 8)) drawA(gh(koiArt(['red', 'gold', 'black'][i], 0)), x, y, 4, 2); }
   drawPreviewB(u, gh);   // v2.1 core B: the next shrine hall, an outfit / uniform on you
   if (/^net\d$/.test(u.id)) {   // the net: its new reach round your feet
     const r = NET_R[Math.min(3, netLvl() + 1)], n = Math.ceil(r * 1.6); g.fillStyle = '#fff6d8';

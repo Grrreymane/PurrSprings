@@ -21,8 +21,9 @@ function unlock(id) {
   for (const a of AREAS) if (a.open === id) AREA_FADE.push({ a, t0: T });
   POPA[id] = T; P.pourAcc = 0; P.pouring = null;
   const had = new Set(STAFF.map(s => s.id)), b0 = BLOCK.slice();
-  rebuildWorld(); ensureStaff(); unstick(P); P.padLock = tileOf(P);
+  rebuildWorld(); ensureStaff(); const px0 = P.x, py0 = P.y; unstick(P); P.padLock = tileOf(P);
   for (const e of GUESTS.concat(STAFF, VIPG ? [VIPG] : [], PET ? [PET] : [])) { const [tx, ty] = tileOf(e), i = ty * MW + tx; if (BLOCK[i] && !b0[i]) unstick(e); }   // newly blocked (a table): step off it
+  if (P.x !== px0 || P.y !== py0) for (const f of [VIPG, PET]) if (f && Array.isArray(f.q) && (f !== VIPG || f.st === 'follow')) { const [fx, fy] = tileOf(f), [tx, ty] = tileOf(P), p = findPath(fx, fy, tx, ty); f.q = (p || []).map(([x, y]) => [x * TILE + 8, y * TILE + 8]); }   // v2.5: you were pushed off a new table: whoever follows you walks round it (novice seed 7: the VIP cut across the table)
   for (const s of STAFF) if (!had.has(s.id)) Object.assign(s, { x: 17 * TILE + 8, y: 31 * TILE + 8, arrive: true, newT: T, path: [], goal: null, dir: 'up' });   // in through the front door (7.3.4)
   if (star() > s0) starPopAt = T;   // the new HUD star pops (the unlock chime already plays)
   S.peak = Math.max(S.peak, star());

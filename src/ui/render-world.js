@@ -206,9 +206,9 @@ function drawScene(vw, vh, live, noPlayer, card) {
   const fr = Math.floor(T / .4) & 3, sea = seasonNow(), water = (x0, x1, y0, y1, fn) => { for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) if (VIS(tx * TILE + 8, ty * TILE + 8, 12)) g.drawImage(fn(fr, tx, ty, sea), tx * TILE - CX, ty * TILE - CY); };   // v2.1: + the season (pondArt)
   if (S.unlocked.onsen) water(13, 21, 2, 3, waterArt);   // jade-green rock bath
   if (S.unlocked.roten) { water(27, 37, 2, 3, rotenWaterArt); if (VIS(32 * TILE, 20, 40)) g.drawImage(waterfallArt(fr, seasonNow()), 31 * TILE - CX, -CY); }   // milky water in a hinoki rim (A4)
-  if (S.unlocked.garden) water(27, 30, 15, 17, pondArt);
+  if (S.unlocked.garden) water(POND[0], POND[1], POND[2], POND[3], pondArt);
   if (S.unlocked.koi) for (let i = 0; i < 3; i++) {   // three koi circle the pond
-    const a = T * .35 + i * 2.1, x = 29 * TILE + Math.cos(a) * 22, y = 16 * TILE + 8 + Math.sin(a) * 12;
+    const a = T * .35 + i * 2.1, x = (POND[0] + POND[1] + 1) / 2 * TILE + Math.cos(a) * 22, y = 16 * TILE + 8 + Math.sin(a) * 12;
     if (VIS(x, y, 8)) { let c = koiArt(['red', 'gold', 'black'][i], Math.floor(T * 3 + i) & 1); if (Math.sin(a) > 0) c = flipOf(c); drawA(c, x, y, 4, 2); }
   }
   // an area that just opened: its shade fades out (0.8 s)
