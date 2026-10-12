@@ -8803,7 +8803,7 @@ const VIP_GREET_T = .5, VIP_PHOTO_T = 1.2, VIP_TAP_T = 1.5, VIP_SOAK_T = 5, VIP_
 // v2.0.1 G1: a wish never runs out (no more "改日再访" after 120 s); the faster, the bigger the tip. A wish done within
 // VIP_WISH_FAST s of showing pays in full, then less down to 60 % at VIP_WISH_FAST + VIP_WISH_SLOW s. The arrow leads the
 // first VIP ever all the way (greet, suite, every wish); later ones go ahead of the pads once a wish has waited VIP_URGENT s.
-const VIP_URGENT = 60, VIP_WISH_FAST = 30, VIP_WISH_SLOW = 90, VIP_CARD_T = 240;
+const VIP_URGENT = 30, VIP_WISH_FAST = 30, VIP_WISH_SLOW = 90, VIP_CARD_T = 240;
 const VIP_SIP_T = { tea: 6, kaiseki: 8 };   // stage 4: the VIP drinks / eats this long before its next wish shows (like the soak); v2.0.1: 4 / 6 -> 6 / 8 (time for its tick)
 const VIP_FOLLOW = 16, VIP_HALT = 96, VIP_RESUME = 48, VIP_NOGREET = 60, VIP_IDLE = 120, VIP_LEAD_MAX = 120, VIP_NOSUITE = 240;
 // the clerk (4.8): claims piles >= 2 x the tip lying more than 48 px from the innkeeper and carries them to the cash box
