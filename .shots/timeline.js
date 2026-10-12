@@ -46,6 +46,10 @@ const bdesc = b => { const st = bannerParts(b); return b.kind + ':' + (st ? st.p
 const cardsSeen = [], bannerT = [], newsT = [], buyT = [], overlaps = {};
 { const r0 = rareArrive; rareArrive = function () { const r = r0(); if (r) { log(mm(S.stats.time) + ' ' + where() + ' RARE ' + VIPG.id + (S.rare[VIPG.id] ? ' (again)' : ' (first)')); newsT.push(S.stats.time); } return r; }; }
 { const v0 = vipArrive; vipArrive = function () { v0(); log(mm(S.stats.time) + ' ' + where() + ' VIP ' + VIPG.id); }; }
+// v2.2: each wish's start / done (how long it took), the rush, full piles
+{ const w0 = vipWishStart; vipWishStart = function () { w0(); const k = vipWish(); if (k) { VIPG.wT0 = S.stats.time; log(mm(S.stats.time) + ' ' + where() + ' WISH ' + VIPG.id + ' ' + k + (wishGlow() ? ' glow ' + wishGlow().ids.join('/') : '')); } }; }
+{ const d0 = vipWishDone; vipWishDone = function () { const v = VIPG, k = vipWish() || vipWs(v)[v.wi]; log(mm(S.stats.time) + ' ' + where() + ' WISH DONE ' + v.id + ' ' + k + ' in ' + Math.round(S.stats.time - (v.wT0 || S.stats.time)) + ' s'); d0(); }; }
+let fullLog = 0; { const dp = deposit; deposit = function (id, v) { const a = dp(id, v); if (a < (v | 0) && S.stats.time - fullLog > 30) { fullLog = S.stats.time; log(mm(S.stats.time) + ' ' + where() + ' FULL ' + id + ' lost ' + ((v | 0) - a)); } return a; }; }
 const active = () => {
   const a = [];
   if (FEST.on) a.push('fest'); if (PRESS.gu && !PRESS.gu.press.done) a.push('press');

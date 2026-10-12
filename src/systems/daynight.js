@@ -8,6 +8,7 @@ function dayTick(dt) {
   const wrap = c1 < c0, crossed = a => wrap ? (a > c0 || a <= c1) : (a > c0 && a <= c1);
   if (crossed(DUSK_AT)) sfx('dusk');
   if (crossed(DAWN_AT)) newDay();
+  businessTick(dt, c0, c1);   // v2.2: the evening rush, the reputation summary, the pile caps (business.js)
 }
 function newDay() {
   const g0 = S.dayLog.g, h0 = S.dayLog.h, rec = S.dayLog.best > 0 && g0 > S.dayLog.best;

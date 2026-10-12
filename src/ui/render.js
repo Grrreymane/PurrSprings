@@ -195,12 +195,13 @@ function drawOverlays() {
     const v = VIPG, hx = R(v.x), hy = R(v.y) - 20, k = vipWish();
     if (v.st === 'arrive' || v.st === 'carpet') drawA(cleanSuite() ? bubbleArt('card', 0, true) : bubbleArt('dots', 0), hx, hy, 7, 12);
     else if (v.st === 'follow' && v.halt) drawA(bubbleArt('dots', 0), hx, hy, 7, 12);
-    else if (v.st === 'seated' && k) { const c = bubbleArt(k, 0, true), bob = T % 1 < .5 ? 0 : -1; g.drawImage(c, hx - 14 - CX, hy - 24 + bob - CY, 28, 26); }
+    else if (v.st === 'seated' && k) { const c = vipBubbleImg(k), bob = T % 1 < .5 ? 0 : -1; g.drawImage(c, hx - c.width - CX, hy + 2 - 2 * c.height + bob - CY, 2 * c.width, 2 * c.height); }   // v2.2: [station] > [item] while it still has to be made
+    drawWishGlow();   // v2.2: the station that makes the wish glows (vipguide.js)
     if (v.st === 'carpet' && v.greetT > 0) ring(hx - CX, hy - 18 - CY, v.greetT / VIP_GREET_T, '#ffd23f');
     if (v.st === 'seated' && k === 'photo' && v.actT > 0) ring(hx - CX, hy - 32 - CY, v.actT / VIP_PHOTO_T, '#ffd23f');
     if (v.st === 'seated' && k === 'bath' && v.actT > 0) { const tp = ROOM[v.suite].tap; ring(tcx(tp) - CX, tcy(tp) - 22 - CY, v.actT / VIP_TAP_T, '#ffd23f'); }
     if ((v.st === 'seated' || v.st === 'soak') && v.suite) {
-      const d = ROOM[v.suite].door, bx = tcx(d), by = d[1] * TILE - 1, ws = VIP[v.id].wishes;
+      const d = ROOM[v.suite].door, bx = tcx(d), by = d[1] * TILE - 1, ws = vipWs(v);
       if (VIS(bx, by - 7, 30)) {
         drawA(wishBoardArt(), bx, by, 20, 14);
         ws.forEach((w, i) => {
@@ -245,6 +246,7 @@ function drawOverlays() {
     else if (fx.k === 'give') { const p = fx.t / fx.life; drawA(itemIcon(fx.it), lerp(fx.x0, fx.x1, p), lerp(fx.y0, fx.y1, p) - Math.sin(p * Math.PI) * 8, 3, 3); }   // handed over: the portion hops across
   }
   for (const u of visiblePads()) { const [tx, ty] = padXY(u); if (VIS(tx * TILE + 8, ty * TILE + 8, 20)) padLabels(u); }
+  drawFullPiles();   // v2.2: 满 over a full pile (business.js)
   manekiPaw(); rareOverlay(); fwClock();   // v2.1 core B: the maneki outfit's wave, rare guests' rings / bubble, the fireworks' clock
   for (const p of POPS) if (!(p.wait > 0)) txt(p.s, p.x - CX, p.y - CY, p.size, p.col, 'center', OUT, Math.min(1, p.life / p.max * 2));
 }
@@ -295,7 +297,7 @@ function drawGuide() {
   if (sx > 4 && sx < W - 4 && ony > 18 && sy < H - 2) {
     const ay = ony + R(Math.sin(T * 4) * 2); drawC(arrowArt(fr), onx, ay);
     // a guest / the VIP already shows what it wants in its bubble right under the arrow: no second icon on screen
-    if (ic && !GUIDE_BUBBLED.has(gt.kind)) { const k = (ic.width >> 1) + 7, side = onx + k + (ic.width >> 1) + 2 > W ? -1 : 1; guideTag(ic, onx + side * k, ay); }
+    if (ic && !GUIDE_BUBBLED.has(gt.kind) && !glowTagged(gt)) { const k = (ic.width >> 1) + 7, side = onx + k + (ic.width >> 1) + 2 > W ? -1 : 1; guideTag(ic, onx + side * k, ay); }
     return;
   }
   // off screen: an arrow on the screen edge pointing at it (inside the edge box: clear of the banner and the bottom card);
@@ -327,7 +329,7 @@ function netRing(r, a) {
 function bubbleTop(e) {
   if (!e) return null;
   if (e === VIPG) {
-    if (e.st === 'seated' && vipWish()) return [R(e.x), R(e.y) - 20 - 25];   // the big wish bubble (G1)
+    if (e.st === 'seated' && vipWish()) return [R(e.x), R(e.y) - 20 + 2 - 2 * vipBubbleImg(vipWish()).height + 1];   // the big wish bubble (G1; v2.2: the route bubble is taller)
     const shows = e.st === 'arrive' || e.st === 'carpet' || (e.st === 'follow' && e.halt) || e.st === 'show';   // v2.1: a rare guest you lead to its piece shows its wish (rare.js)
     return shows ? [R(e.x), R(e.y) - 20 - 12] : null;
   }
@@ -375,7 +377,7 @@ function drawHUD() {
   const rk = '#' + rankOf(S.hearts), rw = 13 + rk.length * 4; pill(26, 17, rw, 11); drawC(trophyIcon(), 32, 22); txt(rk, 37, 22.5, 7, '#ffe9a8', 'left');
   const nc = callCount(), bx = 26 + rw + 3;
   if (nc > 0) { pill(bx, 17, 21, 11); drawC(bellIcon(), bx + 6, 22); txt(String(nc), bx + 12, 22.5, 7, '#ffe9a8', 'left'); }
-  drawHudV21a(bx + (nc > 0 ? 24 : 0));   // v2.1: the festival lanterns, the "popular" cover + ring (seasons.js)
+  drawHudV21a(drawBizHud(bx + (nc > 0 ? 24 : 0)));   // v2.2: the evening rush's clock / today's stars (business.js)   // v2.1: the festival lanterns, the "popular" cover + ring (seasons.js)
 }
 function drawFly() {
   for (const f of FX) if (f.k === 'fly' && f.t >= 0) {

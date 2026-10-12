@@ -46,6 +46,8 @@
 | `src/systems/guide.js` | 303 | 箭头 `guideTarget()`（也是机器人的大脑）、气泡 |
 | `src/systems/wardrobe.js` | 97 | v2.1 百货完整版（16.6）：衣服 / 制服 / 宠物 / 金摆设、买下后的 `unlockB`、小狸的灯笼、招财猫招手 |
 | `src/systems/rare.js` | 184 | v2.1 稀客（16.7）：到期、占贵宾的位置、陪站 / 带去看、小猫三兄弟、愿望气泡、纪念品 |
+| `src/systems/vipguide.js` | 125 | v2.2 贵宾「去哪做」（19.1）：只要做得出的愿望、发光的地方 + 牌子、`[地方] › [物品]` 泡泡 / 箭头小图、每种愿望的图示卡 |
+| `src/systems/business.js` | 140 | v2.2 营业压力（19.2）：口碑（每位客人的星、傍晚小结）、傍晚高峰、鱼干堆上限（`deposit`）、HUD 小钟、存档 `S.rep` |
 | `src/systems/shrine.js` | 47 | v2.1 猫神社（16.8）：等级、收费 +1%、鸟居变淡、神社 / 商店里的镜头边距 |
 | `src/systems/plaza.js` | 142 | v2.1 祭典广场（16.9）：烟花、屋台（夜市）、客人买屋台；核心 B 的 `tickB / resetB / loadStateB` |
 | `src/core/update.js` | 88 | 状态机 `go`、`update / gameUpdate`、镜头、`audioTick` |

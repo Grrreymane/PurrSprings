@@ -723,6 +723,42 @@ const _obPAD2 = {
     G.ell(6, 6, 5, 5, '#fbf6ea'); G.ell(6, 6, 3.6, 3.6, '#e8453c'); G.ell(6, 6, 2.2, 2.2, '#fbf6ea'); G.ell(6, 6, 1, 1, '#e8453c');
   },
 };
+// ------------------------------------------------------------ v2.2 (SPEC_v2 19): where a wish is made, the evening rush
+// 9x9 work-station icon + 1px outline = 11x11, centre anchor: the place in the world where you make the thing a guest of
+// honour wants (bubble station -> item, the glow tag over the station, the arrow's icon, the picture cards).
+// 'urn' tea stand (copper kettle on a green-clothed table), 'stove' clay kamado (fire + pot), 'milk' milk machine (blue top,
+// bottles behind glass), 'tub' the suite's hinoki tub (steam), 'pass' the dining counter (two rice balls)
+const _obSTATION = {
+  urn: [['..KKK....', '.K...K...', '..CCC..s.', '.CcCCCCs.', '.CCCCCC..', 'GGGGGGGGG', 'WWWWWWWWW', '.W.....W.', '.W.....W.'],
+    { K: '#3a2a20', C: '#c87a3a', c: '#f0b070', s: '#a8603a', G: '#5a9a5a', W: '#7a4a2a' }],
+  stove: [['..s...s..', '...s...s.', '.KKKKKKK.', 'KkKKKKKKK', 'CCCCCCCCC', 'CcCCCCCCC', 'CC.fFf.CC', 'CC.FFF.CC', 'CCCCCCCCC'],
+    { s: '#a8b0c0', K: '#2a2a36', k: '#6a6a7a', C: '#c87a4a', c: '#e8a878', F: '#ff7a2a', f: '#ffd23f' }],
+  milk: [['BBBBBBBBB', 'BwBBBBBBB', 'WWWWWWWWW', 'WgggggggW', 'WgWgWgWgW', 'WgWgWgWgW', 'WgggggggW', 'WWWWWWWWW', 'WnnnnnnnW'],
+    { B: '#4a8ad8', w: '#ffffff', W: '#f4f2ea', g: '#a8d8e8', n: '#b8b0a0' }],
+  tub: [['.s...s...', '..s...s..', '.s...s...', 'VVVVVVVVV', 'VbbbbbbbV', 'VuuuuuuuV', 'VjjjjjjjV', 'VuuuuuuuV', '.VVVVVVV.'],
+    { s: '#a8b8c8', V: '#8a5a34', b: '#5cc8c8', u: '#e6c48c', j: '#b0602c' }],
+  pass: [['.........', '..w...w..', '.www.www.', '.wNw.wNw.', 'UUUUUUUUU', 'VVVVVVVVV', 'VuVVuVVuV', 'VVVVVVVVV', 'V.......V'],
+    { w: '#fbfaf4', N: '#26342c', U: '#e0b070', V: '#8a5a34', u: '#b07848' }],
+};
+function stationIcon(kind) { const d = _obSTATION[kind] || _obSTATION.urn; return _obIco('ob:station:' + (_obSTATION[kind] ? kind : 'urn'), d[0], d[1]); }
+// a wide gold-rimmed wish bubble, w x 17 (inner 3..w-4 x 3..12), tail at the bottom centre, gold bell top right (like
+// bubbleArt(..., true)); the core draws station -> item into it
+function wideBubbleArt(w) {
+  w = Math.max(16, w | 0);
+  return art('ob:widebub:' + w, () => {
+    const c = paint(w, 17, G => {
+      const ring = '#ffc21f', fill = '#fffbea';
+      G.rect(1, 2, w - 2, 11, ring); G.rect(2, 1, w - 4, 13, ring); G.rect(2, 2, w - 4, 11, fill);
+      const m = w >> 1; G.rect(m - 1, 14, 2, 1, ring); G.set(m - 1, 15, ring);
+    }, 'plain');
+    const x = c.getContext('2d'), px = (col, pts) => { x.fillStyle = col; pts.forEach(([i, j]) => x.fillRect(i, j, 1, 1)); }, b = w - 5;
+    px(OUT, [[b, 0], [b + 2, 0], [b - 1, 1], [b + 3, 1], [b - 1, 2], [b + 3, 2], [b, 3], [b + 2, 3]]);
+    px('#ffd23f', [[b, 1], [b + 1, 1], [b + 2, 1], [b, 2], [b + 1, 2]]); px('#fff6c0', [[b + 1, 0]]); px('#d89a20', [[b + 2, 2]]); px('#8a5a10', [[b + 1, 3]]);
+    return c;
+  });
+}
+// 7x7 little clock for the evening rush (HUD pill, picture card), centre anchor
+function clockIcon() { return _obIco('ob:clock', ['.WWW.', 'WWKWW', 'WWKWW', 'WWWKW', '.WWW.'], { W: '#fff3d0', K: '#5a3a1a' }); }
 const _obPADPOST = {
   dining: x => { x.fillStyle = 'rgba(255,255,255,.75)'; [[3, 1], [4, 2], [3, 3], [7, 1], [6, 2], [7, 3]].forEach(([i, j]) => x.fillRect(i, j, 1, 1)); },
   tea: x => { x.fillStyle = 'rgba(255,255,255,.75)'; [[1, 2], [0, 1], [1, 0]].forEach(([i, j]) => x.fillRect(i, j, 1, 1)); },

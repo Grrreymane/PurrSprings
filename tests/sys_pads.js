@@ -13,7 +13,7 @@ ok(UNLOCKS_V21A.length === 8 && UNLOCKS_V21A.every(u => UNLOCK[u.id] === u && !u
   ok(v20 === 65, 'UNLOCKS has ' + v20 + ' v2.0 rows (SPEC 3.4: 53 pads + 12 star-5 rows; v2.0.1: + 茶房, - 竹篮 2, - 托盘 2)'); ok(v21 === 44, 'v2.1 core B rows ' + v21 + ' (want 44: 2 gates, 10 offerings, 8 garden pieces, 4 stalls, fireworks, 8 outfits, 4 uniforms, 3 pets, 4 gold decor)'); }
 ok(RETIRED.every(id => !UNLOCK[id]), 'retired pads are gone: ' + RETIRED.join());
 const tot = (a, b) => UNLOCKS.slice(UNLOCKS.findIndex(u => u.id === a), UNLOCKS.findIndex(u => u.id === b) + 1).reduce((s, u) => s + u.price, 0);
-ok(tot('room2', 'onsen') === 145 && tot('recep', 'dining') === 2325 && tot('tray1', 'garden') === 6800 && tot('g_shishi', 'roten') === 9430,   // v2.0.1 prices (SPEC_v2 3.4 / 18.2)
+ok(tot('room2', 'onsen') === 145 && tot('recep', 'dining') === 2325 && tot('tray1', 'garden') === 6900 && tot('g_shishi', 'roten') === 9730,   // v2.2 prices (SPEC_v2 3.4 / 18.2: 庭园 1,000, 星见 3,100 - the good reputation's bonus)
    'star totals ' + [tot('room2', 'onsen'), tot('recep', 'dining'), tot('tray1', 'garden'), tot('g_shishi', 'roten')]);
 ok(tot('maid4', 'statue') === 1473800, 'after-star-5 total ' + tot('maid4', 'statue'));
 for (const u of UNLOCKS) {

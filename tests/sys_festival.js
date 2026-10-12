@@ -27,7 +27,7 @@ const checkins = n => { for (let i = 0; i < n; i++) { S.stats.guests++; S.dayLog
   const b = BANNER_Q.find(x => x.kind === 'fest'); ok(b && bannerParts(b).parts.some(p => p.t === '烟花大会！'), 'banner: 烟花大会！');
   ok(FIRST_Q.some(f => f.key === 'fest'), 'first time: the [bell] -> [lantern] card'); }
 // ---- meanwhile: guests come 1.3x as often, wait 20 s longer; the music; strings and the HUD lanterns
-{ setup(STAR3, 5, .3); const g0 = spawnGap(); S.clock = .6195; run(1); near(spawnGap(), g0 / 1.3, 1e-9, 'spawn gap / 1.3');
+{ setup(STAR3, 5, .3); const g0 = spawnGap(); S.clock = .6195; run(1); near(spawnGap() * (rushOn() ? RUSH_K : 1), g0 / 1.3, 1e-9, 'spawn gap / 1.3');   // v2.2: clock .62 is in the evening rush (x2) too
   addGuest('regular'); run(DT); const gu = GUESTS[GUESTS.length - 1]; ok(gu.pat > PATIENCE + FEST_PAT - 1, 'a new guest\'s patience +20 s: ' + R(gu.pat));
   let want = null; const _mw = musicWant; musicWant = o => { want = o; return _mw(o); }; run(DT); musicWant = _mw; ok(want && want.fest === true && want.season === 1, 'music: fest + summer (' + JSON.stringify(want && { fest: want.fest, season: want.season }) + ')');
   const strings = [], lamps = []; const _cs = chochinString, _li = lanternIcon; chochinString = l => { strings.push(l); return _cs(l); }; lanternIcon = on => { lamps.push(on); return _li(on); };

@@ -65,7 +65,7 @@ function stallGuest(gu, dt, walk) {
   if (gu.st === 'toStall') { goTo(gu, st[4], 31); if (walk()) { setSt(gu, 'stall'); gu.tt = YATAI_T; gu.dir = 'up'; } else if (gu.lost && gu.t > 3) done(); return; }
   gu.tt -= dt;
   if (gu.tt <= 0) {
-    const v = 8 * star(); S.piles.plaza = (S.piles.plaza || 0) + v; RUN.stall = (RUN.stall | 0) + v; gu.heart = 1; markDirty();
+    const v = deposit('plaza', 8 * star()); RUN.stall = (RUN.stall | 0) + v; gu.heart = 1; markDirty();
     festLantern(1);   // core A's festival lantern row (16.2; nothing outside a festival)
     done();
   }

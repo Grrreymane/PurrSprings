@@ -79,7 +79,10 @@ if (PROF.hold) { const bGT = guideTarget; guideTarget = o => afkFrom !== null &&
 // v2.0.1: tea = guests' own cups at the urn (G3); callStaff = the tea runner's call tips (into the cash box, not active)
 const INC = { room: 0, tip: 0, bath: 0, milk: 0, meal: 0, souv: 0, tea: 0, call: 0, callStaff: 0, vip: 0 };
 let bEarnSrc = 'vip', bPickups = 0;
-{ const f0 = fee; fee = function (k, o) { const v = f0(k, o); INC[k] = (INC[k] || 0) + v; return v; }; }   // fees only ever land in a pile
+let bFeeK = null, bFeeV = 0;
+{ const f0 = fee; fee = function (k, o) { const v = f0(k, o); INC[k] = (INC[k] || 0) + v; bFeeK = k; bFeeV = v; return v; }; }   // fees only ever land in a pile
+// v2.2 (19.2): a full pile loses what doesn't fit - income is what landed (deposit right after its fee)
+{ const d0 = deposit; deposit = function (id, v) { const a = d0(id, v); if (bFeeK && (v | 0) === bFeeV && a < bFeeV) INC[bFeeK] -= bFeeV - a; bFeeK = null; return a; }; }
 { const e0 = earn; earn = function (v, x, y) { INC[bEarnSrc] += Math.max(0, v | 0); return e0(v, x, y); }; }   // calls + VIP gifts
 { const s0 = serveCall; serveCall = function (gu, by) { bEarnSrc = 'call'; const p0 = S.piles.recep || 0; try { return s0(gu, by); } finally { if (by) INC.callStaff += Math.max(0, (S.piles.recep || 0) - p0); bEarnSrc = 'vip'; } }; }
 let bPickT = -9;   // C5 counts pick-ups: piles taken within 1.5 s of each other are one pick-up (the coin-chain sound does the same)
@@ -367,7 +370,9 @@ const nt = RUN.news.filter(n => B3K.includes(n[1]) && n[0] <= end).map(n => n[0]
 let b3 = 0, b3At = 0; { const g = gapsFrom(nt.slice(1), nt[0] || 0); g.forEach((d, i) => { if (d > b3) { b3 = d; b3At = nt[i]; } }); }   // afk: minus the hands-off minutes
 // C1: "go pick up fish" per 3-min window from star 2 + 3 min
 const c1w = [];
-if (t2 !== undefined) for (let a = t2 + 180; a + 180 <= end; a += 180) c1w.push(share(arrowRecs(between(a, a + 180)), r => r.k === 'pile' && !r.h));
+// v2.2 (18.2): a window counts only with >= 90 s of following the arrow in it (the afk bot's first window back from its
+// hands-off minutes held 48 s - the full piles it came back to; a partial window measured the return, not the mix)
+if (t2 !== undefined) for (let a = t2 + 180; a + 180 <= end; a += 180) { const w = arrowRecs(between(a, a + 180)); if (w.length >= 90) c1w.push(share(w, r => r.k === 'pile' && !r.h)); }
 // C3: the most common single kind after 5 min (here counted as its kind)
 const c3n = {}, c3rs = arrowRecs(between(300, end)); for (const r of c3rs) if (r.k) c3n[r.k] = (c3n[r.k] || 0) + 1;
 const c3k = Object.keys(c3n).sort((a, b) => c3n[b] - c3n[a])[0] || null;
@@ -411,6 +416,9 @@ const M = {
     gold: Object.fromEntries(Object.entries(goldT).map(([k, t]) => [k, R(t - fin)])), goldAt5, v21: bV21() } : null,
   G4: fin !== null ? noBuyS : null,
   H1: { max: padsMax, shop: shopPadsMax },
+  // v2.2 (19.2): the evening summaries' reputation (stars) up to star 5 (+ the shopper's later days), the guests' own
+  // ratings, rushes seen, fish lost to full piles
+  REP: { med: med((RUN.repDays || []).slice(0, (RUN.repDays || []).length)), days: (RUN.repDays || []).length, mean: RUN.rates ? r2(RUN.rateSum / RUN.rates / 10) : null, rushes: RUN.rushes || 0, lost: RUN.capLost || 0, pen: RUN.ratePen || null, n: RUN.rates || 0 },
 };
 // v2.1 core B (14.2 G5-G8): every endless purchase after star 5 (boutique + shrine / garden / plaza / wardrobe + fireworks)
 function bV21() {
@@ -441,6 +449,7 @@ else {
   console.log(`  C1 pile ${M.C1.max} [${M.C1.windows.join(' ')}] | C2 active ${M.C2} | C3 ${M.C3.kind} ${M.C3.share} | C4 null ${M.C4} | C5 pickups/min ${M.C5}`);
   console.log(`  D1 active income ★3 ${M.D1.s3} ★4 ${M.D1.s4} ★5 ${M.D1.s5} | D2 ★5 income/min ${M.D2} | income pre-★5 ${JSON.stringify(preInc)}`);
   console.log(`  E1 calls ${M.E1.made} made, ${M.E1.served} served (${M.E1.fast} fast), ${M.E1.missed} missed = ${M.E1.done} | E2 hungry no-chef ${M.E2.noChef} 2-waiters ${M.E2.twoWaiters} | E3 VIP ${M.E3.came} came ${M.E3.done} done ${M.E3.left} left, med ${M.E3.used}s f ${M.E3.f}, ${M.E3.share} of income | E4 first combo ${mmss(firstCombo)}, combo rooms at ★5 ${comboRooms5}`);
+  console.log(`  REP days ${M.REP.days} med ${M.REP.med} (guests' mean ${M.REP.mean}) | rushes ${M.REP.rushes} | fish lost to full piles ${M.REP.lost} | penalties ${JSON.stringify(M.REP.pen)} over ${M.REP.n} guests`);
   console.log(`  F1 lines/min ${M.F1} | F2 arrivals ${M.F2.n} ok ${M.F2.ok} fail ${JSON.stringify(M.F2.fail)} ${M.F2.failAt.join(' / ')} | jumps ${swJumps}: >3 in 5 s ${swMany} ${swManyAt.join(' / ')}, A-B-A ${swFlip} ${JSON.stringify(swPairs)} | unreachable ${bUnreach} ${bUnreachAt.join(' / ')} | H1 pads on screen ${padsMax} (shop ${shopPadsMax})`);
   if (afkFrom !== null) console.log(`  afk ${mmss(afkFrom)}-${mmss(afkTo)}: income ${out.afk.inc}`);
   console.log(`  v2.1: festivals ${out.v21.festOk}/${out.v21.fests} all lit | press ${out.v21.press.join(' ') || '-'} | awards ${out.v21.awards.join(' ') || '-'} (this year so far ♥${out.v21.yearH}) | mom ${out.v21.mom} | seasonal combos ${out.v21.seasonal}`);

@@ -34,6 +34,7 @@ function resetWorld() {
   MIRROR.t = CUSHION.t = 0; PET = null; quackT = -99; goldT = 0; EDGE_Q.length = 0;
   LINE = LINE_NEXT = null; lineCD = -99; for (const k in LSAID) delete LSAID[k]; INFO = null;   // stage 3 UI: no line / card carried over
   spawnT = 1.5; guideClock = 0; GUIDE = null; celebrateAt = 0; starPopAt = -9; DISP = S.money; lastEarnT = S.stats.time;
+  bizReset();   // v2.2 runtime (business.js): the rush, the pile averages, today's causes
   resetB();   // v2.1 core B runtime (plaza.js): rare guests' due times, a fireworks show, try-on
   rebuildWorld(); ensureStaff(); updCam(0, true); updPet(0);
   v21aReset();   // v2.1 core A runtime: festival / reporter / cards (seasons.js)

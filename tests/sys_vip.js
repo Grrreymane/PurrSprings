@@ -67,7 +67,7 @@ st([], 3);
   eq(S.money - m0, R(G * .25), 'tea: 25% of G'); eq(S.hearts - h0, 2, 'tea: ♥2'); eq(VIPG.wi, 1, 'next wish'); eq(S.vipOwe, G - R(G * .25), 'owed shrinks');
   ok(FX.some(x => x.k === 'vipok'), 'a big tick over it'); ok(!FIRST_Q.some(f => f.key === 'vip'), 'the 3-step card is done with the first wish');
   eq(vipWish(), null, 'sips the tea first (no wish shown)'); ok(!guideTarget() || guideTarget().kind !== 'tap', 'no arrow to the tap while it sips'); run(VIP_SIP_T.tea + .1); eq(vipWish(), 'bath', 'bath next'); eq(VIPG.t < 1, true, 'the idle clock starts after the sip');
-  ok(FIRST_Q.some(f => f.key === 'bath'), 'first-time card "bath"');
+  ok(FIRST_Q.some(f => f.key === 'w_bath'), 'first-time card "w_bath" (v2.2)');
   // wish 2: bath - the tap 1.5 s, it soaks 5 s (you may leave)
   S.money = 0; t = guideTarget(); ok(t && t.kind === 'tap', 'arrow: the tap (' + (t && t.kind) + ')');
   walkTo(ROOM.c3.tap[0], ROOM.c3.tap[1], 10); run(1.3); eq(VIPG.st, 'seated', 'not before 1.5 s'); ok(guideTarget().here, 'on the tap = here'); ok(tubBusy(ROOM.c3), 'tub steams while filling');
@@ -89,7 +89,7 @@ st([], 3);
   const h0 = S.hearts; toVip(); run(1.3); eq(S.hearts - h0, 10, 'second photo of kawa: ♥10 only'); eq(S.gifts.length, 1, 'gift shelf: one per VIP'); }
 // ---- kaiseki (大关): the stove 3 s (gold ring), one box on the tray, carried to the suite
 { st(['chef'], 4); S.vipNext = 1; arrive(); eq(VIPG.id, 'ozeki', 'the second VIP is 大关'); greet(); escort(ROOM.c3);
-  eq(vipWish(), 'kaiseki', 'kaiseki first'); ok(FIRST_Q.some(f => f.key === 'kaiseki'), 'kaiseki card');
+  eq(vipWish(), 'kaiseki', 'kaiseki first'); ok(FIRST_Q.some(f => f.key === 'w_kai') || (S.seen.w_kai && FIRST_Q.some(f => f.key === 'vip')), 'kaiseki card (v2.2: w_kai; the first VIP ever: inside its 3-step card)');
   let t = guideTarget(); ok(t && t.kind === 'stove', 'arrow: the stove (' + (t && t.kind) + ')');
   P.x = tcx(PICK_TILE.stove); P.y = tcy(PICK_TILE.stove); run(2.8); ok(!P.tray.includes('kaiseki'), 'not before 3 s'); eq(P.cookK, 'kaiseki', 'cooking kaiseki');
   run(.4); eq(countK(P.tray, 'kaiseki'), 1, 'one kaiseki box'); run(4); eq(countK(P.tray, 'kaiseki'), 1, 'only one');

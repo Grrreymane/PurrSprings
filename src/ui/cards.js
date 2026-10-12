@@ -4,7 +4,7 @@
 // tags, kept between y 56 and 280), y 288-314 the bottom card (the info card, else a first-time picture card). render()
 // draws the world, then layerBreak(), then the UI: world text (prices, names, pops) never shows through the UI.
 const NEW_TAG_T = 15, EDGE_T = 4, FIRST_T = 20, EDGE_Y0 = 56, EDGE_Y1 = 280, CARD_Y = 290;
-const BANNER_IN = .2, BANNER_OUT = .2, bannerHold = b => b.kind === 'day' ? 2.5 : b.kind === 'level' ? 2 : 2.6;
+const BANNER_IN = .2, BANNER_OUT = .2, bannerHold = b => b.kind === 'day' ? 2.5 : b.kind === 'level' ? 2 : b.kind === 'rep' ? 3.5 : 2.6;
 const unlockIcon = u => u.decor ? decorIcon(u.id) : u.hat ? hatIcon(u.id) : u.pet ? petIcon(u.id) : u.v21b ? unlockIconB(u) : padIcon(u.icon);   // v2.1 core B: menu-v21b.js
 // album faces: (1,4)-(15,17) of the front sprite, 14 x 13 (12.1); silhouettes for "not seen yet"
 const FACES = new Map(), SILS = new Map();
@@ -133,6 +133,11 @@ function bannerParts(b) {
     case 'day': return { rim: '#e0a030', parts: [{ img: sunIcon(), gap: 3 }, { t: '第' + b.id + '天', c: dk, gap: 5 }, { img: rankBadge('me'), gap: 2 }, { t: String(b.g), c: dk, gap: 5 }, { img: heartIcon(), gap: 2 }, { t: String(b.h), c: dk }].concat(b.rec ? [{ gap: 3 }, { img: trophyIcon() }] : []) };
     case 'milestone': return { rim: '#e0a030', parts: [{ img: menuIcon('cat'), gap: 3 }, { t: '第' + b.id + '位客人！', c: dk }] };
     case 'gift': return { rim: '#ffc21f', parts: [{ img: menuIcon('house'), gap: 3 }, { t: '旅馆扩建啦！', c: dk, z: 8 }] };
+    // v2.2 (business.js): the evening rush comes; the evening summary - today's stars, the room fee from now on, hearts
+    case 'rush': return { rim: '#ff9a2a', parts: [{ img: clockIcon(), gap: 3 }, { t: '客人多起来了', c: dk }] };
+    case 'rep': { const r = b.id / 10, n = Math.floor(r + .01); return { rim: '#e0a030', parts: Array.from({ length: 5 }, (_, i) => ({ img: starIcon(i < n), gap: 1 })).concat([{ gap: 2 }, { t: r.toFixed(1), c: dk, z: 8, gap: 5 },
+      { img: fishIcon(), gap: 2 }, { t: (b.pct > 0 ? '+' : '') + b.pct + '%', c: b.pct > 0 ? '#2a8a3a' : b.pct < 0 ? '#c0392b' : dk, gap: 5 }]).concat(b.h ? [{ img: heartIcon(), gap: 2 }, { t: '+' + b.h, c: dk, gap: 5 }] : [])
+      .concat(b.why ? [{ img: { line: bellIcon(), bed: broomIcon(), towel: towelArt(), food: itemIcon('rice') }[b.why] }, { t: '!', c: '#c0392b', z: 8 }] : []) }; }   // below par: what cost the most
   }
   return bannerV21a(b) || bannerPartsB(b);   // v2.1 core A (seasons.js): season, festival, press, mom; core B (menu-v21b.js): rare guests, keepsakes, the shrine, fireworks
 }
@@ -194,13 +199,20 @@ const FIRST_CARD = {
   // v2.1 core A: the first festival (a check-in lights a lantern), the first reporter (what it checks: 16.4)
   fest: () => [{ img: bellIcon(), s: 2 }, { img: ARROW_R }, { img: lanternIcon(true), s: 2 }, '入住点灯'],
   press: () => [{ img: padIcon('recep') }, { img: padIcon('decor') }, { img: padIcon('basket') }, { img: padIcon('milk') }, '记者打分'],
+  // v2.2 (vipguide.js): each kind of wish once - [station] > [item] > [face] + the verb
+  w_tea: () => wishCardParts('tea'), w_kai: () => wishCardParts('kaiseki'), w_milk: () => wishCardParts('milk'), w_rice: () => wishCardParts('rice'),
+  w_bath: () => wishCardParts('bath'), w_photo: () => wishCardParts('photo'),
+  // v2.2 (business.js): the evening rush (more guests: help out), the reputation (stars -> the room fee), a full pile
+  rush: () => [{ img: clockIcon(), s: 2 }, { img: faceOf(VIP_LOOK.kawa) }, { img: faceOf(VIP_LOOK.sakura) }, { img: ARROW_R }, { img: padIcon('recep') }, '高峰帮忙'],
+  rep: () => [{ img: menuIcon('cat') }, { img: starIcon(true) }, { img: starIcon(true) }, { img: starIcon(true) }, { img: ARROW_R }, { img: fishIcon(), s: 2 }, '口碑'],
+  full: () => [{ img: pileArt(8) }, { img: bubbleArt('blank', 0) }, { img: ARROW_R }, { img: faceOf(PLAYER_LOOK) }, '满了去收'],
 };
 // the first VIP's 3-step picture card (G1): greet it -> lead it to a suite -> do what its gold bubble shows. One row of
 // icons + 2-character labels; the step you are on sits in a gold frame, the ones done are ticked. It stays up until the
 // first wish is done (at most VIP_CARD_T s on screen).
 function vipCardSteps() {
-  const id = VIPG ? VIPG.id : 'kawa', w = (VIPG && vipWish()) || VIP[id].wishes[0];
-  return [[{ img: bubbleArt('card', 0, true) }, { img: faceOf(VIP_LOOK[id]) }, '迎宾'], [{ img: PAWS }, { img: padIcon('suite') }, '带路'], [{ img: bubbleArt(w, 0, true) }, '照办']];
+  const id = VIPG ? VIPG.id : 'kawa', w = (VIPG && vipWish()) || vipWs(VIPG || { id })[0], st = TRAY_WISH.has(w) && wishStations(w).length ? STATION_ICON[nearStation(wishStations(w))] : null;
+  return [[{ img: bubbleArt('card', 0, true) }, { img: faceOf(VIP_LOOK[id] || VIPG.look) }, '迎宾'], [{ img: PAWS }, { img: padIcon('suite') }, '带路'], [{ img: st ? routeIcon(w, st) : bubbleArt(w, 0, true) }, '照办']];   // v2.2: step 3 shows where it is made
 }
 function drawVipCard(fc) {
   const v = VIPG, cur = !v || v.st === 'arrive' || v.st === 'carpet' ? 0 : v.st === 'follow' || v.st === 'toSuite' ? 1 : 2;

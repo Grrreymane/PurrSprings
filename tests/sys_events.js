@@ -38,8 +38,9 @@ setup(UNLOCKS.filter(u => !u.need5 && UNLOCK.garden.req.concat(['dining', 'onsen
   ok(VIPG.st === 'follow' && line('V01') && !line('V07'), 'greeted: its own line V01 (' + VIPG.st + ')');
   // the three wish cards (bath / kaiseki / photo) come with the wishes
   VIPG = null; S.vipNext = 1; vipArrive(); const v = VIPG; v.suite = 'c3'; RT.c3.guest = v; setSt(v, 'seated');
+  firstDone('vip');   // v2.2: while the first VIP's 3-step card is up its step 3 shows the wish (no second card)
   for (let i = 0; i < 3; i++) { v.wi = i; vipWishStart(); }
-  for (const k of ['kaiseki', 'bath', 'photo']) ok(FIRST_Q.some(f => f.key === k), 'card: ' + k); ok(line('V10'), 'photo wish: V10'); }
+  for (const k of ['w_kai', 'w_bath', 'w_photo']) ok(FIRST_Q.some(f => f.key === k), 'card: ' + k); ok(line('V10'), 'photo wish: V10'); }
 // ---- v2.0 audit F5: a hire that reaches its post out of view says its first words once it is in view near you (<= 3 min)
 setup(['room2', 'room3', 'onsen', 'recep']);
 { S.stats.time = 100; P.x = 17 * TILE + 8; P.y = 4 * TILE + 8; updCam(0, true); unlock('maid1'); const m = STAFF.find(s => s.id === 'maid1');

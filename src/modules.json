@@ -33,6 +33,8 @@
   "src/systems/guide.js",
   "src/systems/wardrobe.js",
   "src/systems/rare.js",
+  "src/systems/vipguide.js",
+  "src/systems/business.js",
   "src/systems/shrine.js",
   "src/systems/plaza.js",
   "src/core/update.js",

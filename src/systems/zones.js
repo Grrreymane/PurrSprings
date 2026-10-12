@@ -2,7 +2,9 @@
 let coinCombo = 0, coinT = -9, lastEarnT = 0;
 function deskManned() { const rc = STAFF.find(s => s.role === 'recep'); return P.atDesk || !!(rc && rc.atDesk); }
 // check-in time: the receptionist at the desk checks in x0.92 a level (4.7); you alone take CHECKIN_T
-function checkinT() { const rc = STAFF.find(s => s.role === 'recep' && s.atDesk); return rc ? CHECKIN_T * lvMul(rc, .92) : CHECKIN_T; }
+// v2.2 (19.2): the staff work a little quicker / slower by reputation; the innkeeper helping at the desk beside the
+// receptionist checks in twice as fast (two at work)
+function checkinT() { const rc = STAFF.find(s => s.role === 'recep' && s.atDesk); return rc ? CHECKIN_T * lvMul(rc, .92) / repStaff() / (P.atDesk ? 2 : 1) : CHECKIN_T; }
 function inShelfZone() { return S.unlocked.onsen && dist(P.x, P.y, SHELF_C[0], SHELF_C[1]) <= 22; }
 function inBasketZone() { return S.unlocked.onsen && dist(P.x, P.y, BASKET_C[0], BASKET_C[1]) <= 20; }
 function inCleanZone(rm) { return dist(P.x, P.y, rm.cleanC[0], rm.cleanC[1]) <= rm.cleanR; }

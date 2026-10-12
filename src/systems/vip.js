@@ -13,7 +13,7 @@ const cleanSuite = () => SUITES.find(suiteFree) || null;   // suite A first, B w
 const vipNeedsSuite = () => !!VIPG && (VIPG.st === 'arrive' || VIPG.st === 'carpet') && !cleanSuite();
 const vipGift = () => R(20 * STARS[star()].room * qualityQ() * (1 + .05 * goldStars()));
 const vipGap = () => ((star() >= 5 ? VIP_GAP5 : VIP_GAP) + rand(-VIP_JIT, VIP_JIT)) * (S.unlocked.suiteB ? .7 : 1);
-const vipWish = () => VIPG && (VIPG.st === 'seated' || VIPG.st === 'soak') && !(VIPG.hold > 0) ? VIP[VIPG.id].wishes[VIPG.wi] : null;
+const vipWish = () => VIPG && (VIPG.st === 'seated' || VIPG.st === 'soak') && !(VIPG.hold > 0) ? vipWs(VIPG)[VIPG.wi] : null;   // v2.2: only what the inn can make (vipguide.js)
 const inBox = (rm, tx, ty) => tx >= rm.box[0] && tx <= rm.box[2] && ty >= rm.box[1] && ty <= rm.box[3];
 const suiteInner = rm => [rm.box[0], rm.door[1]];   // the first tile inside the suite's door
 function vipArrive() {
@@ -41,16 +41,16 @@ function vipLeave(happy) {
 function vipWishStart() {   // a new current wish: its first-time card; the photo wish says so
   const k = vipWish(); if (!k) return;
   VIPG.wt = 0;   // how long this wish has waited (its tip: wishF)
-  if (k !== 'tea') firstTime(k);
+  if (k === 'stay' || k === 'show') firstTime(k); else wishCardStart(k);   // v2.2: [station] > [item] > [face] once per kind (vipguide.js)
   if (k === 'photo') lineSay(VIPG, 'V10');
 }
 // a wish's tip factor: full when done within VIP_WISH_FAST s, then down to 0.6 at VIP_WISH_FAST + VIP_WISH_SLOW s (G1)
 const wishF = wt => .6 + .4 * clamp(1 - (wt - VIP_WISH_FAST) / VIP_WISH_SLOW, 0, 1);
 function vipWishDone() {
-  const v = VIPG, def = VIP[v.id], k = def.wishes[v.wi];
-  firstDone(k); firstDone('vip');   // the 3-step card of the first VIP stays up until its first wish is done
+  const v = VIPG, ws = vipWs(v), k = ws[v.wi];
+  firstDone(k); wishCardDone(k); firstDone('vip');   // the 3-step card of the first VIP stays up until its first wish is done
   FX.push({ k: 'vipok', x: v.x, y: v.y - 20, t: 0, life: 1.3 }); fxSpark(v.x, v.y - 30, 6);   // a big tick over its head (G1)
-  if (v.wi < def.wishes.length - 1) {   // an earlier wish: 25% of the gift x how quick, hearts 2
+  if (v.wi < ws.length - 1) {   // an earlier wish: 25% of the gift x how quick, hearts 2
     const pay = R(v.G * .25 * wishF(v.wt || 0)); v.paid += pay; earn(pay, v.x, v.y - 4); addHearts(2); lineSay(v, 'V09');
     v.wi++; setSt(v, 'seated'); v.actT = 0; S.vipOwe = Math.max(0, v.G - v.paid); markDirty();
     v.hold = VIP_SIP_T[k] || 0; if (k === 'show') rareShowDone(v); else if (!v.hold) vipWishStart();   // tea / kaiseki: it enjoys it first (stage 4); v2.1 show: back to its seat

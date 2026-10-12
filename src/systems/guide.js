@@ -24,6 +24,13 @@ const T_SHELF = here => gT('shelf', SHELF_C[0], SHELF_C[1], SHELF_SPOT[0], SHELF
 const T_PAD = (u, here) => { const [tx, ty] = padXY(u); return Object.assign(gT('pad', tx * TILE + 8, ty * TILE + 8, tx, ty, here, 'pad:' + u.id), { id: u.id }); };
 const T_PILE = id => { const [tx, ty] = PILE_AT[id]; return Object.assign(gT('pile', tx * TILE + 8, ty * TILE + 8, tx, ty, false, 'pile:' + id), { id }); };
 const towelWanted = () => S.basket === 0 && GUESTS.some(gu => gu.st === 'towel');
+// v2.2 (19.2): the staff can't do it all in a rush - with the porter hired you still carry towels while the basket is
+// empty and someone waits for one; a long line at the desk (3+, or 2+ in the evening rush) with a room ready: help the
+// receptionist (two check in twice as fast)
+const towelHelp = () => S.unlocked.porter ? towelWanted() : (S.basket <= 2 || towelWanted());
+// (it has to stay long for LINE_LONG_T s first, business.js; once shown it holds while anyone is in line - no flicker)
+const qReady = () => { let n = 0; for (const q of Q) if (q.st === 'queue' && q.ready) n++; return n; };
+const deskHelp = free => !!S.unlocked.recep && !!free && (lineLongT >= LINE_LONG_T && !(GPREV && GPREV.rule === 12 && !GPREV.here) && GUEST_ROOMS.filter(roomFree).length >= 2 || (!!GPREV && GPREV.kind === 'desk' && qReady() > 0));
 // the pad under a locked tile (just bought there, you haven't stepped off): not pointed at - it would show your own tile
 const padLocked = u => { const xy = P.padLock && padXY(u); return !!xy && xy[0] === P.padLock[0] && xy[1] === P.padLock[1]; };
 const guidePads = sk => sk && sk.pad ? [] : visiblePads().filter(u => !u.booth && !u.noArrow && !padLocked(u) && !(sk && sk.decor && u.decor));   // v2.1: never the fireworks
@@ -108,11 +115,11 @@ function guideTarget(opts) {
   const [ptx, pty] = tileOf(P), spd = playerSpeed(), v = sk.vip ? null : VIPG;
   const slots = sk.decor ? null : slotCands(), slotT = slots ? slots[0] || null : null;
   // 1. you're in the middle of a job: keep at it (no arrow)
-  if (P.atDesk && coming) return gAt(1, T_DESK(true));
+  if (P.atDesk && (coming || deskHelp(free))) return gAt(1, T_DESK(true));
   for (const rm of ROOMS) if (S.rooms[rm.id] === 'messy' && inCleanZone(rm)) return gAt(1, T_CLEAN(rm, true));
   if (S.unlocked.onsen) {
     if (P.towels > 0 && S.basket < BASKET_MAX && inBasketZone()) return gAt(1, T_BASKET(true));
-    if (!S.unlocked.porter && P.towels < towelCap() && inShelfZone() && (P.towels > 0 || S.basket <= 2 || towelWanted())) return gAt(1, T_SHELF(true));
+    if (P.towels < towelCap() && inShelfZone() && (S.unlocked.porter ? towelWanted() : (P.towels > 0 || S.basket <= 2 || towelWanted()))) return gAt(1, T_SHELF(true));
   }
   if (P.pouring && S.money > 0 && PADPOS.has(P.pouring) && !sk.pad && !(sk.decor && UNLOCK[P.pouring].decor)) return gAt(1, T_PAD(UNLOCK[P.pouring], true));
   for (const pk of PICKUPS) if (inZone(ZONE[pk.id]) && canPick(pk, L)) return gAt(1, T_PICK(pk.id, true, pk.k));   // picking up something wanted
@@ -178,7 +185,7 @@ function guideTarget(opts) {
     }
     if (near.length) { near.sort((a, b) => a[0] - b[0]); return gStick(4, T_PILE(near[0][1]), near.map(n => T_PILE(n[1]))); } }
   // 5. towels on your head (before the porter): finish the run while the need that started it still holds
-  if (S.unlocked.onsen && !S.unlocked.porter && P.towels > 0 && (S.basket <= 2 || towelWanted())) return gAt(5, T_BASKET(false));
+  if (S.unlocked.onsen && P.towels > 0 && towelHelp()) return gAt(5, T_BASKET(false));   // v2.2: with the porter too while someone waits for a towel
   // 8 (moved up: the first VIP ever all the way, later a wish that has waited VIP_URGENT s - G1): ahead of the pads; a
   //   fresh wish of a later VIP waits for them (a pad is a few seconds away)
   if (vipLeads(v)) { const t = vipGuide(); if (t) return gAt(8, t); }
@@ -192,6 +199,8 @@ function guideTarget(opts) {
   if (coming) return gAt(7, T_DESK(false));
   // 8. the VIP: greet it (no clean suite: clean one), or its current wish
   if (v) { const t = vipGuide(); if (t) return gAt(8, t); }
+  // 8b (v2.2, 19.2): a long line at the desk and rooms ready - help the receptionist (two check in twice as fast)
+  if (deskHelp(free)) return gAt(7, T_DESK(false));
   const r11 = () => {   // 11. breakfast (see below)
     if (!S.unlocked.dining || !L.some(w => w.seat)) return null;
     const nr = wantCount('rice', L) - heldCount('rice');
@@ -199,6 +208,9 @@ function guideTarget(opts) {
     if (!hasWaiter() && PASS.n > 0 && nr > 0 && P.tray.length < trayCap()) return gAt(11, T_PICK('pass', false, 'rice'));
     return null;
   };
+  // 9a (v2.2, 19.2): a full pile has stopped filling - the nearest one (with the clerk: only the cash box, the rest is his)
+  { const clerkOn = STAFF.some(s => s.role === 'clerk'), full = piles.filter(id => pileFull(id) && (!clerkOn || id === 'recep'));
+    if (full.length) { const c = full.map(T_PILE).sort((a, b) => dist(P.x, P.y, a.x, a.y) - dist(P.x, P.y, b.x, b.y)); return gStick(9, c[0], c); } }
   // 9. a fish pile that would pay for a pad: the nearest such pile (stage 4: was the biggest - a long walk across the map)
   { const t = rule9(); if (t) return t; }
   // 11 (moved up while there is no chef, 18.2): the diners' rice before the calls - with only you cooking they go hungry
@@ -221,7 +233,7 @@ function guideTarget(opts) {
   }
   if (GPREV && GPREV.rule === 12 && !GPREV.here && Q.length) { const rm = ROOM[GPREV.key.slice(6)]; if (rm && S.rooms[rm.id] === 'messy') return gAt(12, T_CLEAN(rm, false)); }
   // 13. towels (until the porter is hired): basket low or a guest waiting for one
-  if (S.unlocked.onsen && !S.unlocked.porter && (S.basket <= 2 || towelWanted())) return gAt(13, P.towels > 0 ? T_BASKET(false) : T_SHELF(false));
+  if (S.unlocked.onsen && towelHelp()) return gAt(13, P.towels > 0 ? T_BASKET(false) : T_SHELF(false));
   // 14. decor: complete a combo the arrow may point at, else dress an empty room's A slot (nearest first)
   if (slotT) return gStick(14, T_SLOT(slotT), slots.map(sl => T_SLOT(sl)));
   // 15. the biggest fish pile - only one worth the walk: >= 20 fish and >= 20 % (stage 4: 10 %) of what the cheapest pad
@@ -260,7 +272,8 @@ function guideTarget(opts) {
 // the 7x7-ish icon beside the arrow (and on the tail of the edge arrow): what you go there for (6), no words
 function guideIcon(gt) {
   switch (gt.kind) {
-    case 'deliver': case 'urn': case 'milk': case 'pass': case 'stove': return gt.vip ? bubbleArt(gt.item, 0, true) : itemIcon(gt.item || PICK_ITEM[gt.kind] || 'tea');   // for the VIP: its gold wish bubble (G1)
+    case 'deliver': return gt.vip ? bubbleArt(gt.item, 0, true) : itemIcon(gt.item || 'tea');   // for the VIP: its gold wish bubble (G1)
+    case 'urn': case 'milk': case 'pass': case 'stove': return gt.vip ? routeIcon(gt.item, STATION_ICON[gt.key.slice(5)] || 'urn') : itemIcon(gt.item || PICK_ITEM[gt.kind] || 'tea');   // v2.2: the VIP's [station] > [item], as in its bubble
     case 'pile': return fishIcon();
     case 'basket': case 'shelf': return towelArt();
     case 'clean': return broomIcon();
@@ -268,7 +281,7 @@ function guideIcon(gt) {
     case 'vip': case 'suite': return starIcon(true, true);
     case 'showto': return gzIcon(gt.piece);   // v2.1: leading a rare guest to its garden piece
     case 'photo': return menuIcon('camera');
-    case 'tap': return bubbleArt('bath', 0, true);   // the VIP's bath wish, as over its head (G1)
+    case 'tap': return stationIcon('tub');   // v2.2: the VIP's bath: the tub you run (vipguide.js)
     case 'slot': { const sl = DSLOTS.find(s => s.key === gt.slot), id = sl && slotPiece(sl); return id ? decorIcon(id) : padIcon('decor'); }
     case 'pad': return gt.id ? unlockIcon(UNLOCK[gt.id]) : padIcon('room');
   }

@@ -42,7 +42,7 @@ for (const [xp, lv] of [[0, 1], [300, 5]]) {
   near(checkinT(), CHECKIN_T * Math.pow(.92, lv - 1), 1e-9, 'check-in time Lv' + lv);
   addGuest('regular'); const gu = GUESTS[0]; gu.x = tcx(QSPOTS[0]); gu.y = tcy(QSPOTS[0]); gu.ready = true; setSt(gu, 'queue');
   let t = 0; run(5, () => { t += DT; return gu.st !== 'queue'; }); near(t, CHECKIN_T * Math.pow(.92, lv - 1), 2 * DT, 'measured check-in Lv' + lv);
-  P.x = tcx(DESK_SPOT); P.y = tcy(DESK_SPOT); update(DT); near(checkinT(), CHECKIN_T * Math.pow(.92, lv - 1), 1e-9, 'you at the desk too: the faster one');
+  P.x = tcx(DESK_SPOT); P.y = tcy(DESK_SPOT); update(DT); near(checkinT(), CHECKIN_T * Math.pow(.92, lv - 1) / 2, 1e-9, 'you at the desk too: two at work, twice as fast (v2.2)');
 }
 // ---- maids: clean x0.9 a level, walk +5 % a level
 for (const [xp, lv] of [[0, 1], [140, 4]]) {

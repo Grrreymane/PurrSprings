@@ -84,7 +84,7 @@ function updStaff(s, dt) {
     s.working = false;
     if (s.job) {
       const rm = ROOM[s.job]; goTo(s, rm.stand[0], rm.stand[1]);
-      if (walk()) { s.working = true; s.dir = rm.left ? 'left' : 'right'; RT[s.job].cleanP += dt / (MAID_CLEAN_T * cleanMulOf(rm) * lvMul(s, .9)); if (RT[s.job].cleanP >= 1) { gainXp(s, 4); finishClean(s.job); lineSay(s, 'S08'); } }
+      if (walk()) { s.working = true; s.dir = rm.left ? 'left' : 'right'; RT[s.job].cleanP += dt * repStaff() / (MAID_CLEAN_T * cleanMulOf(rm) * lvMul(s, .9)); if (RT[s.job].cleanP >= 1) { gainXp(s, 4); finishClean(s.job); lineSay(s, 'S08'); } }
     } else if (!maidTowels(s, dt, walk)) { const h = homeOf(s); goTo(s, h[0], h[1]); if (walk()) s.dir = 'down'; }
     return;
   }
@@ -148,6 +148,7 @@ const pileNearP = id => { const [tx, ty] = PILE_AT[id]; return dist(P.x, P.y, tx
 function clerkPick() {
   const min = CLERK_MIN * STARS[star()].tip;
   let best = null;
+  if (capOn() && (S.piles.recep || 0) >= pileCap('recep')) return null;   // v2.2: the cash box is full - nowhere to put a bag
   for (const id in S.piles) if (id !== 'recep' && S.piles[id] >= min && !pileNearP(id) && !STAFF.some(o => o.role === 'clerk' && o.job === id)
     && (best === null || (PILE_AGE[id] || 0) < (PILE_AGE[best] || 0))) best = id;
   return best;
@@ -165,7 +166,8 @@ function updClerk(s, dt, walk) {
     if (walk()) {
       s.tt += dt;
       if (s.tt >= CLERK_BAG_T) {
-        const v = S.piles[s.job]; S.piles[s.job] = 0; S.piles.recep = (S.piles.recep || 0) + v; delete PILE_AGE[s.job];
+        const room = capOn() ? Math.max(0, pileCap('recep') - (S.piles.recep || 0)) : 1e9, v = Math.min(S.piles[s.job], room);   // v2.2: what fits in the cash box
+        PILE_RATE.recep = (PILE_RATE.recep || 0) + v / CAP_TAU; S.piles[s.job] -= v; S.piles.recep = (S.piles.recep || 0) + v; if (!S.piles[s.job]) delete PILE_AGE[s.job];
         s.bag = v; s.job = null; s.tt = 0; gainXp(s, 1); RUN.clerk += v; markDirty(); lineSay(s, 'S10');
       }
     }

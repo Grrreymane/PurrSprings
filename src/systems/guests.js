@@ -82,6 +82,7 @@ function guestLeave(gu, angry) {
   unpark(gu);
   setSt(gu, angry ? 'angry' : 'leave'); gu.goal = null; goTo(gu, EXIT_TILE[0], EXIT_TILE[1], EXIT.slice());
   if (gu.mate) gu.path.push([EXIT[0], EXIT[1] + 24]);   // walk on a little so the partner / kitten leaves the screen too
+  rateGuest(gu, angry);   // v2.2: the stay's 1-5 stars (business.js)
   if (!angry) { addHearts(1); lineSay(gu, star() >= 5 ? 'G17|G18|G19' : 'G17|G18'); }   // a happy guest: hearts +1 (4.9)
 }
 // ---- calls (4.2). Need 茶台; milk needs 牛奶 and a night snack 食堂 (else tea). At most 2 at a time (3 from star 3), 6 s
@@ -107,7 +108,7 @@ function callSelf(gu, k) { if (!gu.call || gu.call.k !== k) return; gu.call = nu
 function serveCall(gu, by) {
   const c = gu.call, fast = !by && c.t > c.max * (1 - CALL_FAST), [x, y] = guestSpot(gu);
   gu.call = null; gu.callBy = null; gu.heart = 1;
-  if (by) { const v = R(callReward(false) * TEA_TIP_K); S.piles.recep = (S.piles.recep || 0) + v; RUN.callsStaff++; gainXp(by, 1); pop('+' + v, x, y - 20, '#ffe9a8', 8, .9); }
+  if (by) { const v = deposit('recep', R(callReward(false) * TEA_TIP_K)); RUN.callsStaff++; gainXp(by, 1); pop('+' + v, x, y - 20, '#ffe9a8', 8, .9); }
   else { earn(callReward(fast), x, y - 12); firstDone('call'); }   // straight into the wallet
   addHearts(fast ? 2 : 1); S.stats.calls++; if (fast) S.stats.callsFast++;
   lineSay(gu, fast ? 'G27|G37|G38' : 'G25|G26|G39'); sfx('serve'); markDirty();
@@ -134,7 +135,7 @@ function leaveSeat(gu) {
   if (gu.mate && gu.seat2 >= 0) unpark(gu, gu.mate.mode === 'park' ? [tcx(SEATS[gu.seat2].at), tcy(SEATS[gu.seat2].at)] : null);
   gu.seat = gu.seat2 = -1; gu.served = false; gu.claim = null;
 }
-function serveSeat(gu) { gu.served = true; gu.claim = null; setSt(gu, 'eat'); gu.tt = EAT_T; sfx('eat'); lineSay(gu, 'G15'); callSelf(gu, 'rice'); }
+function serveSeat(gu) { gu.seatT = gu.t; gu.served = true; gu.claim = null; setSt(gu, 'eat'); gu.tt = EAT_T; sfx('eat'); lineSay(gu, 'G15'); callSelf(gu, 'rice'); }
 // plates on a table: 'set' while someone eats there, 'eaten' for 3 s after
 function tableState(ti) {
   for (const i of [ti * 2, ti * 2 + 1]) { const gu = SEAT_OCC[i]; if (gu && gu.st === 'eat') return 'set'; }
@@ -187,7 +188,7 @@ function updGuest(gu, dt) {
       gu.ready = walk();
       if (gu.ready) { gu.dir = 'up'; if (gu.st === 'arrive') setSt(gu, 'queue'); }
       if (gu.st === 'queue') {
-        gu.pat -= dt;
+        gu.pat -= dt; gu.qT = (gu.qT || 0) + dt; if (i === 0 && gu.ready && !freeRoom(gu)) gu.bedT = (gu.bedT || 0) + dt;   // v2.2: rated on leaving
         if (i === 0 && gu.ready) { gu.front += dt; if (gu.front >= 3 && gu.front - dt < 3 && !deskManned()) lineSay(gu, 'G04'); }
         if (gu.pat < PATIENCE * .4 && gu.pat + dt >= PATIENCE * .4) lineSay(gu, 'G05');
         if (gu.pat <= 0) { Q.splice(i, 1); S.stats.angry++; guestLeave(gu, true); SFX.hmph(); lineSay(gu, 'G20'); markDirty(); }
@@ -204,7 +205,7 @@ function updGuest(gu, dt) {
       if (gu.t >= 3 && gu.t - dt < 3) lineSay(gu, 'G08');   // chat lines while lying / soaking / eating (8.2)
       if (!gu.rolled && gu.t >= 1) { gu.rolled = true; const r = CALL_ROLL[ROOM[gu.room].trait]; if (r) tryCall(gu, r[0], r[1]); }
       if (gu.tt <= 0) {
-        const id = gu.room, rm = ROOM[id]; S.rooms[id] = 'messy'; S.piles[id] = (S.piles[id] || 0) + fee('tip', { rm, gu, pref: gu.pref });
+        const id = gu.room, rm = ROOM[id]; S.rooms[id] = 'messy'; deposit(id, fee('tip', { rm, gu, pref: gu.pref }));
         RT[id].guest = null; RT[id].cleanP = 0; gu.room = null; gu.dir = 'down'; markDirty();
         unpark(gu); lineSay(gu, 'G09');
         guestNext(gu, 'room');   // the room is free first: breakfast, the bath and souvenirs come after checking out
@@ -216,13 +217,13 @@ function updGuest(gu, dt) {
       break;
     }
     case 'seated':   // waiting for rice; handed over -> 'eat' (serveSeat)
-      if (gu.t >= SEAT_WAIT) { RUN.hungry++; lineSay(gu, 'G21'); leaveSeat(gu); guestNext(gu, 'seat'); }   // not angry, no fee
+      if (gu.t >= SEAT_WAIT) { RUN.hungry++; gu.hungry = true; lineSay(gu, 'G21'); leaveSeat(gu); guestNext(gu, 'seat'); }   // not angry, no fee
       break;
     case 'eat':
       gu.tt -= dt;
       if (gu.t >= 2 && gu.t - dt < 2) { if (gu.mate && gu.mate.kind === 'kitten') lineSay(gu.mate, 'G32'); else lineSay(gu, 'G16'); }
       if (gu.tt <= 0) {
-        S.piles.dining = (S.piles.dining || 0) + fee('meal', { gu }); S.stats.diners++; gu.heart = 1; SFX.meow();
+        deposit('dining', fee('meal', { gu })); S.stats.diners++; gu.heart = 1; SFX.meow();
         TABLE_EATEN[gu.seat >> 1] = T; leaveSeat(gu); markDirty();
         guestNext(gu, 'seat');
       }
@@ -230,7 +231,7 @@ function updGuest(gu, dt) {
     case 'toBath': goTo(gu, TOWEL_SPOT[0], TOWEL_SPOT[1]); if (walk()) { setSt(gu, 'towel'); gu.wait = BATH_WAIT; gu.dir = 'left'; if (!S.basket) lineSay(gu, 'G12'); } break;
     case 'towel':
       if (S.basket > 0) { S.basket--; SFX.pop(); markDirty(); setSt(gu, 'toSlot'); gu.wait = BATH_WAIT; gu.goal = null; }
-      else { gu.wait -= dt; if (gu.wait <= 0) guestNext(gu, 'bath'); }
+      else { gu.wait -= dt; gu.towelT = (gu.towelT || 0) + dt; if (gu.wait <= 0) { gu.noBath = true; guestNext(gu, 'bath'); } }
       break;
     case 'toSlot': {
       if (gu.slot < 0) { const s = freeSlot(); if (s >= 0) { SLOT_OCC[s] = gu; gu.slot = s; } }
@@ -241,7 +242,7 @@ function updGuest(gu, dt) {
           lineSay(gu, SLOTS[gu.slot].roten && dayLight().night > .5 ? 'G10|G34' : 'G10');
         }
       }
-      else { goTo(gu, WAIT_SPOT[0], WAIT_SPOT[1]); if (walk()) gu.dir = 'up'; gu.wait -= dt; if (gu.wait <= 0) guestNext(gu, 'bath'); }
+      else { goTo(gu, WAIT_SPOT[0], WAIT_SPOT[1]); if (walk()) gu.dir = 'up'; gu.wait -= dt; if (gu.wait <= 0) { gu.noBath = true; guestNext(gu, 'bath'); } }
       break;
     }
     case 'bathing':
@@ -249,7 +250,7 @@ function updGuest(gu, dt) {
       if (gu.t >= 2.5 && gu.t - dt < 2.5) lineSay(gu, 'G11');
       if (gu.tt <= 0) {
         const sl = SLOTS[gu.slot], pid = sl.roten ? 'roten' : 'onsen';
-        S.piles[pid] = (S.piles[pid] || 0) + fee('bath', { gu, slot: sl }); markDirty();
+        deposit(pid, fee('bath', { gu, slot: sl })); markDirty();
         gu.look = Object.assign({}, gu.look, { outfit: 'yukata', bag: false }); gu.heart = 1; SFX.meow();
         if (gu.mate && gu.mate.kind === 'cat') gu.mate.look = Object.assign({}, gu.mate.look, { outfit: 'yukata' });
         unpark(gu, [sl.x * TILE + 8, 4 * TILE + 8]);
@@ -260,17 +261,17 @@ function updGuest(gu, dt) {
     case 'toMilk': goTo(gu, MILK_SPOT[0], MILK_SPOT[1]); if (walk()) { setSt(gu, 'milk'); gu.tt = MILK_T; gu.dir = 'up'; SFX.milk(); lineSay(gu, 'G13'); } break;
     case 'milk':   // G3: nobody waits at the machine for the innkeeper any more - it buys its milk and goes
       gu.tt -= dt;
-      if (gu.tt <= 0) { S.piles.milk = (S.piles.milk || 0) + fee('milk', { gu }); callSelf(gu, 'milk'); markDirty(); gu.heart = 1; SFX.meow(); guestNext(gu, 'bath'); }
+      if (gu.tt <= 0) { deposit('milk', fee('milk', { gu })); callSelf(gu, 'milk'); markDirty(); gu.heart = 1; SFX.meow(); guestNext(gu, 'bath'); }
       break;
     case 'toTea': goTo(gu, TEA_SPOT[0], TEA_SPOT[1]); if (walk()) { setSt(gu, 'tea'); gu.tt = TEA_T; gu.dir = 'left'; SFX.milk(); lineSay(gu, 'G13'); } break;
     case 'tea':    // a cup at the lobby urn (G3): pays into the tea pile, like milk at the machine
       gu.tt -= dt;
-      if (gu.tt <= 0) { S.piles.tea = (S.piles.tea || 0) + fee('tea', { gu }); RUN.teaSelf++; callSelf(gu, 'tea'); if (TEA_AT.occ === gu) TEA_AT.occ = null; markDirty(); gu.heart = 1; guestNext(gu, 'tea'); }
+      if (gu.tt <= 0) { deposit('tea', fee('tea', { gu })); RUN.teaSelf++; callSelf(gu, 'tea'); if (TEA_AT.occ === gu) TEA_AT.occ = null; markDirty(); gu.heart = 1; guestNext(gu, 'tea'); }
       break;
     case 'toBrowse': goTo(gu, SPOT.browse[0], SPOT.browse[1]); if (walk()) { setSt(gu, 'browse'); gu.tt = BROWSE_T; gu.dir = 'up'; lineSay(gu, 'G35'); } break;
     case 'browse':
       gu.tt -= dt;
-      if (gu.tt <= 0) { S.piles.shop = (S.piles.shop || 0) + fee('souv', { gu }); if (BROWSE.occ === gu) BROWSE.occ = null; gu.heart = 1; markDirty(); guestNext(gu, 'browse'); }
+      if (gu.tt <= 0) { deposit('shop', fee('souv', { gu })); if (BROWSE.occ === gu) BROWSE.occ = null; gu.heart = 1; markDirty(); guestNext(gu, 'browse'); }
       break;
     case 'toStall': case 'stall': stallGuest(gu, dt, walk); break;   // v2.1 (16.9)
     case 'leave': case 'angry': if (walk()) gu.gone = true; break;
@@ -278,13 +279,13 @@ function updGuest(gu, dt) {
   updMate(gu, dt);
 }
 function checkIn(gu, rm) {
-  Q.shift(); gu.room = rm.id; RT[rm.id].guest = gu; S.rooms[rm.id] = 'reserved';
-  S.piles.recep = (S.piles.recep || 0) + fee('room', { rm, gu }); S.stats.guests++; S.dayLog.g++; gu.ck = 0;
+  Q.shift(); gu.room = rm.id; gu.r2 = star() >= 2; RT[rm.id].guest = gu; S.rooms[rm.id] = 'reserved';   // v2.2 r2: rated on leaving (business.js)
+  deposit('recep', fee('room', { rm, gu })); S.stats.guests++; S.dayLog.g++; gu.ck = 0;
   if (MILESTONES.includes(S.stats.guests)) { lineSay(gu, 'G36', S.stats.guests); banner('milestone', S.stats.guests); addHearts(10); news('milestone'); }   // the 100th guest ... (4.13)
   setSt(gu, 'toRoom'); gu.goal = null; gu.embT = .8;   // the room's emblem shows over the guest for 0.8 s (2.6)
   const pf = PREF[gu.type]; gu.pref = !!(pf && pf(rm));
   if (gu.pref) { addHearts(1); gu.heart2 = 1.6; lineSay(gu, { elder: 'G29', couple: 'G30', family: 'G31' }[gu.type]); }   // favourite room: hearts +1, tip x1.5
-  if (roomCombo(rm)) { addHearts(1); lineSay(gu, 'G28'); }                                                                // a combo room: hearts +1 (4.5)
+  if (roomCombo(rm)) { gu.combo = true; addHearts(1); lineSay(gu, 'G28'); }                                                                // a combo room: hearts +1 (4.5)
   S.album.furs[gu.look.fur] = true; if (gu.type !== 'regular') S.album.types[gu.type] = true;
   const rc = STAFF.find(s => s.role === 'recep' && s.atDesk); if (rc && !P.atDesk) { gainXp(rc, 1); lineSay(rc, 'S02'); }
   SFX.bell(); markDirty(); lineSay(gu, 'G06');

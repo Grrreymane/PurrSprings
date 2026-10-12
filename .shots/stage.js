@@ -66,6 +66,13 @@
   };
   const sc = {
     icons() { iconSheet(); },
+    sprites() {   // v2.2: window.SPR = 'expr;expr;...' (each returns a canvas), drawn at 6x on dark and light
+      const cs = String(window.SPR).split(';').map(e => eval(e)), sc = window.SCALE || 6, cw = Math.max(...cs.map(c => c.width)) * sc + 8, ch = Math.max(...cs.map(c => c.height)) * sc + 8;
+      const out = mk(cw * cs.length, ch * 2), o = out.getContext('2d'); o.imageSmoothingEnabled = false;
+      cs.forEach((c, i) => { for (let j = 0; j < 2; j++) { o.fillStyle = j ? '#c8a070' : '#3a3046'; o.fillRect(i * cw, j * ch, cw, ch); o.drawImage(c, i * cw + 4, j * ch + 4, c.width * sc, c.height * sc); } });
+      document.body.innerHTML = ''; out.style.cssText = 'position:fixed;left:0;top:0;image-rendering:pixelated'; document.body.appendChild(out);
+      update = dt => {}; render = () => {};
+    },
     title() { go('title'); },
     fresh() { newGame(); ff(20, false); },
     desk() { newGame(); S.tut.moved = true; ff(52, true); },
@@ -519,6 +526,27 @@
         const v = views[window.VIEW] || [j._P[0] / 16 | 0, j._P[1] / 16 | 0]; place(v[0], v[1], 'down'); ff(.5, false);
         if (window.MENU_PAGE) { openMenu(); MENU.page = window.MENU_PAGE; MENU.tab = window.TAB || 0; DRESS.tab = window.TAB || 0; if (window.SEL) MENU.sel = window.SEL; } else FREEZE_AT();
       });
+    },
+    // v2.2: a guest of honour seated in 月见亭 with wish window.WISH (tea / kaiseki / bath / photo / milk / rice), the
+    // innkeeper at window.PX / PY (default: the lobby), window.WHO = a VIP or rare guest id (default: one whose wishes
+    // include it), window.VIPS = VIPs already hosted (0 = the first VIP ever), window.WT = how long the wish has waited,
+    // window.TRAY = what is on the tray, window.MORE = seconds of play after placing (bot: window.BOTMORE)
+    v22vip() {
+      const want = window.WISH || 'tea', who = window.WHO || (VIPS.find(v => v.wishes.includes(want)) || RARES.find(r => r.wishes.includes(want))).id;
+      b5(RARE[who] ? [RARE[who].piece] : []); S.stats.vips = window.VIPS === undefined ? 1 : window.VIPS; if (!S.stats.vips) S.seen = {}; S.clock = .3;
+      resetWorld(); go('play'); spawnT = 1e9;
+      vipArrive(); const v = VIPG, rm = ROOM.c3;
+      if (RARE[who]) Object.assign(v, { id: who, rare: true, look: RARE_LOOK[who], kits: undefined });
+      else Object.assign(v, { id: who, look: VIP_LOOK[who] });
+      v.x = tcx(rm.stand); v.y = tcy(rm.stand); v.suite = 'c3'; RT.c3.guest = v; setSt(v, 'seated'); v.dir = 'up'; v.wi = VIP[who].wishes.indexOf(want);
+      firstDone('vip'); vipWishStart(); v.wt = window.WT || 0; if (window.NOCARD) FIRST_Q.length = 0;
+      place(window.PX || 17, window.PY || 25, 'up'); P.tray = window.TRAY || [];
+      ff(window.MORE || .4, !!window.BOTMORE); GUIDE = guideTarget(); FREEZE_AT();
+    },
+    v22full() {   // v2.2: hands off at star 2 (window.STAR5: a star-5 inn with the clerk) for window.IDLE s: full piles show 满
+      if (window.STAR5) b5([]); else { newGame(); S.tut.moved = true; unl(['room2', 'room3', 'onsen', 'recep', 'maid1', 'tea', 'shop', 'basket1']); }
+      S.clock = .3; S.day = 3; resetWorld(); go('play'); place(window.PX || 17, window.PY || 25, 'down'); ff(window.IDLE || 240, false);
+      if (window.PX2) place(window.PX2, window.PY2, 'down'); ff(.3, false); GUIDE = guideTarget(); FREEZE_AT();
     },
     b_title() { b5(['o_hakama', 'h_straw', 'p_crane']); S.equip = { hat: 'h_straw', pet: 'p_crane', outfit: 'o_hakama' }; resetWorld(); go('title'); },
     mapV21() { newGame(); S.tut.moved = true; unl(ALL.concat(['maid4'], UNLOCKS.filter(u => u.v21b && !u.repeat && !u.ok && (!u.shrine || u.shrine <= (window.LV === undefined ? 10 : window.LV))).map(u => u.id))); S.done = true; resetWorld(); go('play'); ff(30, false); place(17, 27, 'up'); mapView(); },

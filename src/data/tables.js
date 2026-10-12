@@ -44,7 +44,7 @@ const UNLOCKS = [
   UN('net2', '鱼网', 280, ['net1', 'clerk'], 1, [21, 28], 'net', '捡鱼干更远'),
   UN('w3', '客房', 520, ['w2'], 4, [7, 8], 'room', '静房爱点夜宵'),
   UN('bigbath', '浴池', 560, ['room8'], 3, [13, 5], 'bath', '多2个泡汤位', { at: [17, 3] }),
-  UN('garden', '庭园', 900, ['w1', 'room7'], 20, [22, 26], 'garden', '贵宾会来住', { gate: true, star: true, at: [29, 16] }),
+  UN('garden', '庭园', 1000, ['w1', 'room7'], 20, [22, 26], 'garden', '贵宾会来住', { gate: true, star: true, at: [29, 16] }),
   // star 4 garden
   UN('g_shishi', '惊鹿', 250, ['garden'], 4, [27, 27], 'shishi', '庭园更风雅', { at: [26, 16] }),
   UN('d_maneki', '招财', 300, ['garden'], 5, 'decor', 'decor', '摆进客房加价', { decor: true }),
@@ -59,7 +59,7 @@ const UNLOCKS = [
   UN('maid3', '仲居', 600, ['maid2', 'c2'], 2, [19, 25], 'maid', '奶糖来打扫', { staff: true }),
   UN('shoes4', '跑鞋', 600, ['shoes3', 'c2'], 1, [19, 28], 'shoes', '走路更快'),
   UN('suiteB', '套房', 1000, ['garden'], 8, [32, 12], 'suite', '贵宾来得更勤'),
-  UN('roten', '星见', 2800, ['c2', 'bigbath'], 25, [23, 4], 'roten', '看星星泡汤', { gate: true, star: true, at: [32, 3] }),
+  UN('roten', '星见', 3100, ['c2', 'bigbath'], 25, [23, 4], 'roten', '看星星泡汤', { gate: true, star: true, at: [32, 3] }),
   // star 5 and after (v2.0)
   UN('maid4', '仲居', 800, ['maid3', 'suiteB'], 2, [19, 25], 'maid', '豆豆来打扫', { staff: true }),
   UN('h_straw', '草帽', 4000, [], 3, 'hat', 'hat', '戴上：草帽', { need5: true, hat: 'straw' }),
