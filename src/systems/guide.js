@@ -119,7 +119,7 @@ function guideTarget(opts) {
   for (const rm of ROOMS) if (S.rooms[rm.id] === 'messy' && inCleanZone(rm)) return gAt(1, T_CLEAN(rm, true));
   if (S.unlocked.onsen) {
     if (P.towels > 0 && S.basket < BASKET_MAX && inBasketZone()) return gAt(1, T_BASKET(true));
-    if (P.towels < towelCap() && inShelfZone() && (S.unlocked.porter ? towelWanted() : (P.towels > 0 || S.basket <= 2 || towelWanted()))) return gAt(1, T_SHELF(true));
+    if (P.towels < towelCap() && inShelfZone() && (exNeed('towel', L) > 0 || (S.unlocked.porter ? towelWanted() : (P.towels > 0 || S.basket <= 2 || towelWanted())))) return gAt(1, T_SHELF(true));
   }
   if (P.pouring && S.money > 0 && PADPOS.has(P.pouring) && !sk.pad && !(sk.decor && UNLOCK[P.pouring].decor)) return gAt(1, T_PAD(UNLOCK[P.pouring], true));
   for (const pk of PICKUPS) if (inZone(ZONE[pk.id]) && canPick(pk, L)) return gAt(1, T_PICK(pk.id, true, pk.k));   // picking up something wanted
@@ -164,11 +164,11 @@ function guideTarget(opts) {
   // 3. something on the tray that someone waits for -> the VIP first (its wish never runs out, G1), else one of them who
   //    can still be reached in time (a Manhattan lower bound x 1.2): the nearest, unless the most urgent one gets tight
   //    (stage 4, 18.2); nobody in time: the tightest one that may still make it; else no arrow for it
-  if (P.tray.length) {
+  if (P.tray.length || P.towels) {   // v2.3: towels on your head for a rush guest who wants one
     { const vw = L.find(w => w.vip && P.tray.includes(w.k)); if (vw) return gAt(3, T_GIVE(vw)); }
     let bw = null, late = null; const ok = [];
     for (const w of L) {
-      if (!P.tray.includes(w.k)) continue;
+      if (!pHas(w.k)) continue;
       const t = wantTile(w), eta = (Math.abs(t[0] - ptx) + Math.abs(t[1] - pty)) * TILE / spd;
       if (eta * 1.2 < w.left) { ok.push(w); w.eta = eta; if (!bw || w.left < bw.left) bw = w; } else if (eta < w.left && (!late || w.left > late.left)) late = w;
     }
@@ -186,6 +186,9 @@ function guideTarget(opts) {
     if (near.length) { near.sort((a, b) => a[0] - b[0]); return gStick(4, T_PILE(near[0][1]), near.map(n => T_PILE(n[1]))); } }
   // 5. towels on your head (before the porter): finish the run while the need that started it still holds
   if (S.unlocked.onsen && P.towels > 0 && towelHelp()) return gAt(5, T_BASKET(false));   // v2.2: with the porter too while someone waits for a towel
+  // 10 (v2.3, 19.3; the old calls' row): a picky rush guest wants something right now - fetch the most urgent one's thing
+  //    (handing it over is rule 3); ahead of the pads and of helping at the desk, as its 30 s run out
+  { const t = exGuide(L); if (t) return gAt(10, t); }
   // 8 (moved up: the first VIP ever all the way, later a wish that has waited VIP_URGENT s - G1): ahead of the pads; a
   //   fresh wish of a later VIP waits for them (a pad is a few seconds away)
   if (vipLeads(v)) { const t = vipGuide(); if (t) return gAt(8, t); }
@@ -269,10 +272,23 @@ function guideTarget(opts) {
   // 18. nothing: no arrow (common after star 5: walk around freely)
   return null;
 }
+// v2.3 (19.3): rule 10 - the rush guests' extras nobody holds yet: the most urgent one's source (tea from the nearer urn,
+// rice from the counter / the stove, milk from the machine, a towel from the shelf); the tray full: rule 3 hands out first
+function exGuide(L) {
+  let best = null;
+  for (const w of L) if (w.ex && exNeed(w.k, L) > 0 && (!best || w.left < best.left)) {
+    if (w.k === 'towel' ? P.towels >= towelCap() : P.tray.length >= trayCap()) continue;
+    if (w.k !== 'towel' && !sourceOf(w.k, tileOf(P))) continue;
+    best = w;
+  }
+  if (!best) return null;
+  if (best.k === 'towel') return Object.assign(T_SHELF(false), { item: 'towel' });
+  return T_PICK(sourceOf(best.k, tileOf(P)), false, best.k);
+}
 // the 7x7-ish icon beside the arrow (and on the tail of the edge arrow): what you go there for (6), no words
 function guideIcon(gt) {
   switch (gt.kind) {
-    case 'deliver': return gt.vip ? bubbleArt(gt.item, 0, true) : itemIcon(gt.item || 'tea');   // for the VIP: its gold wish bubble (G1)
+    case 'deliver': return gt.vip ? bubbleArt(gt.item, 0, true) : gt.item === 'towel' ? towelArt() : itemIcon(gt.item || 'tea');   // for the VIP: its gold wish bubble (G1); v2.3 a rush guest's towel
     case 'urn': case 'milk': case 'pass': case 'stove': return gt.vip ? routeIcon(gt.item, STATION_ICON[gt.key.slice(5)] || 'urn') : itemIcon(gt.item || PICK_ITEM[gt.kind] || 'tea');   // v2.2: the VIP's [station] > [item], as in its bubble
     case 'pile': return fishIcon();
     case 'basket': case 'shelf': return towelArt();

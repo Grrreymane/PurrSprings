@@ -467,7 +467,7 @@
         if (window.BEFORE) eval(window.BEFORE);   // BEFORE: code run right after the load (start a fireworks show ...)
         const until = window.UNTIL ? () => eval(window.UNTIL) : null;
         for (let i = 0, n = Math.round((window.FF || 5) / DT); i < n; i++) {
-          drive(DT); update(DT);
+          if (!window.IDLE) drive(DT); update(DT);   // IDLE: hands off (v2.3; reassigning drive from BEFORE never worked)
           if (state === 'celebrate') { S.done = true; go('play'); }
           if (state === 'card') { if (window.CARD) break; modalClose(); }
           if (until && until()) break;

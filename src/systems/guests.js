@@ -21,6 +21,7 @@ function addGuest(type) {
   if (type === 'couple' || type === 'family') gu.mate = { kind: type === 'couple' ? 'cat' : 'kitten', look: type === 'couple' ? { fur: pick(furs), outfit: 'guest', shirt: pick(SHIRTS), hat: 'straw' } : { fur },
     x: gu.x, y: gu.y, dir: 'up', moving: false, walkT: 0, path: [], goal: null, q: [], mode: 'follow' };
   GUESTS.push(gu); Q.push(gu);
+  rushGuest(gu);   // v2.3: the star-5 rush's guests, some of them picky (business.js)
 }
 // ---- followers (4.6; stage 2B reuses this for the VIP and the pets): the leader drops a crumb every 4 px into the
 // follower's queue; the follower walks the crumbs at its own speed and stops `gap` px (path length) behind the leader.
@@ -176,8 +177,10 @@ function freeSlot() {
 function updGuest(gu, dt) {
   gu.t += dt; if (gu.heart > 0) gu.heart -= dt; if (gu.heart2 > 0) gu.heart2 -= dt; if (gu.embT > 0) gu.embT -= dt; if (gu.callGone > 0) gu.callGone -= dt;
   if (gu.call && (gu.call.t -= dt) <= 0) callExpire(gu);
+  exTick(gu, dt);   // v2.3: a picky rush guest's extra runs out (business.js)
   if (!gu.inside && gu.y < 29 * TILE) {   // in through the door
     gu.inside = true; if (gu.type === 'couple') gu.heart = 1;   // a couple comes in with a pink heart
+    rushInside(gu);   // v2.3: a picky one wants something right now
     lineSay(gu, freeRoom() ? (S.unlocked.onsen ? 'G01|G03' : 'G01') : 'G02');
   }
   const walk = () => stepPath(gu, dt, gu.spd);
@@ -196,6 +199,7 @@ function updGuest(gu, dt) {
       break;
     }
     case 'toRoom': {
+      if (gu.ex) { const w = exWait(gu); goTo(gu, w[0], w[1]); if (walk()) gu.dir = 'left'; break; }   // v2.3: a picky rush guest waits in the lobby for its extra first
       const rm = ROOM[gu.room]; goTo(gu, rm.stand[0], rm.stand[1]);
       if (walk()) { setSt(gu, 'sleep'); gu.tt = SLEEP_T; gu.rolled = false; S.rooms[gu.room] = 'occupied'; if (gu.mate) gu.mate.mode = 'park'; lineSay(gu, dayLight().night > .5 ? 'G07|G33' : 'G07'); markDirty(); }
       break;

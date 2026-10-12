@@ -12,6 +12,8 @@
 //   ignore   eager, but never does calls, the VIP or decor: guideTarget({ skip }) leaves those rules out (the next rule
 //            applies), and the game's own arrow is the same one (so what is drawn = what is walked)
 //   shopper  eager, then `post` (default 120; also ARGS[2]) min past star 5: the boutique (G1-G3)
+//   afk5     v2.3 (19.3): eager to star 5, then hands off for the 15 min after it (the star-5 rush without the innkeeper:
+//            REP5 must drop to <= 4.0); eager itself now plays 15 min past star 5 (REP5 >= 4.5: the innkeeper helps)
 // Every target kind of 6 is known (a target that moves - a guest, the VIP - is re-read every 0.25 s; leading the VIP
 // it walks straight to the suite and the VIP follows); an unknown kind is an invariant failure (WORKFLOW 5: never
 // "stand around trading").
@@ -28,13 +30,14 @@
 const ARG = k => { const a = ARGS.find(s => s.startsWith(k + '=')); return a ? a.slice(k.length + 1) : null; };
 const PROFILE = ARGS[0] || 'eager';
 const PROFS = {
-  eager: { react: .3, distract: 0, ignore: 0, max: 45, post: 5 },
+  eager: { react: .3, distract: 0, ignore: 0, max: 45, post: 15 },   // v2.3: 15 min past star 5 (the big rushes; D1 / D2 still read the first 5)
   casual: { react: 1, distract: .3, ignore: 0, max: 70, post: 0 },
   novice: { react: 2, distract: .5, ignore: .3, max: 120, post: 0 },
   afk: { react: .3, distract: 0, ignore: 0, afk: 600, max: 80, post: 0 },
   afkref: { react: .3, distract: 0, ignore: 0, hold: 600, max: 80, post: 0 },
   ignore: { react: .3, distract: 0, ignore: 0, skip: { call: true, vip: true, decor: true }, max: 70, post: 0 },
   shopper: { react: .3, distract: 0, ignore: 0, max: 45, post: 120 },
+  afk5: { react: .3, distract: 0, ignore: 0, max: 45, post: 15, afk5: 900 },
 };
 if (!PROFS[PROFILE]) throw new Error('unknown profile ' + PROFILE + ' (' + Object.keys(PROFS).join(' / ') + ')');
 const PROF = PROFS[PROFILE];
@@ -90,6 +93,9 @@ const bCol = {}; let bEarnN = 0;   // F2: pick-ups per pile, money handed to you
 { const c0 = collect; collect = function (id) { if (S.stats.time - bPickT > 1.5) bPickups++; bPickT = S.stats.time; bCol[id] = (bCol[id] || 0) + 1; return c0(id); }; }
 { const e1 = earn; earn = function (v, x, y) { if ((v | 0) > 0) bEarnN++; return e1(v, x, y); }; }
 const incSum = () => { let s = 0; for (const k in INC) s += INC[k]; return s; };
+// v2.3 (19.3): every banner that goes up, by kind and time (the banner rate with 3-min days)
+const bBanners = [];
+{ const b0 = banner; banner = function (kind, id, o) { if (!BANNER_Q.some(x => x.kind === kind && x.id === id)) bBanners.push([S.stats.time, kind]); return b0(kind, id, o); }; }
 const DT = 1 / 30;
 const mmss = t => t === null || t === undefined || !Number.isFinite(t) ? '--' : Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
 const t0 = () => S.stats.time;
@@ -139,6 +145,10 @@ function drive(dt) {
   if (PROF.hold && afkFrom === null && S.unlocked.recep && S.unlocked.maid1) { afkFrom = t0(); afkTo = afkFrom + PROF.hold; }
   if (PROF.afk) {
     if (afkFrom === null && S.unlocked.recep && S.unlocked.maid1) { afkFrom = t0(); afkTo = afkFrom + PROF.afk; }
+    if (afkNow()) { botMove = null; bPath = []; bKey = ''; bCur = null; return; }
+  }
+  if (PROF.afk5) {   // v2.3: hands off from star 5 on
+    if (afkFrom === null && fin !== null) { afkFrom = fin; afkTo = fin + PROF.afk5; }
     if (afkNow()) { botMove = null; bPath = []; bKey = ''; bCur = null; return; }
   }
   bEpisode -= dt;
@@ -314,7 +324,7 @@ function checkSecond() {
 }
 // ---------------------------------------------------------------- run
 const steps = Math.round(MAXMIN * 60 / DT);
-let lastSec = -1, bMaxActive = 0, bActive = 0, lastEarned = 0, goldAt5 = 0, lastGold = 0;
+let lastSec = -1, bMaxActive = 0, bActive = 0, lastEarned = 0, goldAt5 = 0, lastGold = 0, bAt5 = null;
 const goldT = {};
 for (let i = 0; i < steps * 10; i++) {
   drive(DT);
@@ -340,7 +350,7 @@ for (let i = 0; i < steps * 10; i++) {
     recs.push(rec);
     if (TRACE && t >= TRACE[0] && t <= TRACE[1]) console.log(mmss(t), (g ? g.kind + (g.here ? '*' : '') + '#' + g.rule : '-').padEnd(10), 'P' + tileOf(P), '$' + S.money, rec.b, rec.m, 'piles', JSON.stringify(S.piles).replace(/"/g, ''), 'Q' + Q.length, 'tray', P.tray.join(',') || '-', g ? g.key : '');
   }
-  if (star() >= 5 && fin === null) { fin = t; goldAt5 = goldStars(); comboRooms5 = GUEST_ROOMS.filter(rm => roomOpen(rm) && roomCombo(rm)).length; if (!POST) break; }
+  if (star() >= 5 && fin === null) { fin = t; goldAt5 = goldStars(); comboRooms5 = GUEST_ROOMS.filter(rm => roomOpen(rm) && roomCombo(rm)).length; bAt5 = { g: S.stats.guests, a: S.stats.angry, day: S.day }; if (!POST) break; }
   if (fin !== null) { const gs = goldStars(); if (gs > lastGold) { for (let k = lastGold + 1; k <= gs; k++) goldT[k] = t; lastGold = gs; } if (t - fin >= POST * 60) break; }
   if (SNAP && fin !== null && t - fin >= bSnapN * SNAP_EVERY) { require('fs').writeFileSync(SNAP + '/snap_' + bSnapN * SNAP_EVERY / 60 + '.json', JSON.stringify(Object.assign({}, S, { _P: [R(P.x), R(P.y)] }))); bSnapN++; }   // v2.1: the save every 15 min after star 5 (screenshot timelines)
   if (fin === null && t >= MAXMIN * 60) break;
@@ -385,7 +395,7 @@ const inc30 = []; for (const r of recs) { const i = Math.floor(r.t / 30); inc30[
 for (let i = 0; i < inc30.length; i++) inc30[i] = inc30[i] || 0;
 // E2: breakfast missed before the chef / with two waiters
 const dineRate = (a, b) => { if (a === undefined) return null; const rs = recs.filter(r => r.t >= a && r.t <= (b === undefined ? end : Math.min(b, end))); if (rs.length < 2) return null; const f = rs[rs.length - 1].fed - rs[0].fed, h = rs[rs.length - 1].hu - rs[0].hu; return f + h ? h / (f + h) : null; };
-const ga = base ? S.stats.guests - base.g : 0, aa = base ? S.stats.angry - base.a : 0;
+const ga = base ? (bAt5 ? bAt5.g : S.stats.guests) - base.g : 0, aa = base ? (bAt5 ? bAt5.a : S.stats.angry) - base.a : 0;   // v2.3: up to star 5 (eager now plays 15 min of big rushes after it)
 const preInc = incOf(pre), shopBuys = fin !== null ? RUN.shop.map(([t, id]) => [t - fin, id]) : [];
 const hour = shopBuys.filter(([t]) => t <= 3600); let sg = 0; const shopGaps = []; for (const [t] of hour) { shopGaps.push(t - sg); sg = t; }
 const firstHat = shopBuys.find(([, id]) => UNLOCK[id].hat);
@@ -419,6 +429,14 @@ const M = {
   // v2.2 (19.2): the evening summaries' reputation (stars) up to star 5 (+ the shopper's later days), the guests' own
   // ratings, rushes seen, fish lost to full piles
   REP: { med: med((RUN.repDays || []).slice(0, (RUN.repDays || []).length)), days: (RUN.repDays || []).length, mean: RUN.rates ? r2(RUN.rateSum / RUN.rates / 10) : null, rushes: RUN.rushes || 0, lost: RUN.capLost || 0, pen: RUN.ratePen || null, n: RUN.rates || 0 },
+  // v2.3 (19.3): the star-5 rushes - their ratings, how many were great, the extras made / brought / missed; the day of
+  // star 5; banners a minute (every banner put up, before / after star 5) and by kind after it
+  REP5: { list: RUN.rush5 || [], med: med(RUN.rush5 || []), min: (RUN.rush5 || []).length ? Math.min(...RUN.rush5) : null, n: RUN.rushes5 || 0, great: RUN.rushGreat || 0,
+    exMade: RUN.exMade || 0, exServed: RUN.exServed || 0, exMissed: RUN.exMissed || 0, kinds: RUN.exKinds || {}, miss: RUN.exMiss || {}, day5: bAt5 ? bAt5.day : null },
+  BAN: (() => { const pre = bBanners.filter(b => fin === null || b[0] <= fin), post = fin !== null ? bBanners.filter(b => b[0] > fin) : [], kinds = {}, kindsPre = {};
+    for (const b of post) kinds[b[1]] = (kinds[b[1]] || 0) + 1;
+    for (const b of pre) kindsPre[b[1]] = (kindsPre[b[1]] || 0) + 1;
+    return { pre: r2(pre.length / Math.max(1, (fin === null ? t0() : fin) / 60)), post: fin !== null && t0() - fin > 60 ? r2(post.length / ((t0() - fin) / 60)) : null, kinds, kindsPre }; })(),
 };
 // v2.1 core B (14.2 G5-G8): every endless purchase after star 5 (boutique + shrine / garden / plaza / wardrobe + fireworks)
 function bV21() {
@@ -450,6 +468,7 @@ else {
   console.log(`  D1 active income ★3 ${M.D1.s3} ★4 ${M.D1.s4} ★5 ${M.D1.s5} | D2 ★5 income/min ${M.D2} | income pre-★5 ${JSON.stringify(preInc)}`);
   console.log(`  E1 calls ${M.E1.made} made, ${M.E1.served} served (${M.E1.fast} fast), ${M.E1.missed} missed = ${M.E1.done} | E2 hungry no-chef ${M.E2.noChef} 2-waiters ${M.E2.twoWaiters} | E3 VIP ${M.E3.came} came ${M.E3.done} done ${M.E3.left} left, med ${M.E3.used}s f ${M.E3.f}, ${M.E3.share} of income | E4 first combo ${mmss(firstCombo)}, combo rooms at ★5 ${comboRooms5}`);
   console.log(`  REP days ${M.REP.days} med ${M.REP.med} (guests' mean ${M.REP.mean}) | rushes ${M.REP.rushes} | fish lost to full piles ${M.REP.lost} | penalties ${JSON.stringify(M.REP.pen)} over ${M.REP.n} guests`);
+  console.log(`  REP5 ★5 on day ${M.REP5.day5} | big rushes ${M.REP5.n}: ${M.REP5.list.join(' ')} (great ${M.REP5.great}) | extras ${M.REP5.exMade} made, ${M.REP5.exServed} brought, ${M.REP5.exMissed} missed ${JSON.stringify(M.REP5.kinds)} missed ${JSON.stringify(M.REP5.miss)} | banners/min before ★5 ${M.BAN.pre}, after ${M.BAN.post} ${JSON.stringify(M.BAN.kinds)} | before ★5 ${JSON.stringify(M.BAN.kindsPre)}`);
   console.log(`  F1 lines/min ${M.F1} | F2 arrivals ${M.F2.n} ok ${M.F2.ok} fail ${JSON.stringify(M.F2.fail)} ${M.F2.failAt.join(' / ')} | jumps ${swJumps}: >3 in 5 s ${swMany} ${swManyAt.join(' / ')}, A-B-A ${swFlip} ${JSON.stringify(swPairs)} | unreachable ${bUnreach} ${bUnreachAt.join(' / ')} | H1 pads on screen ${padsMax} (shop ${shopPadsMax})`);
   if (afkFrom !== null) console.log(`  afk ${mmss(afkFrom)}-${mmss(afkTo)}: income ${out.afk.inc}`);
   console.log(`  v2.1: festivals ${out.v21.festOk}/${out.v21.fests} all lit | press ${out.v21.press.join(' ') || '-'} | awards ${out.v21.awards.join(' ') || '-'} (this year so far ♥${out.v21.yearH}) | mom ${out.v21.mom} | seasonal combos ${out.v21.seasonal}`);

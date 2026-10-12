@@ -59,7 +59,7 @@ const UNLOCKS = [
   UN('maid3', '仲居', 600, ['maid2', 'c2'], 2, [19, 25], 'maid', '奶糖来打扫', { staff: true }),
   UN('shoes4', '跑鞋', 600, ['shoes3', 'c2'], 1, [19, 28], 'shoes', '走路更快'),
   UN('suiteB', '套房', 1000, ['garden'], 8, [32, 12], 'suite', '贵宾来得更勤'),
-  UN('roten', '星见', 3100, ['c2', 'bigbath'], 25, [23, 4], 'roten', '看星星泡汤', { gate: true, star: true, at: [32, 3] }),
+  UN('roten', '星见', 3500, ['c2', 'bigbath'], 25, [23, 4], 'roten', '看星星泡汤', { gate: true, star: true, at: [32, 3] }),
   // star 5 and after (v2.0)
   UN('maid4', '仲居', 800, ['maid3', 'suiteB'], 2, [19, 25], 'maid', '豆豆来打扫', { staff: true }),
   UN('h_straw', '草帽', 4000, [], 3, 'hat', 'hat', '戴上：草帽', { need5: true, hat: 'straw' }),
@@ -130,7 +130,7 @@ const SEEN_KEYS = ['call', 'decor', 'dine', 'vip', 'bath', 'kaiseki', 'photo', '
 // day / night (4.10): [clock, tint, alpha, night]; linear in between. v2.1 merge fun check (SPEC_v2 18.2): the night tint
 // .42 -> .55 (and .28 -> .36 before dawn): at .42 a night looked like a cloudy afternoon - on winter snow not night at all -
 // and the lamps, the festival lanterns and the fireworks hardly stood out; HUD, pads, bubbles and the arrow are drawn after it
-const DAY_LEN = 360;
+const DAY_LEN = 180;   // v2.3 (SPEC_v2 19.3): 3 min a day (was 6); a season is still 3 days (9 min), a year 36 min
 const DAY_KEYS = [[0, '#2a3468', .55, 1], [.06, '#6a5a8a', .36, .6], [.10, '#ffd2a0', .14, 0], [.16, '#ffd2a0', 0, 0], [.55, '#ffb070', 0, 0],
   [.62, '#ffb070', .18, 0], [.68, '#c06a70', .28, .3], [.74, '#2a3468', .55, 1], [1, '#2a3468', .55, 1]];
 // the tint colour is mixed too (no step half-way between two keys); memoised on the clock (called by fees, props, the light pass)

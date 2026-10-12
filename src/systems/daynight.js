@@ -1,19 +1,24 @@
 // ============================================================ day / night (4.10)
-// One day = DAY_LEN (6 min); S.clock only runs while you play (not under the star-5 celebration; stage 3: not in the
+// One day = DAY_LEN (3 min since v2.3; was 6); S.clock only runs while you play (not under the star-5 celebration; stage 3: not in the
 // menu). Sunrise (the clock passes 0.10) starts the next day: a banner with yesterday's guests / hearts (+ a trophy on a
 // new record), the receptionist's good-morning line (S03), birdsong. Dusk (0.68): the far temple bell. Night only brings
 // good things (the star-view bath pays x1.8); the light pass (drawLighting) tints the world and lights the lamps.
 function dayTick(dt) {
   const c0 = S.clock, c1 = (c0 + dt / DAY_LEN) % 1; S.clock = c1;
   const wrap = c1 < c0, crossed = a => wrap ? (a > c0 || a <= c1) : (a > c0 && a <= c1);
-  if (crossed(DUSK_AT)) sfx('dusk');
+  if (crossed(DUSK_AT) && !rushOn()) sfx('dusk');   // v2.3: the rush rang it at sunset already
   if (crossed(DAWN_AT)) newDay();
   businessTick(dt, c0, c1);   // v2.2: the evening rush, the reputation summary, the pile caps (business.js)
 }
+// v2.3 (19.3): with 3-min days the morning banner comes only for the first mornings and, once the inn is built (★5), a
+// record day (by 10 %+) - before that a growing inn breaks its record nearly every day (a new season's morning shows the season's
+// banner, seasons.js); every other morning is the birdsong, the sky dial and 小樱's line
+const DAY_BANNER_DAYS = 3, DAY_REC_K = 1.1;   // a record by 10 % or more (a big rush day beats the last by a guest or two)
 function newDay() {
-  const g0 = S.dayLog.g, h0 = S.dayLog.h, rec = S.dayLog.best > 0 && g0 > S.dayLog.best;
-  S.dayLog.best = Math.max(S.dayLog.best, g0); S.day++; S.dayLog.g = 0; S.dayLog.h = 0;
-  banner('day', S.day, { g: g0, h: h0, rec }); sfx('dawn'); RUN.days++; news('day');
+  const g0 = S.dayLog.g, h0 = S.dayLog.h, b0 = S.dayLog.best, rec = b0 > 0 && g0 > b0;
+  S.dayLog.best = Math.max(b0, g0); S.day++; S.dayLog.g = 0; S.dayLog.h = 0;
+  if ((rec && star() >= 5 && g0 >= b0 * DAY_REC_K) || S.day <= DAY_BANNER_DAYS) banner('day', S.day, { g: g0, h: h0, rec });
+  sfx('dawn'); RUN.days++; news('day');
   const rc = STAFF.find(s => s.role === 'recep'); if (rc) lineSay(rc, 'S03');
   markDirty();
 }

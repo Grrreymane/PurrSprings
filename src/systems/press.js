@@ -1,5 +1,5 @@
 // ============================================================ v2.1 the reporter / the TV crew (SPEC_v2 16.4)
-// From star 3, on the 1st day of every season 90 s after sunrise (clock .35), a reporter comes (beret + camera); from
+// From star 3, on the 1st day of every season 22 s after sunrise (clock .22; v2.3, before the evening rush), a reporter comes (beret + camera); from
 // star 4 in autumn and winter a TV host instead (with a mic, a camera cat follows it - only for show: it is the host's
 // gu.mate, like a couple's partner). A banner "记者来了！", its own line (E07 / E08). It cuts into the line - at the
 // front, or second if the front guest is being checked in - and never gets angry (no patience). Otherwise it is an
@@ -26,7 +26,7 @@ function pressTick(dt) {
 // very first VIP is being shown round (its 3-step card); if the day's window passes, it comes next season (nothing lost).
 // v2.1 merge fun check: also while a picture card is up and for PRESS_CARD_CALM s after one came (the first VIP's photo
 // card, then the reporter's own card 4 s later, was one lesson too many in a row)
-const PRESS_CALM = 60, PRESS_CARD_CALM = 30;
+const PRESS_CALM = 30, PRESS_CARD_CALM = 20;   // v2.3: 60 / 30 s -> 30 / 20 s (its window is 47 s of a 3-min day now)
 function pressBusy() {
   if (VIPG && !VIPG.mom && !S.stats.vips) return true;
   if (FIRST_Q.length) return true;

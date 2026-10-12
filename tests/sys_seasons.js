@@ -1,4 +1,4 @@
-// SPEC_v2 16.1: the four seasons. A season = 3 days (18 min), a year = 12 days (72 min), computed from S.day (not saved).
+// SPEC_v2 16.1: the four seasons. A season = 3 days (9 min since v2.3), a year = 12 days (36 min), computed from S.day (not saved).
 // Sunrise starting a season: the morning banner becomes "夏天来了" (one banner), the world is rebuilt once with
 // tileArt(..., season) / doorArt(..., season) / treeArt(kind, season); the night before, seasonWarm(next) builds ahead.
 // Particles: petals <= 12 / fireflies <= 8 (summer nights, garden) / leaves <= 10 / snow <= 20 on screen, slow, no
@@ -24,8 +24,8 @@ const run = (sec, f) => { for (let i = 0, n = Math.round(sec / DT); i < n; i++) 
   eq(d.map(seasonDay).join(''), '02020202000', 'day within the season');
   eq(d.map(yearOf).join(''), '11111111234', 'years');
   eq(d.map(absSeason).join(','), '0,0,1,1,2,2,3,3,4,8,13', 'absolute seasons');
-  eq(SEASON_DAYS * 4, YEAR_DAYS, '4 seasons a year'); near(SEASON_DAYS * DAY_LEN / 60, 18, 1e-9, 'a season = 18 min'); near(YEAR_DAYS * DAY_LEN / 60, 72, 1e-9, 'a year = 72 min');
-  near(PRESS_AT, DAWN_AT + 90 / DAY_LEN, 1e-9, 'the reporter: 90 s after sunrise'); ok(YEAR_AT < DAWN_AT, 'the year report comes before sunrise');
+  eq(SEASON_DAYS * 4, YEAR_DAYS, '4 seasons a year'); near(SEASON_DAYS * DAY_LEN / 60, 9, 1e-9, 'a season = 9 min (v2.3)'); near(YEAR_DAYS * DAY_LEN / 60, 36, 1e-9, 'a year = 36 min');
+  near(PRESS_AT, DAWN_AT + 21.6 / DAY_LEN, 1e-9, 'the reporter: 22 s after sunrise'); ok(PRESS_END <= RUSH_AT, 'and before the evening rush'); ok(YEAR_AT < DAWN_AT, 'the year report comes before sunrise');
   ok(!('season' in defaults()), 'the season is not saved'); }
 // ---- sunrise starting a season: one banner, one rebuild, the season's art
 { setup(ALL, 3, .095);
@@ -38,7 +38,7 @@ const run = (sec, f) => { for (let i = 0, n = Math.round(sec / DT); i < n; i++) 
   eq(rebuilds, 1, 'the world rebuilt once'); ok(seasons.length > 1000 && seasons.every(s => s === 1), 'every tile drawn for summer (' + seasons.length + ')'); ok(doors.length && doors.every(s => s === 1), 'doors in summer colours');
   P.x = 32 * 16; P.y = 22 * 16; updCam(0, true); render(); ok(trees.length && trees.every(s => s === 1), 'trees drawn for summer (' + trees.length + ')');
   tileArt = _ta; doorArt = _da; treeArt = _tr; rebuildWorld = _rb;
-  BANNER_Q.length = 0; S.clock = .095; run(2); eq(S.day, 5, 'day 5'); ok(BANNER_Q.some(x => x.kind === 'day') && !BANNER_Q.some(x => x.kind === 'season'), 'within a season: the usual morning banner');
+  BANNER_Q.length = 0; S.clock = .095; run(2); eq(S.day, 5, 'day 5'); ok(!BANNER_Q.some(x => x.kind === 'season'), 'within a season: no season banner (v2.3: and a quiet morning - no day banner before star 5 after day 3)');
   setup(ALL, 12, .095); BANNER_Q.length = 0; run(2); eq(S.day, 13, 'a new year'); const b2 = BANNER_Q.find(x => x.kind === 'season');
   eq(b2 && bannerParts(b2).parts.filter(p => p.t).map(p => p.t).join(''), '第2年春天来了', 'year 2 spring banner');
   // a load / a test that jumps the day: the world follows, no crash

@@ -1,6 +1,7 @@
-// SPEC_v2 4.10: day and night. A day is 360 s; S.clock runs only while you play (not under the star-5 celebration, not on
-// the title); a new save starts at 0.12, the first dusk comes at about 3:20. Sunrise (0.10): the next day, a banner with
-// yesterday's guests / hearts (+ trophy on a new record), line S03, birdsong; dusk (0.68): the temple bell. The tint keys
+// SPEC_v2 4.10: day and night. A day is DAY_LEN = 180 s (v2.3; was 360); S.clock runs only while you play (not under the
+// star-5 celebration, not on the title); a new save starts at 0.12, the first dusk comes at about 1:40. Sunrise (0.10): the
+// next day, line S03, birdsong; a banner with yesterday's guests / hearts only the first mornings and (from star 5) on a
+// record day (+ trophy; v2.3: 3-min days); dusk (0.68): the temple bell (not in the evening rush: it rang at sunset). The tint keys
 // are mixed smoothly (no steps, nothing blinks). Light pass: one multiply of the tint layer DARK over the view (lamps cut
 // soft holes into it first; a thin plain tint where multiply is missing), additive lamp glows (<= 16, nearest the view centre), each room's andon r10 empty / r18 taken, the
 // hand lantern at night, fish-pile glints, 8-12 slow stars on the star-view bath; pad frames stay bright on top.
@@ -28,30 +29,36 @@ for (const x of CTXS) {
 }
 let ALLC = [];   // every canvas; frame() returns the world canvas's calls (the light pass proper), ALLC also the innkeeper's layers
 const frame = () => { LOG.length = 0; render(); ALLC = LOG.slice(); return LOG.filter(e => e.cv === lowW); };
-// ---- the clock: 360 s a day, only while playing
+// ---- the clock: 180 s a day, only while playing
 setup();
-{ eq(S.clock, .12, 'a new save starts at 0.12'); run(36); near(S.clock, .22, .001, '36 s = 0.1 day');
+{ eq(DAY_LEN, 180, 'a day is 3 min'); eq(S.clock, .12, 'a new save starts at 0.12'); run(18); near(S.clock, .22, .001, '18 s = 0.1 day');
   const c0 = S.clock, t0 = S.stats.time; go('celebrate'); run(5); eq(S.clock, c0, 'clock stops under the celebration'); ok(S.stats.time > t0, '(the inn itself keeps going there, as in v1)');
   go('title'); run(5); eq(S.clock, c0, 'clock stops on the title'); go('play'); }
 { S = defaults(); resetWorld(); go('play'); spawnT = 1e9; let t = null; run(400, () => { if (dayLight().night >= .3) { t = S.stats.time; return true; } return false; });
-  ok(t !== null && t > 190 && t < 215, 'first dusk at about 3:20 (' + (t && t.toFixed(1)) + ' s)'); }
+  ok(t !== null && t > 95 && t < 110, 'first dusk at about 1:40 (' + (t && t.toFixed(1)) + ' s)'); }
 // ---- sunrise: the next day; dusk: the bell
 setup(['room2', 'room3', 'onsen', 'recep']); ensureStaff();
 { S.clock = .095; S.day = 4; S.dayLog = { g: 12, h: 30, best: 10 }; run(2.5);
   eq(S.day, 5, 'day 5 at sunrise'); eq(S.dayLog.g + ',' + S.dayLog.h + ',' + S.dayLog.best, '0,0,12', 'day log rolled over, best 12');
-  const b = BANNER_Q.find(x => x.kind === 'day'); ok(b && b.id === 5 && b.g === 12 && b.h === 30 && b.rec === true, 'sunrise banner day 5, yesterday 12 guests / 30 hearts, new record: ' + JSON.stringify(b));
+  ok(!BANNER_Q.some(x => x.kind === 'day'), 'v2.3: day 5 before star 5 - a quiet morning, no banner (a growing inn breaks its record every day)');
   ok(SFXLOG.includes('dawn'), 'birdsong'); ok(LINES.some(([w, k]) => w && w.role === 'recep' && k === 'S03'), 'receptionist S03'); eq(RUN.days, 1, 'counted');
-  BANNER_Q.length = 0; S.clock = .095; S.dayLog = { g: 5, h: 2, best: 12 }; run(2.5); const b2 = BANNER_Q.find(x => x.kind === 'day'); ok(b2 && b2.rec === false, 'no trophy below the record');
-  // (v2.1: day 7 would start autumn, and a season's first morning shows the season banner instead: stay in summer)
-  BANNER_Q.length = 0; S.day = 4; S.clock = .095; S.dayLog = { g: 3, h: 0, best: 0 }; run(2.5); const b3 = BANNER_Q.find(x => x.kind === 'day'); ok(b3 && b3.rec === false, 'the first day is not a "record"');
-  SFXLOG.length = 0; S.clock = .675; run(2.5); ok(SFXLOG.includes('dusk'), 'the temple bell at dusk'); eq(S.day, 5, 'dusk does not change the day');
+  BANNER_Q.length = 0; S.day = 1; S.clock = .095; S.dayLog = { g: 3, h: 1, best: 0 }; run(2.5); const b3 = BANNER_Q.find(x => x.kind === 'day');
+  ok(b3 && b3.id === 2 && b3.g === 3 && b3.h === 1 && b3.rec === false, 'the first mornings: the banner, yesterday 3 guests / 1 heart; the first day is not a "record": ' + JSON.stringify(b3));
+  S.day = 5; S.clock = .66; run(.5); ok(rushOn(), '(in the rush)'); SFXLOG.length = 0; run(5); ok(!SFXLOG.includes('dusk'), 'in the evening rush: no second bell (it rang at sunset)'); eq(S.day, 5, 'dusk does not change the day');
   // wrap: midnight passes without a new day
   S.clock = .995; run(3); eq(S.day, 5, 'midnight: same day'); ok(S.clock < .02, 'clock wrapped'); }
+setup(); { S.clock = .675; run(2.5); ok(SFXLOG.includes('dusk'), 'the temple bell at dusk (no rush at star 1)'); }
+// star 5: a record day has its banner with the trophy; below the record, a quiet morning
+setup(ALL); ensureStaff();
+{ S.clock = .095; S.day = 4; S.dayLog = { g: 12, h: 30, best: 10 }; run(2.5);
+  const b = BANNER_Q.find(x => x.kind === 'day'); ok(b && b.id === 5 && b.g === 12 && b.h === 30 && b.rec === true, 'star 5: sunrise banner day 5, yesterday 12 guests / 30 hearts, new record: ' + JSON.stringify(b));
+  BANNER_Q.length = 0; S.clock = .095; S.dayLog = { g: 5, h: 2, best: 12 }; run(2.5); ok(!BANNER_Q.some(x => x.kind === 'day'), 'below the record: no banner'); }
 // ---- smooth: per frame the tint, its alpha and the night factor move only a little (no steps, nothing blinks)
 { let maxA = 0, maxN = 0, maxC = 0, prev = dayLight(0); const ch = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
-  for (let i = 1; i <= 360 * 30; i++) { const d = dayLight(i / (360 * 30)); maxA = Math.max(maxA, Math.abs(d.a - prev.a)); maxN = Math.max(maxN, Math.abs(d.night - prev.night));
+  for (let i = 1; i <= DAY_LEN * 30; i++) { const d = dayLight(i / (DAY_LEN * 30)); maxA = Math.max(maxA, Math.abs(d.a - prev.a)); maxN = Math.max(maxN, Math.abs(d.night - prev.night));
     const a = ch(d.col), b = ch(prev.col); maxC = Math.max(maxC, ...a.map((v, j) => Math.abs(v - b[j]))); prev = d; }
-  ok(maxA < .001 && maxN < .003 && maxC <= 2, 'per frame: alpha ' + maxA.toFixed(5) + ', night ' + maxN.toFixed(5) + ', colour ' + maxC + '/255');
+  // (v2.3: a 3-min day halves every transition - the dawn one, .06 -> .10, is 7 s: .00102 alpha a frame, still no step)
+  ok(maxA < .0011 && maxN < .003 && maxC <= 2, 'per frame: alpha ' + maxA.toFixed(5) + ', night ' + maxN.toFixed(5) + ', colour ' + maxC + '/255');
   for (const [c, a, n] of [[0, .55, 1], [.06, .36, .6], [.10, .14, 0], [.3, 0, 0], [.62, .18, 0], [.68, .28, .3], [.8, .55, 1]]) { const d = dayLight(c); near(d.a, a, 1e-9, 'alpha at ' + c); near(d.night, n, 1e-9, 'night at ' + c); }
   ok(STAR_SPOTS.length >= 8 && STAR_SPOTS.length <= 12 && STAR_SPOTS.every(s => s.f <= .5), 'stars: ' + STAR_SPOTS.length + ', each <= 0.5 Hz'); }
 // ---- lamps

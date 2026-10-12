@@ -155,7 +155,12 @@ function drawOverlays() {
     if (gu.call) {
       drawA(bubbleArt(gu.call.k, 0, true), bx, cy, 7, 12);
       if (gu.st === 'sleep' && gu.room) { const d = ROOM[gu.room].door; if (VIS(tcx(d), tcy(d), 24)) g.drawImage(wallDecorArt('bell'), d[0] * TILE - CX, (d[1] - 1) * TILE - CY); }
-    } else if (gu.callGone > 0 && gu.st !== 'sleep') {   // a call that timed out shrinks away
+    }
+    if (gu.ex) {   // v2.3 (19.3): a picky rush guest's extra - orange / red as its time runs out (it wobbles when red); a guest
+      // further back in the line has it beside its head, not over the face of the one ahead
+      const u = urgOf(gu.ex.t / gu.ex.max), qi = Q.indexOf(gu), side = qi > 0 && gu.st === 'queue' ? 10 : 0, ey = (gu.call ? cy - 13 : cy) + (side ? 6 : 0);
+      drawA(bubbleArt(gu.ex.k, Math.max(1, u)), bx + side, ey + (u === 2 ? R(Math.sin(T * 6)) : 0), 7, 12);
+    } else if (gu.callGone > 0 && gu.st !== 'sleep') {   // a call / an extra that timed out shrinks away
       const k = gu.callGone / .25, c = bubbleArt('blank', 0, true), w = Math.max(1, R(14 * k)), h = Math.max(1, R(13 * k));
       g.drawImage(c, R(bx - w / 2) - CX, R(cy - h) - CY, w, h);
     }

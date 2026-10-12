@@ -15,7 +15,7 @@ const { execFile } = require('child_process'), path = require('path'), os = requ
 const GAME = path.resolve(__dirname, '..'), HEADLESS = 'D:/Minigame/_workflow/tools/headless.js';
 const argv = process.argv.slice(2), A = k => { const a = argv.find(s => s.startsWith(k + '=')); return a ? a.slice(k.length + 1) : null; };
 const cfg = argv.find(s => !s.includes('=') && s !== 'raw' && s !== 'json') || 'base', set = A('set'), N = +(A('seeds') || 12);
-const profiles = (A('profiles') || 'eager,casual,novice,afk,afkref,ignore,shopper').split(',');
+const profiles = (A('profiles') || 'eager,casual,novice,afk,afkref,ignore,shopper,afk5').split(',');   // v2.3: afk5 (hands off at star 5)
 if (profiles.includes('afk') && !profiles.includes('afkref')) profiles.push('afkref');   // A4's reference
 const GDIR = A('game') ? path.resolve(A('game')) : GAME, J = +(A('j') || Math.max(2, os.cpus().length - 2));
 const run = (p, s) => new Promise(res => {
@@ -84,6 +84,12 @@ const missed = [];   // targets not met (profile: target)
     // v2.2 (19.2): the reputation (median of every evening summary of a run, then the median over seeds); eager >= 4, casual >= 3.5
     console.log(`  REP evening stars med ${med(M(m => m.REP && m.REP.med))} [${mn(M(m => m.REP && m.REP.med))}-${mx(M(m => m.REP && m.REP.med))}] (days ${med(M(m => m.REP && m.REP.days))}, guests' mean ${med(M(m => m.REP && m.REP.mean))}) | rushes ${med(M(m => m.REP && m.REP.rushes))} | fish lost to full piles ${R(med(M(m => m.REP && m.REP.lost)))}`);
     if (p === 'eager') tgt.push(ok(med(M(m => m.REP && m.REP.med)) >= 4, 'REP eager >=4★'));
+    // v2.3 (19.3): the star-5 rushes (eager plays 15 min past star 5: ~3 big rushes; afk5 leaves them to the staff) and the
+    // banner rate (every banner put up a minute, before / after star 5)
+    { const r5 = rs.flatMap(r => (r.M.REP5 && r.M.REP5.list) || []), kinds = {}; rs.forEach(r => { for (const k in ((r.M.BAN || {}).kinds || {})) kinds[k] = (kinds[k] || 0) + r.M.BAN.kinds[k]; });
+      console.log(`  REP5 big rushes ${r5.length} med ${med(r5)} [${mn(r5)}-${mx(r5)}] great ${rs.reduce((a, r) => a + ((r.M.REP5 && r.M.REP5.great) || 0), 0)} | extras brought ${rs.reduce((a, r) => a + ((r.M.REP5 && r.M.REP5.exServed) || 0), 0)}/${rs.reduce((a, r) => a + ((r.M.REP5 && r.M.REP5.exMade) || 0), 0)} | ★5 on day ${med(M(m => m.REP5 && m.REP5.day5))} | banners/min before ★5 ${med(M(m => m.BAN && m.BAN.pre))} after ${med(M(m => m.BAN && m.BAN.post))} (after, all seeds: ${Object.entries(kinds).sort((a, b) => b[1] - a[1]).map(([k, n]) => k + '×' + n).join(' ')})`);
+      if (p === 'eager') tgt.push(ok(r5.length ? med(r5) >= 4.5 : null, 'REP5 eager rush >=4.5★'));
+      if (p === 'afk5') tgt.push(ok(r5.length ? med(r5) <= 4 : null, 'REP5 afk at ★5 <=4★')); }
     if (p === 'casual') tgt.push(ok(med(M(m => m.REP && m.REP.med)) >= 3.5, 'REP casual >=3.5★'));
     console.log(`  F1 lines/min ${med(M(m => m.F1))} | F2 ok med ${P2(med(M(m => m.F2.ok)))} min ${P2(mn(M(m => m.F2.ok)))} | jumps/run ${R(med(M(m => m.F2.jumps)))}, >3 in 5 s ${R(med(M(m => m.F2.many)))} (max ${R(mx(M(m => m.F2.many)))}), A-B-A ${R(med(M(m => m.F2.flip)))} | H1 pads on screen max ${mx(M(m => m.H1.max))} (shop ${mx(M(m => m.H1.shop))})`);
     tgt.push(ok(med(M(m => m.F1)) >= 4 && med(M(m => m.F1)) <= 8, 'F1 4-8/min'), ok(mn(M(m => m.F2.ok)) >= .95, 'F2 >=95%'), ok(mx(M(m => m.H1.max)) <= 4, 'H1'));

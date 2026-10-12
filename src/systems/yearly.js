@@ -1,7 +1,7 @@
 // ============================================================ v2.1 the yearly award (SPEC_v2 16.3) + paused cards
 // Before sunrise ends the year's last day (clock .05 of day 12, 24, ...) the year report pauses the game: "第1年 年度报告",
-// three numbers (guests, income, new combos this year) and the award by this year's hearts (AWARDS: >= 5,000 金奖, >= 4,200
-// 银奖, >= 3,700 铜奖, >= 2,000 人气奖, else 努力奖 - there is always one; set from the bots, SPEC_v2 18.2). The prize - 30,000 / 15,000 / 8,000 / 4,000 / 2,000 x
+// three numbers (guests, income, new combos this year) and the award by this year's hearts (AWARDS: >= 3,000 金奖, >= 2,400
+// 银奖, >= 2,000 铜奖, >= 600 人气奖, else 努力奖 - there is always one; set from the bots, SPEC_v2 18.2 / 19.3: 36-min years). The prize - 15,000 / 8,000 / 4,000 / 2,000 / 1,000 x
 // min(year, 3) - waits in the cash box; the trophy stands on the lobby's north wall (23,22), the newest two. Gold three
 // years running: the sign by the door gets a gold frame, "殿堂旅馆" (hallOfFame(), from S.awards).
 // S.year holds the totals at the start of this year ({ g: guests, e: earned, h: hearts, combos: combos found, n: the
@@ -12,7 +12,9 @@
 // and the clock wait (gameUpdate doesn't run, like the menu); a tap after 0.8 s closes it (onPress -> modalPress).
 const MODAL_Q = [];
 function modalPush(m) { MODAL_Q.push(m); }
-function modalPump() { if (state === 'play' && MODAL_Q.length) { go('card'); MODAL_Q[0].stamp = false; } }
+// v2.3 (19.3): not in the evening rush (the reporter walking out at sunset paused the big rush halfway): it waits for the
+// rush's result
+function modalPump() { if (state === 'play' && MODAL_Q.length && !rushOn() && RUSH5.end === null) { go('card'); MODAL_Q[0].stamp = false; } }
 function modalPress() { if (st < CARD_CLOSE_T) return; SFX.click(); modalClose(); }
 function modalClose() {
   MODAL_Q.shift();

@@ -5,7 +5,7 @@
 // STARS or DAWN_AT here - the few numbers that depend on them are written out (and checked in tests/sys_seasons.js).
 // The systems are in src/systems/seasons.js, festival.js, press.js, yearly.js, mom.js.
 
-// ---- 16.1 the calendar: a season = 3 days (18 min), a year = 4 seasons (72 min). Computed from S.day, never saved.
+// ---- 16.1 the calendar: a season = 3 days (9 min since v2.3), a year = 4 seasons (36 min). Computed from S.day, never saved.
 const SEASON_DAYS = 3, YEAR_DAYS = 12;
 // name: the banner ("夏天来了"); col: the banner's rim; fest: the festival on its 2nd day (16.2)
 const SEASONS = [
@@ -42,16 +42,18 @@ const COMBOS_V21A = [
   { id: 's_newyear', a: 'd_daruma', b: 'd_mikan', col: '#e0603a', emb: 'shinnen', plate: '春', name: '新年快乐', hint: false },
 ];
 
-// ---- 16.2 festivals: from star 3, on the 2nd day of every season at dusk (clock .62) for 72 s
-const FEST_AT = .62, FEST_T = 72, FEST_STAR = 3;
+// ---- 16.2 festivals: from star 3, on the 2nd day of every season from the golden hour (clock .55) for 66 s, into the
+// night (v2.3: a 3-min day - was .62 for 72 s, which would run past midnight now). That evening has no rush (business.js).
+const FEST_AT = .55, FEST_T = 66, FEST_STAR = 3;
 const FEST_SPAWN = 1.3, FEST_PAT = 20;            // guests come 1.3x as often; their patience in line +20 s
-const FEST_LANTERN = 1.4;                         // lanterns to light = ceil(1.4 x open guest rooms) (+ festTargetExtra())
-const FEST_HEARTS = 40, FEST_RED = 30;            // all lit: hearts +40, a medal, a red packet round(30 x room fee x Q) in the cash box
+const FEST_LANTERN = 1.3;                         // lanterns to light = ceil(1.3 x open guest rooms) (+ festTargetExtra()); v2.3: 1.4 -> 1.3 (66 s, was 72)
+const FEST_HEARTS = 25, FEST_RED = 12;            // all lit: hearts +25, a medal, a red packet round(12 x room fee x Q) in the cash box (v2.3: was 40 / 30 - twice the festivals a minute)
 const FIREWORK_MAX = 2, FIREWORK_R = 16, FIREWORK_A = .6;   // summer: <= 2 new bursts a second, radius <= 16, alpha .6, no white
 const FIREWORK_COLS = ['#ff7a9a', '#ffb43a', '#7ad0ff', '#a6e070', '#c890ff', '#ffd23f'];
 
-// ---- 16.4 the reporter / the TV crew: from star 3, on the 1st day of every season 90 s after sunrise (clock .10 + 90 / 360)
-const PRESS_AT = .35, PRESS_END = .70, PRESS_STAR = 3, PRESS_TV_STAR = 4;   // TV (star 4+) in autumn and winter
+// ---- 16.4 the reporter / the TV crew: from star 3, on the 1st day of every season 22 s after sunrise (clock .10 + 22 / 180),
+// before the evening rush (v2.3: a 3-min day; was .35-.70 = 90 s after sunrise, into the rush now)
+const PRESS_AT = .22, PRESS_END = .48, PRESS_STAR = 3, PRESS_TV_STAR = 4;   // TV (star 4+) in autumn and winter
 const PRESS_DESK_T = 10, PRESS_TOWEL_T = 5;       // checks: checked in within 10 s at the front; a towel within 5 s at the basket
 const PRESS_HEARTS = 15, PRESS_TV_HEARTS = 30;    // hearts = stars x 15 (TV x 30)
 const POP_T = 90, POP_TV_T = 120, POP_K = 1.3;    // "popular": room fees and tips x1.3, every check-in hearts +1
@@ -61,13 +63,15 @@ const TV_LOOK = { fur: 'white', outfit: 'guest', shirt: '#e8486e', acc: 'mic' };
 const CAMERA_LOOK = { fur: 'black', outfit: 'guest', shirt: '#5e6e80', acc: 'tvcam' };
 
 // ---- 16.3 the yearly award: before sunrise ending the year's last day (clock .05 of day 12, 24 ...), by this year's hearts.
-// The thresholds (SPEC 2,500 / 1,500 / 800 / 400) are set from the bots (SPEC_v2 18.2): year 1 brings eager ~4,850,
-// casual ~4,500, novice 2,900-3,600 hearts, eager's 2nd year ~5,500 -> eager / casual silver, novice 人气奖, gold from year 2
+// The thresholds (SPEC 2,500 / 1,500 / 800 / 400) are set from the bots (SPEC_v2 18.2). v2.3: a year is 36 min (3-min
+// days), so a year brings about half the hearts - eager ~2,550 in year 1 (★5 on day ~8), ~3,400 a year after; hands off
+// at ★5 ~2,150; novice ~670-1,120 (★5 after the first year) -> eager silver, gold from year 2, novice 人气奖. The prizes are
+// halved too (twice the years a minute; was 30,000 / 15,000 / 8,000 / 4,000 / 2,000 at 5,000 / 4,200 / 3,700 / 2,000 hearts)
 const YEAR_AT = .05;
 const AWARDS = [
-  { k: 'gold', h: 5000, prize: 30000, name: '金奖' }, { k: 'silver', h: 4200, prize: 15000, name: '银奖' },
-  { k: 'bronze', h: 3700, prize: 8000, name: '铜奖' }, { k: 'pop', h: 2000, prize: 4000, name: '人气奖' },
-  { k: 'effort', h: 0, prize: 2000, name: '努力奖' },
+  { k: 'gold', h: 3000, prize: 15000, name: '金奖' }, { k: 'silver', h: 2400, prize: 8000, name: '银奖' },
+  { k: 'bronze', h: 2000, prize: 4000, name: '铜奖' }, { k: 'pop', h: 600, prize: 2000, name: '人气奖' },
+  { k: 'effort', h: 0, prize: 1000, name: '努力奖' },
 ];
 const CARD_CLOSE_T = .8;   // a paused card (year report, press result, family photo) closes on a tap after 0.8 s
 

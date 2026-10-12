@@ -1,5 +1,5 @@
 // ============================================================ v2.1 the four seasons (SPEC_v2 16.1) + core A's frame
-// A season is 3 days, a year 4 seasons = 12 days (72 min of play). The season is computed from S.day (nothing saved),
+// A season is 3 days, a year 4 seasons = 12 days (36 min of play since v2.3: a day is 3 min). The season is computed from S.day (nothing saved),
 // so it changes at sunrise: the morning banner of that day becomes "夏天来了" (one banner, not two) and the static world
 // is rebuilt once with the season's outdoor colours - tileArt(..., season) and treeArt(kind, season) (map.js /
 // pathfinding.js / render-world.js pass seasonNow()). Slow, capped particles on outdoor tiles: petals <= 12 (spring),

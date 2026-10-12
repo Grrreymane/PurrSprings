@@ -56,11 +56,14 @@ function trayWants() {
   for (const gu of GUESTS) {
     if (gu.call) { const [x, y] = guestSpot(gu); L.push({ e: gu, k: gu.call.k, x, y, left: gu.call.t, call: true }); }
     if (dinerWaiting(gu)) { const [x, y] = guestSpot(gu); L.push({ e: gu, k: 'rice', x, y, left: SEAT_WAIT - gu.t, seat: true }); }
+    if (gu.ex) { const [x, y] = guestSpot(gu); L.push({ e: gu, k: gu.ex.k, x, y, left: gu.ex.t, ex: true }); }   // v2.3: a picky rush guest's extra (only yours; a towel comes off your head)
   }
   vipWants(L);
   return L;
 }
 const countK = (tr, k) => { let n = 0; for (const x of tr) if (x === k) n++; return n; };
+const pHas = k => k === 'towel' ? P.towels > 0 : P.tray.includes(k);   // v2.3: what you can hand over (a rush guest's towel: from the stack on your head)
+const exNeed = (k, L) => { let n = 0; for (const w of L || playerWants()) if (w.ex && w.k === k) n++; return n - (k === 'towel' ? P.towels : countK(P.tray, k)); };
 const wantCount = (k, L) => { let n = 0; for (const w of L || playerWants()) if (w.k === k) n++; return n; };
 function staffHeld(k) { let n = 0; for (const s of STAFF) if (s.tray.length && s.role !== 'tea') n += countK(s.tray, k); return n; }   // waiters (the tea runner's cups are for its calls, not in playerWants)
 const heldCount = k => countK(P.tray, k) + staffHeld(k);
@@ -118,15 +121,15 @@ function trayZones(dt) {
   } else P.putT = 0;
   // hand over: the nearest one within DELIVER_R who waits for something on the tray, after DELIVER_T there
   let best = null, bd = DELIVER_R + .001;
-  if (P.tray.length) for (const w of L) if (P.tray.includes(w.k)) { const d = dist(P.x, P.y, w.x, w.y); if (d < bd) { bd = d; best = w; } }
+  if (P.tray.length || P.towels) for (const w of L) if (pHas(w.k)) { const d = dist(P.x, P.y, w.x, w.y); if (d < bd) { bd = d; best = w; } }
   if (!best || best.e !== P.giveTo || best.k !== P.giveK) { P.giveTo = best ? best.e : null; P.giveK = best ? best.k : null; P.giveT = 0; }
   if (best) { P.giveT += dt; if (P.giveT >= DELIVER_T) { P.giveT = 0; P.giveTo = P.giveK = null; giveTo(best); } }
 }
 function giveTo(w) {
-  const i = P.tray.indexOf(w.k); if (i < 0) return;
-  P.tray.splice(i, 1);
+  if (w.k === 'towel') { if (P.towels <= 0) return; P.towels--; }
+  else { const i = P.tray.indexOf(w.k); if (i < 0) return; P.tray.splice(i, 1); }
   FX.push({ k: 'give', it: w.k, x0: P.x, y0: P.y - 12, x1: w.x, y1: w.y - 10, t: 0, life: .3 });
-  if (w.call) serveCall(w.e); else if (w.seat) { serveSeat(w.e); firstDone('dine'); } else if (w.give) w.give();
+  if (w.call) serveCall(w.e); else if (w.seat) { serveSeat(w.e); firstDone('dine'); } else if (w.ex) serveExtra(w.e); else if (w.give) w.give();
 }
 function zones(dt) {
   const ptx = Math.floor(P.x / TILE), pty = Math.floor(P.y / TILE);

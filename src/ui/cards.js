@@ -134,10 +134,13 @@ function bannerParts(b) {
     case 'milestone': return { rim: '#e0a030', parts: [{ img: menuIcon('cat'), gap: 3 }, { t: '第' + b.id + '位客人！', c: dk }] };
     case 'gift': return { rim: '#ffc21f', parts: [{ img: menuIcon('house'), gap: 3 }, { t: '旅馆扩建啦！', c: dk, z: 8 }] };
     // v2.2 (business.js): the evening rush comes; the evening summary - today's stars, the room fee from now on, hearts
-    case 'rush': return { rim: '#ff9a2a', parts: [{ img: clockIcon(), gap: 3 }, { t: '客人多起来了', c: dk }] };
+    case 'rush': return b.id ? { rim: '#e8453c', rim2: '#ffc21f', parts: [{ img: clockIcon(), gap: 3 }, { t: '大高峰！', c: '#c0392b', z: 8, gap: 5 }, { img: menuIcon('cat'), gap: 2 }, { t: '×' + (b.k || 2.5).toFixed(1), c: dk }] }   // v2.3: the star-5 rush
+      : { rim: '#ff9a2a', parts: [{ img: clockIcon(), gap: 3 }, { t: '客人多起来了', c: dk }] };
+    case 'rush5ok': { const n = Math.round(b.id / 10); return { rim: '#ffc21f', rim2: '#e8503a', parts: Array.from({ length: 5 }, (_, i) => ({ img: starIcon(i < n), gap: 1 })).concat([{ gap: 2 },   // v2.3: 高峰大成功
+      { t: (b.id / 10).toFixed(1), c: dk, gap: 4 }, { t: '大成功！', c: '#c0392b', z: 8, gap: 4 }, { img: heartIcon(), gap: 1 }, { t: '+' + b.h, c: dk, gap: 4 }, { img: fishIcon(), gap: 1 }, { t: '+' + fmt(b.red || 0), c: dk }]) }; }   // stars rounded: a great rush shows 5
     case 'rep': { const r = b.id / 10, n = Math.floor(r + .01); return { rim: '#e0a030', parts: Array.from({ length: 5 }, (_, i) => ({ img: starIcon(i < n), gap: 1 })).concat([{ gap: 2 }, { t: r.toFixed(1), c: dk, z: 8, gap: 5 },
       { img: fishIcon(), gap: 2 }, { t: (b.pct > 0 ? '+' : '') + b.pct + '%', c: b.pct > 0 ? '#2a8a3a' : b.pct < 0 ? '#c0392b' : dk, gap: 5 }]).concat(b.h ? [{ img: heartIcon(), gap: 2 }, { t: '+' + b.h, c: dk, gap: 5 }] : [])
-      .concat(b.why ? [{ img: { line: bellIcon(), bed: broomIcon(), towel: towelArt(), food: itemIcon('rice') }[b.why] }, { t: '!', c: '#c0392b', z: 8 }] : []) }; }   // below par: what cost the most
+      .concat(b.why ? [{ img: b.why.startsWith('ex:') ? bubbleArt(b.why.slice(3), 2) : { line: bellIcon(), bed: broomIcon(), towel: towelArt(), food: itemIcon('rice') }[b.why] }, { t: '!', c: '#c0392b', z: 8 }] : []) }; }   // below par: what cost the most (v2.3: a rush guest's extra missed)
   }
   return bannerV21a(b) || bannerPartsB(b);   // v2.1 core A (seasons.js): season, festival, press, mom; core B (menu-v21b.js): rare guests, keepsakes, the shrine, fireworks
 }
@@ -206,6 +209,7 @@ const FIRST_CARD = {
   rush: () => [{ img: clockIcon(), s: 2 }, { img: faceOf(VIP_LOOK.kawa) }, { img: faceOf(VIP_LOOK.sakura) }, { img: ARROW_R }, { img: padIcon('recep') }, '高峰帮忙'],
   rep: () => [{ img: menuIcon('cat') }, { img: starIcon(true) }, { img: starIcon(true) }, { img: starIcon(true) }, { img: ARROW_R }, { img: fishIcon(), s: 2 }, '口碑'],
   full: () => [{ img: pileArt(8) }, { img: bubbleArt('blank', 0) }, { img: ARROW_R }, { img: faceOf(PLAYER_LOOK) }, '满了去收'],
+  rush5: () => [{ img: bubbleArt('tea', 2) }, { img: bubbleArt('towel', 2) }, { img: ARROW_R }, { img: faceOf(PLAYER_LOOK) }, '急客快送'],   // v2.3: the star-5 rush's picky guests - only you bring it
 };
 // the first VIP's 3-step picture card (G1): greet it -> lead it to a suite -> do what its gold bubble shows. One row of
 // icons + 2-character labels; the step you are on sits in a gold frame, the ones done are ticked. It stays up until the

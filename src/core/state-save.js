@@ -14,7 +14,7 @@ function defaults() {
     year: { g: 0, e: 0, h: 0, combos: 0, n: 1 }, awards: [], covers: [], medals: [], mom: 0, momY: 1,
     pressS: 0, fest: { s: 0, n: 0, goal: 1, end: true }, fests: [0, 0, 0, 0], popT: 0, popTV: false,
     rare: {}, fw: { n: 0, cool: 0 },   // v2.1 core B (16.13): rare guest id -> visits completed; fireworks shown, next one from (stats.time)
-    rep: { r: 45, s: 0, n: 0, d: 0, s2: 0 },   // v2.2 (19.2, business.js): reputation in tenths of a star (4.5 = par), today's ratings, days rated
+    rep: { r: 45, s: 0, n: 0, d: 0, s2: 0, s5: 0 },   // v2.2 (19.2, business.js): reputation in tenths of a star (4.5 = par), today's ratings, days rated
   };
 }
 const starOf = s => 1 + (s.unlocked.onsen ? 1 : 0) + (s.unlocked.dining ? 1 : 0) + (s.unlocked.garden ? 1 : 0) + (s.unlocked.roten ? 1 : 0);

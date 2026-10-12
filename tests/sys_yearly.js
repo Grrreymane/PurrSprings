@@ -1,7 +1,7 @@
 // SPEC_v2 16.3: the yearly award. Before sunrise ends the year's last day (clock .05 of day 12, 24 ...) a paused card:
 // "第N年 年度报告", this year's guests / income / new combos, and the award by this year's hearts (thresholds from the bots,
-// SPEC_v2 18.2: >= 5,000 金奖, >= 4,200 银奖, >= 3,700 铜奖, >= 2,000 人气奖, else 努力奖). The prize (30,000 / 15,000 /
-// 8,000 / 4,000 / 2,000 x min(year, 3)) waits in the cash box; the trophy stands on the lobby wall (the newest two);
+// SPEC_v2 18.2 / 19.3 (36-min years): >= 3,000 金奖, >= 2,400 银奖, >= 2,000 铜奖, >= 600 人气奖, else 努力奖). The prize
+// (15,000 / 8,000 / 4,000 / 2,000 / 1,000 x min(year, 3)) waits in the cash box; the trophy stands on the lobby wall (the newest two);
 // gold three years running = "殿堂旅馆" (a gold frame on the sign). S.year = the totals at the year's start; a save from
 // before v2.1 starts its year at its first load; a load in the report's window doesn't report twice.
 //   node D:/Minigame/_workflow/tools/headless.js D:/Minigame/Hotelgame tests/sys_yearly.js --seed 3
@@ -26,16 +26,16 @@ const yearCard = (h, opts) => {   // a year 1 ending with h hearts this year
   setup(12, .5); run(1); eq(state, 'play', 'day 12 by day: not yet');
   const m = yearCard(5200); eq(state, 'card', 'day 12, clock .05: the year report pauses the game'); ok(m && m.kind === 'year', 'a year card');
   eq(m && [m.y, m.g, m.e, m.h, m.c].join(','), '1,1400,200000,5200,2', 'year 1: 1,400 guests, 200,000 income, 5,200 hearts, 2 new combos');
-  eq(m && m.k, 'gold', '5,200 hearts: 金奖'); eq(m && m.prize, 30000, 'prize 30,000 x 1'); eq(box0(), 30000, 'in the cash box');
+  eq(m && m.k, 'gold', '5,200 hearts: 金奖'); eq(m && m.prize, 15000, 'prize 15,000 x 1 (v2.3: halved, 36-min years)'); eq(box0(), 15000, 'in the cash box');
   eq(S.awards.length, 1, 'trophy saved'); eq(S.awards[0].k + S.awards[0].y, 'gold1', 'gold, year 1');
   eq([S.year.g, S.year.e, S.year.h, S.year.combos, S.year.n].join(','), [S.stats.guests, S.earned, S.hearts, 3, 2].join(','), 'the new year starts from today\'s totals');
   sounds.length = 0; for (let i = 0; i < 20; i++) update(DT); render(); ok(sounds.includes('stamp'), 'the stamp sound as the award lands');
   const t0 = S.stats.time; for (let i = 0; i < 30; i++) update(DT); eq(S.stats.time, t0, 'paused');
   modalPress(); eq(state, 'play', 'a tap closes it'); run(20); eq(S.day, 13, 'then the sun rises on year 2'); eq(S.awards.length, 1, 'once'); }
-for (const [h, k] of [[4999, 'silver'], [4200, 'silver'], [4199, 'bronze'], [3700, 'bronze'], [3699, 'pop'], [2000, 'pop'], [1999, 'effort'], [0, 'effort']]) { const m = yearCard(h); eq(m && m.k, k, h + ' hearts'); modalClose(); }
-{ const m = yearCard(4300); eq(m && m.prize, 15000, 'silver: 15,000'); modalClose();
+for (const [h, k] of [[2999, 'silver'], [2400, 'silver'], [2399, 'bronze'], [2000, 'bronze'], [1999, 'pop'], [600, 'pop'], [599, 'effort'], [0, 'effort']]) { const m = yearCard(h); eq(m && m.k, k, h + ' hearts'); modalClose(); }
+{ const m = yearCard(2500); eq(m && m.prize, 8000, 'silver: 8,000'); modalClose();
   const p3 = h => { setup(36, .049); S.year.n = 3; S.hearts = S.year.h + h; run(1, () => state === 'card'); const m = MODAL_Q[0]; modalClose(); return m; };
-  eq(p3(5000).prize, 90000, 'year 3 gold: x3'); setup(60, .049); S.year.n = 5; S.hearts = S.year.h + 100; run(1, () => state === 'card'); eq(MODAL_Q[0] && MODAL_Q[0].prize, 6000, 'year 5 effort: 2,000 x 3 (cap)'); modalClose(); }
+  eq(p3(5000).prize, 45000, 'year 3 gold: x3'); setup(60, .049); S.year.n = 5; S.hearts = S.year.h + 100; run(1, () => state === 'card'); eq(MODAL_Q[0] && MODAL_Q[0].prize, 3000, 'year 5 effort: 1,000 x 3 (cap)'); modalClose(); }
 // ---- no double report: a load in the window, or after it
 { yearCard(3000); modalClose(); saveNow(); S = loadState(); resetWorld(); go('play'); spawnT = 1e9; run(1); eq(state, 'play', 'loaded at clock .05 after the report: no second one'); eq(S.awards.length, 1, 'still one trophy'); }
 // ---- a save from before v2.1: its year starts at the load

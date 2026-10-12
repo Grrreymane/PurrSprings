@@ -13,7 +13,7 @@ const upTo = id => UNLOCKS.filter(u => !u.need5 && !u.when && UNLOCKS.indexOf(u)
 const STAR3 = upTo('w3'), STAR4 = upTo('suiteB');
 function setup(list, day, clock, o) {
   S = defaults(); for (const id of list || []) S.unlocked[id] = true; for (const rm of ROOMS) if (roomOpen(rm)) S.rooms[rm.id] = 'clean';
-  S.peak = starOf(S); S.tut.moved = true; S.day = day || 4; S.clock = clock === undefined ? .349 : clock; S.stats.time = 600; S.basket = BASKET_MAX; Object.assign(S, o || {});
+  S.peak = starOf(S); S.tut.moved = true; S.day = day || 4; S.clock = clock === undefined ? PRESS_AT - .001 : clock; S.stats.time = 600; S.basket = BASKET_MAX; Object.assign(S, o || {});
   resetWorld(); go('play'); spawnT = 1e9; BANNER_Q.length = 0; FIRST_Q.length = 0;
 }
 let cards = 0;
@@ -22,21 +22,21 @@ const rep = () => PRESS.gu;
 // ---- who, when
 { setup(STAR3.filter(id => UNLOCKS.indexOf(UNLOCK[id]) < UNLOCKS.indexOf(UNLOCK.dining)), 4); run(2); ok(!rep(), 'not at star 2');
   setup(STAR3, 5); run(2); ok(!rep(), 'not on a season\'s 2nd day'); setup(STAR3, 1); run(2); ok(!rep(), 'not in a new game\'s first spring');
-  setup(STAR3, 4, .3); run(2); ok(!rep(), 'not before clock .35');
-  setup(STAR3, 4); run(1); ok(!!rep(), 'summer, day 1, .35: the reporter'); eq(S.pressS, absSeason(4), 'saved: this season');
+  setup(STAR3, 4, .15); run(2); ok(!rep(), 'not before clock .22');
+  setup(STAR3, 4); run(1); ok(!!rep(), 'summer, day 1, .22: the reporter'); eq(S.pressS, absSeason(4), 'saved: this season');
   eq(rep().look.hat, 'beret', 'a beret'); eq(rep().look.acc, 'camera', 'and a camera'); ok(!rep().mate, 'alone');
   ok(BANNER_Q.some(b => b.kind === 'press' && bannerParts(b).parts.some(p => p.t === '记者来了！')), 'banner 记者来了！'); ok(FIRST_Q.some(f => f.key === 'press'), 'the first-time card: what it checks');
   eq(Q[0], rep(), 'at the front of the line'); ok(rep().pat > 1e6, 'no patience to run out');
-  run(400); ok(!GUESTS.includes(rep()) || rep().press.done || true, ''); setup(STAR3, 4, .5, { pressS: absSeason(4) }); run(2); ok(!rep(), 'once a season (pressS)');
+  run(400); ok(!GUESTS.includes(rep()) || rep().press.done || true, ''); setup(STAR3, 4, .3, { pressS: absSeason(4) }); run(2); ok(!rep(), 'once a season (pressS)');
   setup(STAR4, 7); run(1); ok(rep() && rep().press.tv, 'star 4, autumn: the TV crew'); eq(rep().look.acc, 'mic', 'the host has a mic'); ok(rep().mate && rep().mate.look.acc === 'tvcam', 'a camera cat follows');
   setup(STAR4, 4); run(1); ok(rep() && !rep().press.tv, 'star 4, summer: a reporter');
   setup(STAR3, 10); run(1); ok(rep() && !rep().press.tv, 'star 3, winter: a reporter'); }
 // ---- polite: not while the very first VIP is shown round, not within 60 s of a new area (fun check, 18.2)
-{ setup(STAR4, 4, .349); S.stats.vips = 0; vipArrive(); run(1); ok(!rep(), 'waits while the first VIP is in'); VIPG = null; vipT = 1e9; run(.2); ok(!rep(), 'still waits while its picture card is up');
-  FIRST_Q.length = 0; run(.2); ok(!rep(), 'and for 30 s after a picture card came (v2.1 merge fun check)'); run(PRESS_CARD_CALM); ok(!!rep(), 'then comes');
-  setup(STAR3, 4, .349); news('area'); run(1); ok(!rep(), 'waits after a new area opens'); run(PRESS_CALM); ok(!!rep(), 'comes ' + PRESS_CALM + ' s later'); }
+{ setup(STAR4, 4, PRESS_AT - .001); S.stats.vips = 0; vipArrive(); run(1); ok(!rep(), 'waits while the first VIP is in'); VIPG = null; vipT = 1e9; run(.2); ok(!rep(), 'still waits while its picture card is up');
+  FIRST_Q.length = 0; run(.2); ok(!rep(), 'and for ' + PRESS_CARD_CALM + ' s after a picture card came (v2.1 merge fun check)'); run(PRESS_CARD_CALM); ok(!!rep(), 'then comes');
+  setup(STAR3, 4, PRESS_AT - .001); news('area'); run(1); ok(!rep(), 'waits after a new area opens'); run(PRESS_CALM); ok(!!rep(), 'comes ' + PRESS_CALM + ' s later'); }
 // ---- cutting in: second if the front guest is being checked in
-{ setup(STAR3, 4, .3); addGuest('regular'); addGuest('regular'); run(8, () => Q[0].ready); Q[0].ck = .3; S.clock = .3499; run(.5, () => !!rep());
+{ setup(STAR3, 4, .15); addGuest('regular'); addGuest('regular'); run(8, () => Q[0].ready); Q[0].ck = .3; S.clock = PRESS_AT - .0001; run(.5, () => !!rep());
   ok(rep() && Q[1] === rep(), 'second behind the guest being checked in (' + Q.indexOf(rep()) + ')'); }
 // ---- the best room: combo > decor > plain
 { setup(STAR3.concat(['d_scroll', 'd_ikebana']), 4, .3); S.decor['room3:A'] = 'd_scroll'; S.decor['room3:B'] = 'd_ikebana'; S.decor['room2:A'] = 'd_scroll';

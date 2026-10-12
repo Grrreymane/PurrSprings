@@ -14,7 +14,7 @@ const STAR2 = ['room2', 'room3', 'onsen', 'recep', 'maid1'];
 eq(defaults().rep.r, 45, 'a new inn: 4.5 stars (par)');
 { const raw = JSON.parse(JSON.stringify(defaults())); delete raw.rep; const s = loadState(raw); eq(s.rep.r, 45, 'an old save without S.rep: par'); eq(s.rep.n, 0, 'no ratings yet'); }
 { const raw = JSON.parse(JSON.stringify(defaults())); raw.rep = { r: 'x', s: -5, n: 3e9, d: 2.7 }; const s = loadState(raw); ok(s.rep.r === 45 && s.rep.s === 0 && s.rep.n === 0 && s.rep.d === 2, 'a bad S.rep is cleaned: ' + JSON.stringify(s.rep)); }
-{ const raw = JSON.parse(JSON.stringify(defaults())); raw.rep = { r: 32, s: 410, n: 10, d: 5 }; const s = loadState(raw); eq(JSON.stringify(s.rep), JSON.stringify({ r: 32, s: 410, n: 10, d: 5, s2: 0 }), 'a good S.rep is kept'); }
+{ const raw = JSON.parse(JSON.stringify(defaults())); raw.rep = { r: 32, s: 410, n: 10, d: 5 }; const s = loadState(raw); eq(JSON.stringify(s.rep), JSON.stringify({ r: 32, s: 410, n: 10, d: 5, s2: 0, s5: 0 }), 'a good S.rep is kept'); }
 // ---- one stay's stars
 eq(rateStay({}, false), 50, 'nothing went wrong: 5');
 eq(rateStay({}, true), 10, 'angry: 1');
@@ -35,7 +35,7 @@ S.rep.r = 20; eq(fee('room', { rm: ROOM.room1 }), R(14 * .8), '2 stars: room fee
 { S.rep.r = 45; const g0 = spawnGap(); S.rep.r = 50; near(spawnGap(), g0 / 1.1, 1e-9, '5 stars: guests 1.1x as often'); S.rep.r = 20; near(spawnGap(), g0 / .9, 1e-9, '2 stars: guests 0.9x as often'); }
 { S.rep.r = 50; near(repStaff(), 1.1, 1e-9, '5 stars: staff x1.1'); S.rep.r = 10; near(repStaff(), .9, 1e-9, '1 star: staff x0.9'); }
 // ---- guests rate as they leave; the evening summary
-st(STAR2); S.clock = .12; S.basket = BASKET_MAX;
+st(STAR2); S.clock = .76; S.basket = BASKET_MAX;   // (v2.3: 150 s from just after the summary - a day is 180 s)
 { run(150); ok(S.rep.n >= 5, 'guests rated their stays as they left: ' + S.rep.n); ok(S.rep.s >= S.rep.n * 10 && S.rep.s <= S.rep.n * 50, 'ratings within 1-5'); }
 { S.rep.s = 420; S.rep.n = 10; const h0 = S.hearts, d0 = S.rep.d; BANNER_Q.length = 0; FIRST_Q.length = 0; S.seen.rep = false;
   S.clock = rushEnd() - .5 / DAY_LEN; run(1, () => S.rep.d > d0);
