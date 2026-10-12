@@ -71,18 +71,18 @@ function vipWishDone() {
   vipBed(v);   // v2.4: it stays the night (was: vipLeave(true) - straight out of the door after the photo)
 }
 // ---- v2.4 (player feedback "the guests of honour run off right after the photo"): after the photo a VIP / rare guest /
-// mom goes to bed in its suite (futon, Zzz, a warm andon) and sleeps until the next dawn - at least VIP_SLEEP_MIN s, else
-// the dawn after - then says goodbye at the door of its suite and walks out; the suite is messy after it. The VIP slot
+// mom goes to bed in its suite (futon, Zzz, a warm andon) and sleeps VIP_SLEEP_T s (v2.5, player feedback "they need not
+// sleep a whole night, just a bit longer than the others": a normal guest sleeps SLEEP_T 10 s; was: until the next dawn)
+// - then says goodbye at the door of its suite and walks out; the suite is messy after it. The VIP slot
 // (VIPG) is free at once (the next one's gap starts at the photo, as before), but a guest of honour only comes while a
-// suite has nobody asleep in it (suiteAvail). Saved: S.vsleep = [{ r: suite, id, w: the day it wakes, y: mom's year }].
-const VIP_SLEEP_MIN = 45;
+// suite has nobody asleep in it (suiteAvail). Saved: S.vsleep = [{ r: suite, id, t: seconds of sleep left, y: mom's year }].
+const VIP_SLEEP_T = 25;
 let VSLEEP = [];   // the sleepers (runtime entities, rebuilt from S.vsleep on resetWorld)
 function vipBed(v) {
   firstDone('vip');
   S.vipOwe = 0; vipT = S.stats.time + vipGap(); S.vipAt = Math.ceil(vipT);
   if (v.rare) rareLeave(v, true);   // when it may come again (counted from the photo, as before)
-  const toDawn = (((DAWN_AT - S.clock) % 1) + 1) % 1 * DAY_LEN;
-  const rec = { r: v.suite, id: v.id, w: S.day + (toDawn < VIP_SLEEP_MIN ? 2 : 1) }; if (v.mom) rec.y = v.momYear || 1;
+  const rec = { r: v.suite, id: v.id, t: VIP_SLEEP_T }; if (v.mom) rec.y = v.momYear || 1;
   S.vsleep.push(rec);
   const e = sleeperOf(rec, v); setSt(e, 'toBed'); VSLEEP.push(e); RT[v.suite].guest = e;
   VIPG = null; markDirty();
@@ -104,7 +104,7 @@ function sleepTick(dt) {
     if (e.st === 'toBed') {
       const rm = ROOM[e.room]; goTo(e, rm.cleanT[0], rm.cleanT[1]);
       if (stepPath(e, dt, G_SPEED) || e.lost || e.t > 20) { e.x = tcx(rm.cleanT); e.y = tcy(rm.cleanT); e.moving = false; setSt(e, 'sleep'); S.rooms[e.room] = 'occupied'; lineSay(e, 'G33|G07'); markDirty(); }
-    } else if (e.st === 'sleep') { if (S.day >= e.rec.w) vipWake(e); }
+    } else if (e.st === 'sleep') { e.rec.t = Math.max(0, e.rec.t - dt); if (e.rec.t <= 0) vipWake(e); }
     else if (e.st === 'leave') { if (stepPath(e, dt, G_SPEED)) e.gone = true; }
     if (e.kits && e.st !== 'sleep') kitsFollow(e, dt);
   }

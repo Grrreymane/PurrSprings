@@ -71,7 +71,7 @@ function doorArt(kind, open, col, emb, gold, tx, ty, floor, season, span, beyond
   const fl = sty && Array.isArray(floor) ? floor : null, sea = gate || kind === 'onsen' ? (season | 0) & 3 : 0;
   const k = 'en:d:' + kind + ':' + (open ? 1 : 0) + (sty ? ':' + (col || '') + ':' + (emb || '') + ':' + (gold ? 1 : 0) : '') + (gate ? ':' + tx + ',' + ty + ':' + (emb || '') + ':' + sea : '') + (fl ? ':' + fl.join('/') : '') + (kind === 'onsen' && sea === 3 ? ':w' : '') + ':' + DW + 'x' + DH + (beyond ? ':' + beyond : '');
   return art(k, () => {
-    if (kind === 'onsen') return _enMake(DW, DH, G => { _enOnsenDoor(G, open); if (sea === 3) _enCapSnow(G, tx | 0); });   // winter: the snow line on the outer wall's top runs over it
+    if (kind === 'onsen') return _enMake(DW, DH, G => _enOnsenDoor(G, open, sea === 3 ? tx | 0 : null));   // winter: the snow line on the outer wall's top runs over it
     if (kind === 'hdoor') return _enMake(DW, DH, G => _enHDoor(G, open, col, emb, gold, beyond));
     if (gate) return _enMake(DW, DH, G => _enGate(G, open, tx, ty, kind === 'gateH', emb === 'star' || (kind === 'gate' && tx === 24 && ty === 4), sea));
     if (!sty) {
@@ -82,7 +82,7 @@ function doorArt(kind, open, col, emb, gold, tx, ty, floor, season, span, beyond
     return _enMake(DW, DH, G => {
       _enRoomDoor(G, open, { col, gold, floor: fl ? [_enLook(fl[0]).id, fl[1] === 'p' ? 'grav' : fl[1] === 'hall' ? 'hall' : (dfl ? dfl[1] : null)] : dfl });
       if (right) _enFlipG(G);
-      if (emb) _enEmblem(G, emb, right ? 5 : 6, 3, col || _EN.ind);
+      if (emb) _enEmblem(G, emb, right ? 5 : 6, 2, col || _EN.ind);
     });
   });
 }
@@ -146,80 +146,79 @@ function _enShoji(G, x0, y0, x1, y1, kick) {   // a pair of sliding paper doors 
   }
   G.set(mid - 1, (y0 + y1) >> 1, _EN.dwD); G.set(mid + 2, (y0 + y1) >> 1, _EN.dwD);   // finger pulls (hikite)
 }
-function _enRoomDoor(G, open, sty) {   // left room's door; its room (tatami) is to the left, the corridor to the right
-  const DH = G.h;   // v2.4: 32 for a door 2 tiles tall (the noren hangs at the top, the doorway goes on below)
-  for (let y = 0; y < DH; y++) { G.set(0, y, _EN.dwH); G.set(1, y, _EN.dw); G.set(14, y, _EN.dw); G.set(15, y, _EN.dwD); }
-  if (!open) { _enShoji(G, 2, 0, 13, DH - 2, 2); for (let x = 1; x < 15; x++) G.set(x, DH - 1, _EN.dwH); return; }
-  const fl = sty && sty.floor;
-  for (let y = 0; y < DH; y++) for (let x = 2; x < 14; x++) {   // floor seen through the doorway: tatami | wooden sill | corridor boards
-    let c = x < 6 ? ((y & 1) ? _enM(_EN.tat, _EN.tatW, .55) : _EN.tat) : x < 8 ? (x === 6 ? _EN.dwH : _EN.dw) : ((y % 4 === 0) ? _enM(_EN.woodS, _EN.dw, .25) : y % 4 === 1 ? _enM(_EN.wood, _EN.woodH, .45) : _EN.wood);
-    if (x === 2) c = _EN.heri;
-    if (fl) {   // v2: the right floors for doors that are not between a room and the corridor
-      const k = x < 6 ? fl[0] : x < 8 ? null : fl[1], F = k ? _EN_FLOOR[k] : null;
-      if (F && F.wood) c = _enWoodPx(F.k, F.wood, x + 3, y);   // v2.0.1: the room's own floor (A1)
-      else if (F && F.tat) c = x === 2 && F.lay !== 'q' ? F.heri : (y & 1) ? _enM(F.tat, F.tatW, .55) : F.tat;
-      else if (k === 'hall') c = _enWoodPx('chevron', _EN_HALLW, x + 2, y);
-      else if (k === 'din') c = y % 6 === 0 ? _EN.dinS : y % 6 === 1 ? _EN.dinH : _EN.din;
-      else if (k === 'lobby') c = y % 8 === 0 ? _EN.dw : y % 8 === 1 ? _enM(_EN.wood, _EN.dwH, .2) : _enM(_EN.wood, _EN.dwH, .42);
-      else if (k === 'grav') c = (x + y * 3) % 5 === 0 ? '#b4ad9e' : '#d2cbbb';
-    }
-    G.set(x, y, _enM(c, OUT, y < 11 ? .45 : y === 11 ? .3 : .1));
-  }
-  for (let x = 1; x < 15; x++) G.set(x, DH - 1, _EN.dwH);
-  for (let x = 1; x < 15; x++) G.set(x, 0, _EN.dwD);
-  if (sty) {   // v2: noren in the room's colour; a short split under the crest; gold edge for suites
-    const base = sty.col || _EN.ind, L = _enM(base, '#ffffff', .2), Lm = _enM(base, '#ffffff', .1), D = _enM(base, OUT, .32), Dm = _enM(base, OUT, .16);
-    for (let y = 1; y < 10; y++) for (let x = 2; x < 14; x++) {
-      if (x === 8 && y > 7) continue;
-      let c = base;
-      if (y === 1) c = L; else if (x === 2 || (x === 9 && y > 7)) c = Lm; else if (x === 13 || (x === 7 && y > 7) || y === 9) c = D;
-      else if ((x === 4 || x === 11) && y > 6) c = Dm;
-      G.set(x, y, c);
-    }
-    if (sty.gold) {
-      for (let y = 1; y < 10; y++) { G.set(2, y, '#f2d478'); G.set(13, y, '#c8962e'); }
-      for (let x = 2; x < 14; x++) if (x !== 8) G.set(x, 9, x < 8 ? '#e0b448' : '#c8962e');
-      for (let x = 3; x < 13; x++) G.set(x, 1, '#f2d478');
-    }
-    return;
-  }
-  // indigo noren hanging from a rod, split in the middle, a white ring crest across the split
-  for (let y = 1; y < 10; y++) for (let x = 2; x < 14; x++) {
-    if (x === 8 && y > 3) continue;
-    let c = _EN.ind;
-    if (y === 1) c = '#46629a'; else if (x === 2 || x === 9) c = '#3e5a90'; else if (x === 13 || x === 7) c = '#243a62'; else if (y === 9) c = '#243a62';
-    else if ((x === 5 || x === 11) && y > 3) c = '#29426e';
-    G.set(x, y, c);
-  }
-  [[7, 3], [8, 3], [9, 3], [6, 4], [10, 4], [6, 5], [10, 5], [7, 6], [9, 6]].forEach(([x, y]) => G.set(x, y, _EN.wht));
+// v2.5 (player feedback "the box outline round the door does not look like a way through"): an open door is a
+// passage. The floors of both sides run through the opening, the wall just ends (the tile above a door in a
+// vertical wall is that wall's end face, see _enWallFace), and the noren hangs from a rod at the top edge, short,
+// with the floor showing under it. Only a locked door is closed (shoji in a frame).
+function _enDoorFloorPx(k, x, y, dflt) {   // one pixel of a floor seen in a doorway (k: a floor look id | hall | din | lobby | grav | sand | null)
+  const F = k ? _EN_FLOOR[k] : null;
+  if (F && F.wood) return _enWoodPx(F.k, F.wood, x + 3, y);   // v2.0.1: the room's own floor (A1)
+  if (F && F.tat) return (y & 1) ? _enM(F.tat, F.tatW, .55) : F.tat;
+  if (k === 'hall') return _enWoodPx('chevron', _EN_HALLW, x + 2, y);
+  if (k === 'din') return y % 6 === 0 ? _EN.dinS : y % 6 === 1 ? _EN.dinH : _EN.din;
+  if (k === 'lobby') return y % 8 === 0 ? _EN.dw : y % 8 === 1 ? _enM(_EN.wood, _EN.dwH, .2) : _enM(_EN.wood, _EN.dwH, .42);
+  if (k === 'grav') return (x + y * 3) % 5 === 0 ? '#b4ad9e' : '#d2cbbb';
+  if (k === 'sand') return (y + (x >> 3)) % 3 === 0 ? '#cfc8b4' : '#e0dccf';
+  return dflt === 'tat' ? ((y & 1) ? _enM(_EN.tat, _EN.tatW, .55) : _EN.tat) : (y % 4 === 0) ? _enM(_EN.woodS, _EN.dw, .25) : y % 4 === 1 ? _enM(_EN.wood, _EN.woodH, .45) : _EN.wood;
 }
-// v2: door in a horizontal wall (west wing, (8,18)): same geometry as the onsen door; open = a short three-tongue
-// noren over the corridor boards beyond: colour col (null = v1 indigo; SPEC_v2 2.3 wants tea brown _EN_HDOOR_TEA for
-// (8,18)), crest emb or else a white ring
-function _enHDoor(G, open, col, emb, gold, beyond) {   // v2.4: G.w = 32 for a door 2 tiles wide; beyond: 'din' | 'sand' | the hall
-  const W = G.w, t1 = Math.floor(W / 3), t2 = Math.floor(2 * W / 3);   // the two slits between the noren's tongues
-  _enCap(G, false);
-  G.rect(0, 5, W, 1, _EN.dwD);
-  if (!open) { _enShoji(G, 0, 6, W - 1, 14, 2); for (let x = 0; x < W; x++) G.set(x, 15, _EN.dwH); return; }
-  for (let y = 6; y < 16; y++) for (let x = 0; x < W; x++) {   // v2.0.1: the west hall's parquet and runner beyond (v2.4: or the dining boards / the shrine's sand)
-    const c = beyond === 'din' ? (y % 6 === 0 ? _EN.dinS : y % 6 === 1 ? _EN.dinH : _EN.din) : beyond === 'sand' ? ((y + (x >> 3)) % 3 === 0 ? '#cfc8b4' : '#e0dccf') : _enHallPx(8 * 16 + x, 17 * 16 + y);
-    G.set(x, y, _enM(c, OUT, y < 12 ? .42 : .14));
-  }
-  for (let x = 0; x < W; x++) G.set(x, 15, _EN.dwH);
-  const base = col || _EN.ind, L = _enM(base, '#ffffff', .2), D = _enM(base, OUT, .32), Dm = _enM(base, OUT, .16);
-  for (let x = 0; x < W; x++) G.set(x, 2, _EN.dwD);
-  G.set(0, 2, '#3a2418'); G.set(W - 1, 2, '#3a2418');
-  for (let y = 3; y < 12; y++) for (let x = 1; x < W - 1; x++) {
-    if ((x === t1 || x === t2) && y > 8) continue;   // three tongues
+// a noren hung from a rod on row ry over x0..x1, cloth rows ry+1..y1; tongues = slit columns (open below row sy)
+function _enNoren(G, x0, x1, ry, y1, base, gold, slits, sy) {
+  const L = _enM(base, '#ffffff', .2), Lm = _enM(base, '#ffffff', .1), D = _enM(base, OUT, .32), Dm = _enM(base, OUT, .16);
+  for (let x = x0; x <= x1; x++) G.set(x, ry, x === x0 || x === x1 ? '#3a2418' : _EN.dwD);
+  for (let y = ry + 1; y <= y1; y++) for (let x = x0 + 1; x < x1; x++) {
+    if (y > sy && slits.includes(x)) continue;
     let c = base;
-    if (y === 3) c = L; else if (y === 11 || x === W - 2 || ((x === t1 - 1 || x === t2 - 1) && y > 8)) c = D; else if (x === 1 || ((x === t1 + 1 || x === t2 + 1) && y > 8)) c = _enM(base, '#ffffff', .1);
-    else if ((x === 3 || x === W - 4) && y > 5) c = Dm;
+    if (y === ry + 1) c = L; else if (y === y1 || x === x1 - 1 || (y > sy && slits.includes(x + 1))) c = D;
+    else if (x === x0 + 1 || (y > sy && slits.includes(x - 1))) c = Lm;
+    else if ((x === x0 + 3 || x === x1 - 3) && y > ry + 4) c = Dm;
+    if (gold && (x === x0 + 1 || y === ry + 1)) c = '#f2d478'; else if (gold && (x === x1 - 1 || y === y1)) c = '#c8962e';
     G.set(x, y, c);
   }
-  if (gold) for (let y = 3; y < 12; y++) { G.set(1, y, '#f2d478'); G.set(W - 2, y, '#c8962e'); }
+  for (let x = x0 + 1; x < x1; x++) { const c = G.get(x, y1 + 1); if (c) G.set(x, y1 + 1, _enM(c, OUT, .28)); }   // its shadow on the floor
+}
+function _enRoomDoor(G, open, sty) {   // left room's door; its room is to the left, the corridor to the right (v2.4: G.h 32 = 2 tiles tall)
+  const DH = G.h;
+  if (!open) {   // locked: shoji in a dark frame
+    for (let y = 0; y < DH; y++) { G.set(0, y, _EN.dwH); G.set(1, y, _EN.dw); G.set(14, y, _EN.dw); G.set(15, y, _EN.dwD); }
+    _enShoji(G, 2, 0, 13, DH - 2, 2); for (let x = 1; x < 15; x++) G.set(x, DH - 1, _EN.dwH); return;
+  }
+  const fl = sty && sty.floor;
+  for (let y = 0; y < DH; y++) for (let x = 0; x < 16; x++) {   // room floor | corridor floor
+    let c = x < 8 ? _enDoorFloorPx(fl && fl[0], x, y, 'tat') : _enDoorFloorPx(fl && fl[1], x, y, 'wood');
+    if (x === 7) c = _enM(c, OUT, .14);   // a faint threshold line where the wall stood
+    G.set(x, y, y === 0 ? _enM(c, OUT, .35) : y === 1 ? _enM(c, OUT, .18) : c);   // the wall end above shades the first rows
+  }
+  const NH = DH > 16 ? 10 : 8, base = (sty && sty.col) || _EN.ind;
+  _enNoren(G, 0, 15, 0, NH, base, sty && sty.gold, [8], NH - 3);
+  if (!sty || !sty.col) [[7, 2], [8, 2], [9, 2], [6, 3], [10, 3], [6, 4], [10, 4], [7, 5], [9, 5]].forEach(([x, y]) => G.set(x, y, _EN.wht));   // v1: white ring crest
+}
+// the two wall-end posts of a doorway in a horizontal wall: the wall cap stops at them, the face ends in a wooden post
+function _enWallEnds(G) {
+  const W = G.w;
+  for (const [a, b] of [[0, 1], [W - 2, W - 1]]) {
+    for (const x of [a, b]) {
+      G.set(x, 0, '#8a7470'); G.set(x, 1, _EN.topD); G.set(x, 2, _EN.dwH); G.set(x, 3, _EN.dw); G.set(x, 4, _EN.dwD);
+      for (let y = 5; y < 16; y++) G.set(x, y, x === a ? (a ? _EN.dw : _EN.dwH) : (a ? _EN.dwD : _EN.dw));
+    }
+  }
+  for (let y = 5; y < 16; y++) { const l = G.get(2, y), r = G.get(W - 3, y); if (l) G.set(2, y, _enM(l, OUT, .22)); if (r) G.set(W - 3, y, _enM(r, OUT, .22)); }   // posts' shadow on the floor
+}
+// v2: door in a horizontal wall (west wing (8,18) and the v2.4 links). Open (v2.5): a passage - the floor beyond (the
+// west hall's parquet + runner, the dining boards, the shrine's sand) runs through, wall-end posts at the sides, a short
+// three-tongue noren (colour col, crest emb or a white ring) hanging from a rod
+function _enHDoor(G, open, col, emb, gold, beyond) {   // v2.4: G.w = 32 for a door 2 tiles wide; beyond: 'din' | 'sand' | the hall
+  const W = G.w, t1 = Math.floor(W / 3), t2 = Math.floor(2 * W / 3);
+  if (!open) { _enCap(G, false); G.rect(0, 5, W, 1, _EN.dwD); _enShoji(G, 0, 6, W - 1, 14, 2); for (let x = 0; x < W; x++) G.set(x, 15, _EN.dwH); return; }
+  for (let y = 0; y < 16; y++) for (let x = 0; x < W; x++) {
+    const c = beyond === 'din' ? _enDoorFloorPx('din', x, y) : beyond === 'sand' ? _enDoorFloorPx('sand', x, y) : _enHallPx(8 * 16 + x, 17 * 16 + y);
+    G.set(x, y, y === 15 ? _enM(c, _EN.dwH, .35) : c);   // a faint sill on the last row
+  }
+  const base = col || _EN.ind;
+  _enNoren(G, 1, W - 2, 2, 9, base, gold, [t1, t2], 6);
+  _enWallEnds(G);
   const ox = (W - 16) >> 1;
-  if (emb) _enEmblem(G, emb, ox + 5, 4, base);
-  else [[6, 4], [7, 4], [8, 4], [5, 5], [9, 5], [5, 6], [9, 6], [6, 7], [7, 7], [8, 7]].forEach(([x, y]) => G.set(ox + x, y, _EN.wht));
+  if (emb) _enEmblem(G, emb, ox + 5, 3, base);
+  else [[6, 3], [7, 3], [8, 3], [5, 4], [9, 4], [5, 5], [9, 5], [6, 6], [7, 6], [8, 6]].forEach(([x, y]) => G.set(ox + x, y, _EN.wht));
 }
 // v2: bamboo wicket gate (shiorido), seen from the front: cedar posts, a capped top rail, a woven dried-bamboo leaf.
 // It paints its own paving (slate for 'gate', the gravel walk for 'gateH') lined up with tile (tx, ty).
@@ -262,39 +261,28 @@ function _enGate(G, open, tx, ty, horiz, lamp, season) {   // v2.4: G.w = 32 (ga
     G.set(ox + 9, 6, '#fffbe0');
   }
 }
-function _enOnsenDoor(G, open) {   // sits in a wall-face row: cap + beam continue from the neighbours (v2.4: G.w 32 = 2 tiles wide)
+function _enOnsenDoor(G, open, snowTx) {   // sits in a wall-face row (v2.4: G.w 32 = 2 tiles wide); snowTx != null = winter
   const W = G.w, t1 = Math.floor(W / 3), t2 = Math.floor(2 * W / 3), ox = (W - 16) >> 1;
-  _enCap(G, false);
-  G.rect(0, 5, W, 1, _EN.dwD);
-  if (!open) { _enShoji(G, 0, 6, W - 1, 14, 2); for (let x = 0; x < W; x++) G.set(x, 15, _EN.dwH); return; }
-  for (let y = 6; y < 16; y++) for (let x = 0; x < W; x++) {   // steamy bath floor beyond the doorway
-    let c = (x + (y >> 2) * 5) % 8 === 0 || y % 4 === 0 ? _EN.slD : _EN.sl;
-    G.set(x, y, _enM(c, OUT, y < 13 ? .4 : .15));
+  if (!open) { _enCap(G, false); G.rect(0, 5, W, 1, _EN.dwD); _enShoji(G, 0, 6, W - 1, 14, 2); for (let x = 0; x < W; x++) G.set(x, 15, _EN.dwH); if (snowTx != null) _enCapSnow(G, snowTx); return; }
+  for (let y = 0; y < 16; y++) for (let x = 0; x < W; x++) {   // v2.5: the bath's stone floor runs through the doorway
+    const c = (x + (y >> 2) * 5) % 8 === 0 || y % 4 === 0 ? _EN.slD : _EN.sl;
+    G.set(x, y, y === 15 ? _enM(c, _EN.dwH, .35) : c);
   }
-  for (let x = 0; x < W; x++) G.set(x, 15, _EN.dwH);
-  // red noren hung in front of the beam; white yu (hot water) glyph; the hem is cut into three tongues
-  const RD = _EN.red, RDd = '#9a2e2a', RDl = '#de6450';
-  for (let x = 0; x < W; x++) G.set(x, 2, _EN.dwD);
-  G.set(0, 2, '#3a2418'); G.set(W - 1, 2, '#3a2418');
-  for (let y = 3; y < 15; y++) for (let x = 1; x < W - 1; x++) {
-    if ((x === t1 || x === t2) && y > 13) continue;
-    let c = RD;
-    if (y === 3) c = RDl; else if (y === 14 || x === W - 2) c = RDd; else if (x === 1) c = '#d65846';
-    G.set(x, y, c);
-  }
+  // red noren with a white yu (hot water) glyph, the hem cut into three tongues
+  _enNoren(G, 1, W - 2, 1, 11, _EN.red, false, [t1, t2], 9);
   const GLY = [
-    'X..XXXXX..',
-    '.X.X...X..',
-    '...XXXXX..',
-    'X..X...X..',
-    '.X.XXXXX..',
-    '..........',
-    '..XXXXXXXX',
-    '....X..X.X',
-    '.X.X..X..X',
-    'X.X..X..X.',
+    'X..XXXXX.',
+    '.X.X...X.',
+    '...XXXXX.',
+    'X.XXXXXXX',
+    '.X..X...X',
+    '...X.X..X',
+    '.XX.X.X.X',
+    'X..X...X.',
   ];
-  GLY.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === 'X') G.set(ox + 3 + i, 4 + j, _EN.wht); }));
+  GLY.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === 'X') G.set(ox + 3 + i, 2 + j, _EN.wht); }));
+  _enWallEnds(G);
+  if (snowTx != null) for (let x = 0; x < W; x++) if (x < 2 || x >= W - 2) { G.set(x, 0, _EN_SN.w); G.set(x, 1, _EN_SN.s); }   // winter: snow on the wall ends' caps
 }
 // the indigo noren over the main entrance: 48x14, anchor (0,0) at (6*16, 29*16-6); drawn over the cats
 function entranceNoren() {

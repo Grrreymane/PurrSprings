@@ -38,9 +38,10 @@ S.rep.r = 20; eq(fee('room', { rm: ROOM.room1 }), R(14 * .8), '2 stars: room fee
 st(STAR2); S.clock = .76; S.basket = BASKET_MAX;   // (v2.3: 150 s from just after the summary - a day is 180 s)
 { run(150); ok(S.rep.n >= 5, 'guests rated their stays as they left: ' + S.rep.n); ok(S.rep.s >= S.rep.n * 10 && S.rep.s <= S.rep.n * 50, 'ratings within 1-5'); }
 { S.rep.s = 420; S.rep.n = 10; const h0 = S.hearts, d0 = S.rep.d; BANNER_Q.length = 0; FIRST_Q.length = 0; S.seen.rep = false;
-  S.clock = rushEnd() - .5 / DAY_LEN; run(1, () => S.rep.d > d0);
+  const _rs = rateStay; rateStay = () => 42;   // (a guest leaving in this second rates 4.2 too: the test is about the summary - one rating 3 made it 41)
+  S.clock = rushEnd() - .5 / DAY_LEN; S.rep.s = 420; S.rep.n = 10; run(1, () => S.rep.d > d0); rateStay = _rs;
   eq(S.rep.r, 42, 'the summary: today\'s average becomes the reputation'); eq(S.rep.n, 0, 'a new day of ratings'); eq(S.rep.d, d0 + 1, 'days rated +1');
-  eq(S.hearts - h0, R((4.2 - 3) * 5), 'hearts (4.2 - 3) x 5');
+  ok(S.hearts - h0 >= R((4.2 - 3) * 5) && S.hearts - h0 <= R((4.2 - 3) * 5) + 2, 'hearts (4.2 - 3) x 5 (+ a guest who left): ' + (S.hearts - h0));
   const b = BANNER_Q.find(x => x.kind === 'rep'); ok(b && b.id === 42 && b.pct === R((repMul() - 1) * 100), 'the evening summary banner: stars + the fee change');
   ok(b && bannerParts(b).parts.some(p => p.t === '4.2'), 'the banner says 4.2'); ok(FIRST_Q.some(f => f.key === 'rep'), 'the first summary: its picture card'); }
 { const r0 = S.rep.r; BANNER_Q.length = 0; S.rep.s = 0; S.rep.n = 0; for (const gu of GUESTS) gu.rated = true; spawnT = 1e9; S.clock = rushEnd() - .5 / DAY_LEN; run(1); eq(S.rep.r, r0, 'nobody rated today: the reputation stays'); ok(!BANNER_Q.some(x => x.kind === 'rep'), 'and no banner'); }

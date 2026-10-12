@@ -38,8 +38,8 @@ const mom = () => VIPG && VIPG.mom ? VIPG : null;
   ok(!!mom(), 'v2.4: on her day mom comes first, a rare guest due waits');
   RARE_DUE.r_zen = S.stats.time; vipT = S.stats.time; run(2); ok(mom() && VIPG === mom(), 'while mom is in, a rare guest / VIP due waits');
   // v2.4: the only suite has a guest of honour asleep in it on her day: no VIP comes in between, she comes the next morning
-  setup(15, .5); S.unlocked.suiteB = false; resetWorld(); go('play'); spawnT = 1e9; vipT = 1e9; S.vsleep = [{ r: 'c3', id: 'kawa', w: 16 }]; resetWorld(); go('play'); spawnT = 1e9; vipT = S.stats.time;
-  run(2); ok(!VIPG, 'her day, the suite taken: nobody comes'); S.clock = DAWN_AT - .002; run(1); eq(S.day, 16, 'the next morning');
+  setup(15, .5); S.unlocked.suiteB = false; resetWorld(); go('play'); spawnT = 1e9; vipT = 1e9; S.vsleep = [{ r: 'c3', id: 'kawa', t: 999 }]; resetWorld(); go('play'); spawnT = 1e9; vipT = S.stats.time;
+  run(2); ok(!VIPG, 'her day, the suite taken: nobody comes'); VSLEEP[0].rec.t = .5; S.clock = DAWN_AT - .002; run(1); eq(S.day, 16, 'the next morning');
   ok(!VSLEEP.some(e => e.st === 'sleep'), 'the sleeper got up'); run(DT * 2); ok(!!mom(), 'mom comes the next day (late)'); }
 // ---- the visit: greet ("又长大了呢" from year 3), lead, tea, bath, the family photo, "妈妈为你骄傲"
 { setup(27, .299); run(1); const v = mom(); ok(v && v.momYear === 3, 'year 3');
@@ -52,7 +52,7 @@ const mom = () => VIPG && VIPG.mom ? VIPG : null;
   eq(state, 'card', 'the family photo pauses the game'); ok(MODAL_Q[0] && MODAL_Q[0].kind === 'family' && MODAL_Q[0].y === 3, 'a family card, year 3');
   eq(S.album.photos.length, photos, 'no VIP album photo'); eq(S.gifts.length, gifts, 'no gift on the shelf');
   render(); modalClose(); eq(state, 'play', 'closed'); ok(!VIPG && VSLEEP.some(e => e.mom), 'v2.4: she stays the night');
-  run(10); const sm = VSLEEP.find(e => e.mom); eq(sm && sm.st, 'sleep', 'asleep in the suite'); sm.rec.w = S.day + 1;
+  run(10); const sm = VSLEEP.find(e => e.mom); eq(sm && sm.st, 'sleep', 'asleep in the suite'); sm.rec.t = .3;
   P.x = tcx(ROOM[sm.room].stand); P.y = tcy(ROOM[sm.room].stand) + 16; updCam(0, true); said.length = 0; S.clock = DAWN_AT - .002; run(1);
   ok(said.includes('E10:go'), 'in the morning: "妈妈为你骄傲" (' + said.join() + ')'); run(45, () => !VSLEEP.length); ok(!VSLEEP.length, 'she went home'); }
 // ---- the family photo: everyone hired, the pet; the wall

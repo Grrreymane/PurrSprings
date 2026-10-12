@@ -57,15 +57,18 @@ function cardBase(x, y, w, h, wood) {
   }
 }
 function drawInfoCard(u) {
-  const x = 12, y = CARD_Y, w = 156, h = 24, cy = y + 12, need = Math.max(0, padNeed(u)), ok = S.money >= need;
+  const two = !!u.rare, x = 12, y = CARD_Y - (two ? 12 : 0), w = 156, h = two ? 36 : 24, cy = y + 12, need = Math.max(0, padNeed(u)), ok = S.money >= need;   // v2.5: a garden piece's card has a second row
   cardBase(x, y, w, h, true);
   let lx = x + 20;
   if (u.decor || u.goldOf) { const ic = unlockIcon(u); g.fillStyle = OUT; g.fillRect(x + 1, y - 5, 24, 24); g.fillStyle = '#fff3d0'; g.fillRect(x + 2, y - 4, 22, 22); g.drawImage(ic, x + 3, y - 3, 20, 20); lx = x + 29; }   // 7.2: a bigger decor icon
   else drawC(unlockIcon(u), x + 11, cy);
   txt(u.name, lx, cy + .5, 8, '#ffd23f', 'left'); lx += textW(u.name, 8) + 3;
-  txt('·', lx, cy + .5, 7, '#c8a878', 'left', null); lx += textW('·', 7) + 3;
-  txt(u.card, lx, cy + .5, 7, '#ffffff', 'left');
-  if (u.rare) infoRareB(u, lx + textW(u.card, 7) + 3, cy);   // v2.1: a garden piece shows the silhouette of the guest it may bring
+  if (two) { gzBonusB(lx, cy); infoRareB(u, x + 6, y + 26); }   // v2.5: [cottage] +3% | 会引来 [face ?] [when] -> [keepsake]
+  else {
+    txt('·', lx, cy + .5, 7, '#c8a878', 'left', null); lx += textW('·', 7) + 3;
+    txt(u.card, lx, cy + .5, 7, '#ffffff', 'left'); lx += textW(u.card, 7) + 3;
+    if (u.shrine) txt('收费+1%', lx, cy + .5, 7, '#ff9ad0', 'left');   // v2.5: what an offering does (the shrine's torii is not the garden's)
+  }
   // the price on the right: fish + amount (+ a green tick when you can pay it all)
   let rx = x + w - 5;
   if (ok) { g.drawImage(TICK, rx - 7, cy - 3); rx -= 9; }

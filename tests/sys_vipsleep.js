@@ -1,6 +1,6 @@
 // v2.4 (player feedback "the guests of honour run off right after the photo"): after its photo a VIP / rare guest / mom
-// walks to the futon of its suite and sleeps (futon 'sleep' art + its head, Zzz, the andon glows) until the next dawn -
-// at least VIP_SLEEP_MIN s, else the dawn after - then says goodbye and leaves; the suite is messy (the long clean). The
+// walks to the futon of its suite and sleeps (futon 'sleep' art + its head, Zzz, the andon glows) for VIP_SLEEP_T s (v2.5:
+// "no need to sleep a whole night, just longer than the others" - a normal guest sleeps SLEEP_T) - then says goodbye and leaves; the suite is messy (the long clean). The
 // VIP slot frees at the photo, but nobody comes while every suite has a sleeper in it (the other suite is used when it is
 // free); a save mid-sleep loads with the sleeper back in its futon; odd S.vsleep rows are dropped.
 //   node D:/Minigame/_workflow/tools/headless.js D:/Minigame/Hotelgame tests/sys_vipsleep.js --seed 1
@@ -26,7 +26,7 @@ function photo(who, sid) {
 st();
 { const n0 = S.stats.vips, v = photo('kawa'); eq(S.stats.vips, n0 + 1, 'the visit counts at the photo'); ok(!VIPG, 'the VIP slot is free');
   const e = VSLEEP[0]; ok(e && e.id === 'kawa' && e.room === 'c3' && RT.c3.guest === e, 'a sleeper in 月见亭'); eq(e && e.st, 'toBed', 'walking to the futon');
-  eq(S.vsleep.length, 1, 'saved: one sleeper'); eq(S.vsleep[0].w, S.day + 1, 'wakes the next dawn');
+  eq(S.vsleep.length, 1, 'saved: one sleeper'); eq(S.vsleep[0].t, VIP_SLEEP_T, 'sleeps VIP_SLEEP_T s'); ok(VIP_SLEEP_T >= 2.5 * SLEEP_T && VIP_SLEEP_T <= 3 * SLEEP_T, 'somewhat longer than a guest (' + VIP_SLEEP_T + ' vs ' + SLEEP_T + ' s)');
   run(6); eq(e.st, 'sleep', 'asleep'); eq(S.rooms.c3, 'occupied', 'the suite reads occupied'); eq(tileOf(e) + '', ROOM.c3.cleanT + '', 'on its futon');
   // drawn: the futon in 'sleep', its head, the Zzz bubble; the andon glows (r18)
   const fa = [], hd = [], bz = []; const _f = futonArt, _h = catSleepHead, _b = bubbleArt;
@@ -37,34 +37,35 @@ st();
   // nobody else comes: the only suite is taken (a VIP due, a rare guest due)
   vipT = S.stats.time; run(3); ok(!VIPG, 'a VIP due waits while the only suite has a sleeper');
   S.unlocked.gd_zen = true; rareSync(); RARE_DUE.r_zen = S.stats.time; run(3); ok(!VIPG, 'a rare guest due waits too');
-  // the night passes: at dawn it gets up, says goodbye, walks out; the suite is messy (the long clean)
+  // its time is up: it gets up, says goodbye, walks out; the suite is messy (the long clean)
   const said = []; const _say = say; say = (w, id, a) => { const r = _say(w, id, a); if (r && w === e) said.push(id); return r; };
-  S.clock = DAWN_AT - .002; P.x = tcx(ROOM.c3.stand); P.y = tcy(ROOM.c3.stand) + 20; updCam(0, true); lineCD = -99; LINE = null; run(.5); say = _say;
-  eq(e.st, 'leave', 'up at dawn'); ok(said.includes('V11'), 'goodbye: V11 (' + said.join() + ')'); eq(S.rooms.c3, 'messy', 'suite messy'); ok(RT.c3.vipMess, 'the long clean'); eq(S.vsleep.length, 0, 'not saved any more');
+  ok(e.rec.t > .5, 'still asleep a few seconds before'); P.x = tcx(ROOM.c3.stand); P.y = tcy(ROOM.c3.stand) + 20; updCam(0, true); lineCD = -99; LINE = null; e.rec.t = .3; run(.5); say = _say;
+  eq(e.st, 'leave', 'up after its sleep'); ok(said.includes('V11'), 'goodbye: V11 (' + said.join() + ')'); eq(S.rooms.c3, 'messy', 'suite messy'); ok(RT.c3.vipMess, 'the long clean'); eq(S.vsleep.length, 0, 'not saved any more');
   run(3, () => !!VIPG); ok(!!VIPG, 'the suite is free again: the next guest of honour comes'); VIPG = null;
   run(45, () => !VSLEEP.length); ok(!VSLEEP.length, 'out of the door'); }
-// ---- a photo just before dawn: it sleeps through to the dawn after (>= VIP_SLEEP_MIN)
-st([], DAWN_AT - 20 / DAY_LEN); photo('ozeki'); eq(S.vsleep[0].w, S.day + 2, '20 s before dawn: wakes the dawn after next'); run(25); eq(VSLEEP[0].st, 'sleep', 'still asleep after that dawn');
-st([], .5); photo('ozeki'); eq(S.vsleep[0].w, S.day + 1, 'evening photo: the next dawn');
+// ---- the clock does not matter (v2.5): a photo just before dawn or in the evening, the same short sleep
+st([], DAWN_AT - 5 / DAY_LEN); photo('ozeki'); run(VIP_SLEEP_T - 2); eq(VSLEEP[0].st, 'sleep', 'over the dawn: still asleep'); run(8); eq(VSLEEP[0] && VSLEEP[0].st, 'leave', 'up after VIP_SLEEP_T s (+ the walk to bed)');
+st([], .5); photo('ozeki'); run(VIP_SLEEP_T + 8); eq(VSLEEP[0] && VSLEEP[0].st, 'leave', 'evening photo: up the same evening');
 // ---- two suites: the next one is led to the free suite
 st(['suiteB']); photo('kawa'); run(6); vipT = S.stats.time; run(1); ok(VIPG && VIPG.st === 'arrive', 'suite B free: the next VIP comes'); eq(cleanSuite() && cleanSuite().id, 'c4', 'suite B is the free one');
 // ---- the kitten brothers sleep in a row
 st(['gd_tower']); photo('r_kits'); run(6); const kz = VSLEEP[0];
 { const hd = []; const _h = catSleepHead; catSleepHead = fur => { hd.push(fur); return _h(fur); }; P.x = tcx(ROOM.c3.stand); P.y = tcy(ROOM.c3.stand) + 20; updCam(0, true); render(); catSleepHead = _h;
-  eq(hd.length, 3, 'three heads on the futon'); kz.rec.w = S.day + 1; S.clock = DAWN_AT - .002; run(2); eq(kz.st, 'leave', 'up'); ok(kz.kits.every(k => dist(k.x, k.y, kz.x, kz.y) < 40), 'the little ones follow it out'); }
+  eq(hd.length, 3, 'three heads on the futon'); kz.rec.t = .2; run(2); eq(kz.st, 'leave', 'up'); ok(kz.kits.every(k => dist(k.x, k.y, kz.x, kz.y) < 40), 'the little ones follow it out'); }
 // ---- save mid-sleep -> load: back in its futon, wakes as planned; odd rows dropped
-st(['suiteB']); photo('sakura'); run(6); const w0 = S.vsleep[0].w; saveNow();
+st(['suiteB']); photo('sakura'); run(6); const w0 = S.vsleep[0].t; saveNow();
 { const raw = JSON.parse(localStorage.getItem(SAVE + 'state')); S = loadState(raw); resetWorld(); go('play'); spawnT = 1e9;
   eq(VSLEEP.length, 1, 'loaded: one sleeper'); const e = VSLEEP[0]; ok(e && e.id === 'sakura' && e.st === 'sleep' && RT.c3.guest === e, 'sakura asleep in 月见亭'); eq(S.rooms.c3, 'occupied', 'suite occupied');
-  eq(e.look.fur, VIP.sakura.fur, 'its own look'); eq(e.rec.w, w0, 'same wake day'); ok(!cleanSuite() || cleanSuite().id === 'c4', 'only suite B free');
-  S.clock = DAWN_AT - .002; S.day = w0 - 1; run(.5); eq(e.st, 'leave', 'wakes after the load'); }
+  eq(e.look.fur, VIP.sakura.fur, 'its own look'); ok(Math.abs(e.rec.t - w0) < .01, 'same sleep left (' + e.rec.t + ' vs ' + w0 + ')'); ok(!cleanSuite() || cleanSuite().id === 'c4', 'only suite B free');
+  run(w0 + .5); eq(e.st, 'leave', 'wakes after the load'); }
 { const raw = JSON.parse(JSON.stringify(defaults())); Object.assign(raw.unlocked, { garden: true }); raw.rooms = { room1: 'clean', c3: 'occupied', c4: 'occupied' }; raw.day = 9;
-  raw.vsleep = [{ r: 'c3', id: 'kawa', w: 10 }, { r: 'c3', id: 'ozeki', w: 10 }, { r: 'c4', id: 'star', w: 10 }, { r: 'room1', id: 'kawa', w: 10 }, { r: 'c3', id: 'nobody' }, null, 'x', { r: 'c3', id: 'mom', w: 1e9, y: 'q' }];
-  const s = loadState(raw); eq(JSON.stringify(s.vsleep), JSON.stringify([{ r: 'c3', id: 'kawa', w: 10 }]), 'one per suite, open suites, known ids only'); eq(s.rooms.c3, 'occupied', 'its suite stays occupied'); eq(s.rooms.c4, undefined, 'a locked suite: dropped');
+  raw.vsleep = [{ r: 'c3', id: 'kawa', t: 12 }, { r: 'c3', id: 'ozeki', t: 10 }, { r: 'c4', id: 'star', t: 10 }, { r: 'room1', id: 'kawa', t: 10 }, { r: 'c3', id: 'nobody' }, null, 'x', { r: 'c3', id: 'mom', t: 1e9, y: 'q' }];
+  const s = loadState(raw); eq(JSON.stringify(s.vsleep), JSON.stringify([{ r: 'c3', id: 'kawa', t: 12 }]), 'one per suite, open suites, known ids only'); eq(s.rooms.c3, 'occupied', 'its suite stays occupied'); eq(s.rooms.c4, undefined, 'a locked suite: dropped');
   const raw2 = JSON.parse(JSON.stringify(defaults())); Object.assign(raw2.unlocked, { garden: true }); raw2.rooms = { room1: 'clean', c3: 'occupied' }; delete raw2.vsleep;
   const s2 = loadState(raw2); eq(s2.rooms.c3, 'messy', 'an old save: an occupied suite without a sleeper is messy'); eq(s2.vsleep.length, 0, 'no sleepers');
-  const raw3 = JSON.parse(JSON.stringify(defaults())); Object.assign(raw3.unlocked, { garden: true }); raw3.day = 3; raw3.vsleep = [{ r: 'c3', id: 'mom', w: 99, y: 2 }];
-  const s3 = loadState(raw3); eq(JSON.stringify(s3.vsleep), JSON.stringify([{ r: 'c3', id: 'mom', w: 5, y: 2 }]), 'mom kept, a far wake day clamped to day + 2'); }
+  const raw3 = JSON.parse(JSON.stringify(defaults())); Object.assign(raw3.unlocked, { garden: true }); raw3.day = 3; raw3.vsleep = [{ r: 'c3', id: 'mom', t: 1e9, y: 2 }, { r: 'c4', id: 'kawa', w: 5 }];
+  const s3 = loadState(raw3); eq(JSON.stringify(s3.vsleep), JSON.stringify([{ r: 'c3', id: 'mom', t: VIP_SLEEP_T, y: 2 }]), 'mom kept, a long sleep clamped to VIP_SLEEP_T');
+  raw3.unlocked.suiteB = true; const s4 = loadState(raw3); eq(s4.vsleep[1] && s4.vsleep[1].t, VIP_SLEEP_T, 'a v2.4 row (wake day): a fresh sleep'); }
 // ---- ten minutes of the arrow bot from star 4 (it buys suite B on the way): never stuck, the suites cycle sleeper -> messy -> clean -> next
 st(['chef', 'waiter1']); S.stats.vips = 2; vipT = S.stats.time + 5; spawnT = 1; ensureStaff();
 { let path = [], key = '', think = 0, asleep = 0, maxCarpet = 0, carpetT = 0;

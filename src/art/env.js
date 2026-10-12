@@ -168,7 +168,12 @@ function _enCap(G, under) {   // top 5 rows of every wall face: rim + wall-top c
   G.rect(0, 2, W, 1, _EN.dwH); G.rect(0, 3, W, 1, _EN.dw); G.rect(0, 4, W, 1, _EN.dwD);
 }
 function _enWallFace(G, tx, ty, nb, season) {
-  const lintel = nb.d === 'D', facade = _EN_FACADE.has(nb.d);
+  if (nb.d === 'D' && (nb.u === '#' || nb.u === 'b')) {   // v2.5: a vertical wall ending at a doorway: its top runs on, only a low end face shows (no transom box)
+    _enWallTop(G, tx, ty, Object.assign({}, nb, { d: '#' }), season);
+    for (let x = 0; x < 16; x++) { G.set(x, 11, _EN.plS); G.set(x, 12, _EN.pl); G.set(x, 13, _EN.pl); G.set(x, 14, _EN.dwH); G.set(x, 15, _EN.dwD); }
+    return;
+  }
+  const facade = _EN_FACADE.has(nb.d);
   if (facade) {   // outside: a little tiled eave (kawara) over plaster and dark cedar boards
     for (let x = 0; x < 16; x++) {
       const wx = tx * 16 + x, k = wx % 4;
@@ -189,16 +194,7 @@ function _enWallFace(G, tx, ty, nb, season) {
     G.set(x, y, c);
   }
   const postTop = facade ? 6 : 5;
-  if (lintel) {   // wall above a door: carved transom (ranma) + door lintel (kamoi)
-    G.rect(3, 6, 10, 6, _EN.dwD);
-    for (let x = 4; x < 12; x++) for (let y = 7; y < 11; y++) {
-      const wave = (y === 8 || y === 9) && ((x + (y === 9 ? 2 : 0)) % 4 < 2);   // a little carved wave between slats
-      G.set(x, y, wave ? _EN.dwH : (x & 1) ? _EN.dw : '#f6ecd4');
-    }
-    G.rect(4, 7, 8, 1, _enM(_EN.dw, _EN.dwD, .5));
-    G.rect(0, 12, 16, 1, _EN.plS);
-    G.rect(0, 13, 16, 1, _EN.dwH); G.rect(0, 14, 16, 1, _EN.dw); G.rect(0, 15, 16, 1, _EN.dwD);
-  } else if (facade) {
+  if (facade) {
     const wl = _EN_WIN[ty] || [], left = wl.indexOf(tx) >= 0, win = left || wl.indexOf(tx - 1) >= 0;   // lattice windows
     for (let x = 0; x < 16; x++) {
       const wx = tx * 16 + x, b = wx % 4;

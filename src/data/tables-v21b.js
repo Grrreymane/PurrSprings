@@ -78,6 +78,10 @@ const UNLOCKS_V21B = [];
 // the fireworks' price follows the shows so far (padNeed / the pad / the card read u.price)
 Object.defineProperty(UNLOCKS_V21B.find(u => u.id === 'fw'), 'price', { get: fwPrice, enumerable: true });
 const GZ_IDS = GARDEN_B.map(g => g[0]);
+// v2.5 (player feedback "what does the water wheel do?"): besides its rare guest every garden piece gives the two garden
+// cottages (the rooms that look out on it) +GZ_FEE room fee, so a piece is never dead money
+const GZ_FEE = .03;
+const gzOwned = () => GZ_IDS.reduce((n, id) => n + (S.unlocked[id] ? 1 : 0), 0);
 
 // ---- rare guests (16.7): look (robe / hat / acc combinations, 16.14), wishes, the keepsake it leaves, its arrival line
 // (E11), the condition it waits for (season 0-3 | 'night'). `kits`: the three kitten brothers (kittenSprite x 3).

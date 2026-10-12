@@ -2,7 +2,7 @@
 // tanuki says K02, the try-on card (7.4) queues, a "new" edge tag; a hat booth (5,33) and a pet booth (7,33) show the next
 // piece (cheapest first, VIP hats only once that VIP came), the mirror (stand at (2,33)) and the pet cushion (8,34) pop in.
 // Within 2 tiles of a booth you try the piece on (hat on your head + sparkles / the pet's ghost at your feet), K03 once a
-// piece; buying = wearing (K04 + P05). The mirror / cushion switch to the next owned hat / pet incl. none every 1 s. Towels
+// piece; buying = wearing (K04 + P05). The mirror opens the 装扮 page (v2.5); the cushion switches pets every 1 s. Towels
 // on your head hide the hat. Pets follow (crumbs); the duck quacks now and then on a fish pickup (A01, <= 1 / 20 s), the
 // shiba barks at a VIP (A02); the gold headband leaves gold glints. The covered statue (1,000,000): the cloth slides with the
 // money poured; bought: gold statue, every tip +1, hearts +100, a banner. The arrow points at a booth piece once (the first
@@ -77,12 +77,14 @@ setup(true);
   S.money = 24000; walkTo(PET_PAD[0], PET_PAD[1]); run(4, () => !!S.unlocked.p_duck); eq(S.equip.pet, 'p_duck', 'the duck comes along');
   run(.1); ok(PET && PET.kind === 'duck', 'pet entity'); let far = 0; walkTo(17, 27, 40); run(1, () => { far = Math.max(far, dist(P.x, P.y, PET.x, PET.y)); return false; });
   ok(dist(P.x, P.y, PET.x, PET.y) < 30, 'the duck caught up (' + dist(P.x, P.y, PET.x, PET.y).toFixed(1) + ' px)'); }
-// ---- the mirror: the next owned hat, "none" included, every 1 s; walk off and it stays
+// ---- v2.5: the mirror is the wardrobe - standing still in front of it MIRROR_OPEN_T s opens the 装扮 page (paused); it
+// opens again only after you step off
 setup(true, ['h_straw', 'h_flower']);
-{ S.equip.hat = 'h_straw'; at(SPOT.mirror[0], SPOT.mirror[1]); run(.9); eq(S.equip.hat, 'h_straw', 'not before 1 s');
-  run(.15); eq(S.equip.hat, 'h_flower', '1 s: the flower'); run(1); eq(S.equip.hat, null, '2 s: none'); run(1); eq(S.equip.hat, 'h_straw', '3 s: back to straw');
-  at(4, 32); run(2); eq(S.equip.hat, 'h_straw', 'walked off: it stays'); ok(SFXLOG.filter(k => k === 'tryon').length >= 3, 'a try-on sound each switch'); }
-setup(true); { at(SPOT.mirror[0], SPOT.mirror[1]); run(3); eq(S.equip.hat, null, 'no hats owned: the mirror does nothing'); }
+{ S.equip.hat = 'h_straw'; at(SPOT.mirror[0], SPOT.mirror[1]); run(MIRROR_OPEN_T - .15); eq(state, 'play', 'not before ' + MIRROR_OPEN_T + ' s');
+  ok(MIRROR.t > 0, 'a ring fills at your feet'); run(.2); eq(state, 'menu', 'the mirror opens the menu'); eq(MENU.page, 'dress', 'on the 装扮 page'); ok(S.tut.dressOpen, 'counts as opened');
+  eq(S.equip.hat, 'h_straw', 'nothing changed by itself'); closeMenu(); run(2); eq(state, 'play', 'standing on: it does not open again');
+  at(4, 32); run(.2); at(SPOT.mirror[0], SPOT.mirror[1]); run(1); eq(state, 'menu', 'stepped off and back: opens again'); closeMenu(); }
+setup(true); { at(SPOT.mirror[0], SPOT.mirror[1]); run(3); eq(state, 'play', 'nothing to wear yet: the mirror does nothing'); }
 // ---- the pet cushion
 setup(true, ['p_duck', 'p_shiba']);
 { S.equip.pet = null; at(SPOT.petCushion[0], SPOT.petCushion[1]); run(1.05); eq(S.equip.pet, 'p_duck', 'cushion: the duck'); run(1); eq(S.equip.pet, 'p_shiba', 'the shiba');

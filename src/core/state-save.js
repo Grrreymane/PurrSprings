@@ -9,7 +9,7 @@ function defaults() {
     equip: { hat: null, pet: null }, staff: {}, vipNext: 0, opts: { lines: true }, gift: false,
     vipOwe: 0,   // the unpaid gift of a VIP seated in a suite right now (10.1: half of it goes to the cash box on load)
     vipAt: 0,    // when the next VIP is due after one left (game seconds, stats.time): a reload must not bring it sooner (18.2)
-    vsleep: [],  // v2.4: guests of honour asleep in a suite after their photo [{ r: suite, id, w: wake day, y: mom's year }]
+    vsleep: [],  // v2.4: guests of honour asleep in a suite after their photo [{ r: suite, id, t: seconds left (v2.5), y: mom's year }]
     // v2.1 core A (16.13; seasons.js loadV21a cleans them): the year's starting totals, trophies, magazine covers,
     // festival medals, mom's visits, the reporter's / festival's last season, festivals held per season, "popular" left
     year: { g: 0, e: 0, h: 0, combos: 0, n: 1 }, awards: [], covers: [], medals: [], mom: 0, momY: 1,
@@ -51,7 +51,7 @@ function loadState(rawIn) {
   for (const k of ['g', 'h', 'best']) s.dayLog[k] = int0(s.dayLog[k]);
   for (const k of ['guests', 'angry', 'calls', 'callsFast', 'vips', 'diners', 'combosMade']) s.stats[k] = int0(s.stats[k]);
   s.stats.time = Number.isFinite(+s.stats.time) ? Math.max(0, +s.stats.time) : 0;
-  s.tut = { moved: !!s.tut.moved };
+  s.tut = Object.assign({ moved: !!s.tut.moved }, s.tut.dressOpen ? { dressOpen: true } : {});   // v2.5: dressOpen = the 装扮 page was opened once (wardrobe.js)
   {   // only piles the map has (and that are open); anything else (a renamed id, an array, a hand edit) goes into the cash box
     const pl = {};
     for (const k in s.piles) {
@@ -66,7 +66,7 @@ function loadState(rawIn) {
     for (const r of Array.isArray(raw.vsleep) ? raw.vsleep : []) {
       const rm = r && typeof r === 'object' ? ROOM[r.r] : null;
       if (!rm || !rm.vip || !roomOpen(rm, s) || seen.has(rm.id) || typeof r.id !== 'string' || !VIP[r.id]) continue;
-      seen.add(rm.id); vs.push(Object.assign({ r: rm.id, id: r.id, w: clamp(int0(r.w), 1, s.day + 2) }, r.id === 'mom' ? { y: Math.max(1, int0(r.y)) } : {}));
+      seen.add(rm.id); vs.push(Object.assign({ r: rm.id, id: r.id, t: r.t === undefined ? VIP_SLEEP_T : clamp(+r.t || 0, 0, VIP_SLEEP_T) }, r.id === 'mom' ? { y: Math.max(1, int0(r.y)) } : {}));
     }
     s.vsleep = vs;
   }
@@ -139,7 +139,7 @@ function fee(k, o) {
   o = o || {};
   const ty = o.gu && GUEST_TYPES[o.gu.type] || GUEST_TYPES.regular;
   let m = 1;
-  if (k === 'room') { if (o.rm) m *= roomMult(o.rm); m *= (ty.room || 1) * repMul(); }   // v2.2: x0.8-x1.2 by reputation (business.js)
+  if (k === 'room') { if (o.rm) m *= roomMult(o.rm); if (o.rm && o.rm.cottage) m *= 1 + GZ_FEE * gzOwned(); m *= (ty.room || 1) * repMul(); }   // v2.5: the garden pieces   // v2.2: x0.8-x1.2 by reputation (business.js)
   else if (k === 'tip') { if (o.rm && roomCombo(o.rm)) m *= 2; if (o.pref) m *= 1.5; }
   else if (k === 'bath') { if (o.slot && o.slot.roten) m *= dayLight().night >= .5 ? 1.8 : 1.2; else if (S.unlocked.bigbath) m *= 1.5; m *= ty.bath || 1; }
   else if (k === 'milk' || k === 'tea') m *= ty.milk || 1;   // an elder pays x1.5 for milk and tea alike

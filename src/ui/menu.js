@@ -11,7 +11,7 @@ function toggleSound() { const on = !(musicOn || sfxOn); setMusicOn(on); setSfxO
 function openMenu() { if (state !== 'play') return; go('menu'); Object.assign(MENU, { page: 'home', sel: null }); hold = false; sfx('menu'); }
 function closeMenu() { if (state === 'menu') go('play'); }
 function menuBack() { SFX.click(); if (MENU.sel) MENU.sel = null; else if (MENU.page !== 'home') MENU.page = 'home'; else closeMenu(); }
-function menuGo(page) { SFX.click(); sfx('page'); Object.assign(MENU, { page, pg: 0, sel: null }); }
+function menuGo(page) { SFX.click(); sfx('page'); Object.assign(MENU, { page, pg: 0, sel: null }); if (page === 'dress') dressOpened(); }
 function menuPress(p) {
   if (!inR(p, MPANEL)) { menuBack(); return; }                 // outside the panel = back one level
   if (MENU.page !== 'home' && inR(p, MBACK)) { menuBack(); return; }
@@ -71,7 +71,11 @@ function drawMenu() {
   const pg = MENU.page, title = { home: '菜单', sound: '声音', book: '图鉴', bought: '已购', inn: MENU.sel === 'map' ? '地图' : '旅馆', dress: '装扮' }[pg];
   txt(title, 90, 56, pg === 'home' ? 13 : 11, '#8a3a1a', 'center', null);
   if (pg !== 'home') menuBtn(MBACK, menuIcon('back'), '返回', 'wood', 7);
-  if (pg === 'home') { for (const [ic, lab, col, y] of MENU_ROWS) menuBtn([32, y, 116, 24], menuIcon(ic), lab, col); drawMenuFoot(); }
+  if (pg === 'home') {
+    for (const [ic, lab, col, y] of MENU_ROWS) menuBtn([32, y, 116, 24], menuIcon(ic), lab, col);
+    if (dressNew()) { drawC(newTagArt(), 138, 101); txt('新', 138, 101.5, 6, '#ffffff', 'center', null); }   // v2.5: the 装扮 row until you open it once
+    drawMenuFoot();
+  }
   else if (pg === 'sound') drawSoundPage();
   else if (pg === 'book') drawBookPage();
   else if (pg === 'bought') drawBoughtPage();

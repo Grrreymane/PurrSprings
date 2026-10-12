@@ -115,5 +115,23 @@ setupB(['gd_zen', 'gd_teahouse']); S.rare = { r_zen: 3, bogus: 2 };
 setupB(['gd_zen']);
 { for (const rm of SUITES) S.rooms[rm.id] = 'messy'; RARE_DUE.r_zen = S.stats.time; vipT = S.stats.time; runB(.1); ok(VIPG && VIPG.rare, 'came');
   runB(VIP_NOSUITE + 40, () => !VIPG); ok(!VIPG || VIPG.st === 'leave', 'no suite: it leaves (改日再访)'); runB(30); eq(VIPG, null, 'gone'); ok(RARE_DUE.r_zen <= S.stats.time + RARE_FIRST[1] + 1, 'back soon'); }
+// ---- v2.5 ("what do the water wheel etc. do? what do they bring?"): the card's second row (会引来 [silhouette] ? [when]
+// -> [keepsake]), the cottages' fee +GZ_FEE a piece, a "?" bubble over a bought piece until its guest first comes
+setupB([]);
+{ const c1 = ROOM.c1, f0 = fee('room', { rm: c1 }), r0 = fee('room', { rm: ROOM.room1 });
+  S.unlocked.gd_zen = S.unlocked.gd_mill = true; eq(gzOwned(), 2, 'two pieces'); const f2 = fee('room', { rm: c1 });
+  ok(f2 > f0 && Math.abs(f2 / f0 - (1 + 2 * GZ_FEE)) < .05, 'cottage fee +' + (GZ_FEE * 200) + '%: ' + f0 + ' -> ' + f2); eq(fee('room', { rm: ROOM.room1 }), r0, 'other rooms unchanged');
+  S.unlocked.gd_zen = S.unlocked.gd_mill = false; padsUpdate(); }
+setupB([]);
+{ const u = UNLOCK.gd_chime; atB(GZ_PAD[0], GZ_PAD[1] + 1); updCam(0, true); runB(.2); eq(INFO && INFO.id, 'gd_chime', 'the info card of the first piece');
+  TQ.length = 0; render(); const ss = TQ.map(q => q.s);
+  ok(ss.includes('会引来') && ss.includes('?') && ss.includes('→') && ss.includes('+' + R(GZ_FEE * 100) + '%'), 'card: 会引来 [sil] ? -> [keepsake], cottages +3% (' + ss.filter(s => /会|\?|→|%/.test(s)).join(' ') + ')');
+  u.price = 1; S.money = 100; atB(GZ_PAD[0], GZ_PAD[1]); runB(4, () => !!S.unlocked.gd_chime); ok(S.unlocked.gd_chime, 'bought');
+  const sils = []; const _s = silOf; silOf = c => { sils.push(c); return _s(c); };
+  atB(35, 26); updCam(0, true); render(); silOf = _s; ok(sils.includes(rareFace('r_boy')), 'a ? bubble with its silhouette over the piece');
+  S.rare.r_boy = 1; sils.length = 0; silOf = c => { sils.push(c); return _s(c); }; render(); silOf = _s; ok(!sils.includes(rareFace('r_boy')), 'met: the bubble is gone');
+  u.price = 10000; }
+setupB(['shrine', 'of1']);
+{ const u = UNLOCK.of2; atB(OFFER_PAD[0], OFFER_PAD[1] + 1); updCam(0, true); runB(.2); TQ.length = 0; if (INFO) render(); ok(INFO && INFO.id === 'of2' && TQ.some(q => q.s === '收费+1%'), 'the shrine torii card says 收费+1% (not 会引来)'); }
 console.log(errs.length ? 'SYS RARE FAIL\n  ' + errs.join('\n  ') : 'SYS RARE OK');
 if (errs.length) process.exitCode = 1;

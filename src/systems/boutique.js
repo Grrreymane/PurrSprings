@@ -10,7 +10,7 @@ const boutiqueOpen = () => star() >= 5 && !!S.unlocked.shop;
 const TRY = { hat: null, pet: null, outfit: null, uniform: null, ids: '' };   // what you try on at the booths right now (runtime; v2.1: + outfit / uniform)
 const TRIED = new Set();                       // booth pieces the tanuki already offered (K03, once each)
 const BOOTH = new Map();                       // booth piece -> { t: s pointed at, near: came to look, done } (6 rule 6: once)
-const MIRROR = { t: 0 }, CUSHION = { t: 0 };
+const MIRROR = { t: 0, armed: true }, CUSHION = { t: 0 };
 let PET = null, boutiqueWas = false, quackT = -99, goldT = 0, k02Pend = false;   // k02Pend: K02 not heard yet (said when you come by the owner)
 const shopOwner = () => STAFF.find(s => s.role === 'owner') || null;
 const hatOf = id => id && UNLOCK[id] ? UNLOCK[id].hat || null : null;
@@ -36,8 +36,12 @@ function boutiqueZone(dt, ptx, pty) {
   }
   if (ids && ids !== TRY.ids) { sfx('tryon'); fxSpark(P.x, P.y - 20, 2); }
   TRY.ids = ids;
-  MIRROR.t = ptx === SPOT.mirror[0] && pty === SPOT.mirror[1] ? MIRROR.t + dt : 0;
-  if (MIRROR.t >= MIRROR_T - 1e-6) { MIRROR.t = 0; cycleEquip('hat'); }
+  // v2.5: the mirror is the wardrobe - stand still in front of it MIRROR_OPEN_T s and the 装扮 page opens (was: the next
+  // hat every second); step off before it opens again
+  const atMirror = ptx === SPOT.mirror[0] && pty === SPOT.mirror[1];
+  if (!atMirror) MIRROR.armed = true;
+  MIRROR.t = atMirror && !P.moving && MIRROR.armed && dressOwnedAny() ? MIRROR.t + dt : 0;
+  if (MIRROR.t >= MIRROR_OPEN_T - 1e-6) { MIRROR.t = 0; MIRROR.armed = false; openDress(); }
   CUSHION.t = ptx === SPOT.petCushion[0] && pty === SPOT.petCushion[1] ? CUSHION.t + dt : 0;
   if (CUSHION.t >= MIRROR_T - 1e-6) { CUSHION.t = 0; cycleEquip('pet'); }
 }

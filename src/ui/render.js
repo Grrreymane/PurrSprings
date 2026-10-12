@@ -165,6 +165,7 @@ function drawOverlays() {
       g.drawImage(c, R(bx - w / 2) - CX, R(cy - h) - CY, w, h);
     }
   }
+  gzHintDraw(); dressHintDraw();   // v2.5: a garden piece's "?" guest bubble; the mirror's wardrobe bubble + owned-count ticks on the booths
   // decor rooms (4.5): a combo room shows its 1-char plate over the door while you're within 3 tiles; a room with decor
   // but no combo a small star
   for (const rm of GUEST_ROOMS) {
@@ -275,6 +276,7 @@ function drawPlayerAttach() {
   if (P.slot.key && !P.slot.stop && P.slot.t > 0) { ring(R(P.x) - CX, R(P.y) + 6 - CY, P.slot.t / (P.slot.n ? DECOR_T : DECOR_T0), '#ffe9a8'); any = true; }
   // v2.4: standing still on a price pad - a gold ring at your feet fills before the first fish goes in (PAD_DELAY)
   if (P.padOn && !P.pouring && P.padT > 0 && P.padT < PAD_DELAY) { ring(R(P.x) - CX, R(P.y) + 6 - CY, P.padT / PAD_DELAY, '#ffd23f'); any = true; }
+  if (MIRROR.t > 0 && MIRROR.armed) { ring(R(P.x) - CX, R(P.y) + 6 - CY, MIRROR.t / MIRROR_OPEN_T, '#ffd23f'); any = true; }   // v2.5: the mirror opens the 装扮 page
   if (P.towels > 0) { towelStack(P, P.towels, P.sway); any = true; }
   // the tray (4.1); a new tray: its new empty place glows once (7.3.4)
   if (P.tray.length) { drawTray(P, P.tray); any = true; }
@@ -375,7 +377,9 @@ function drawHUD() {
     } else drawC(starIcon(i < star(), i < goldStars()), x, 8);
   }
   // the menu button (7.1): pause sign + 2 characters, top right; pressing x >= 134, y <= 18 opens it (no joystick)
+  if (dressNew()) { g.globalAlpha = .45 + .25 * Math.sin(T * Math.PI * 1.6); g.fillStyle = '#ffd23f'; g.fillRect(136, 0, 44, 17); g.globalAlpha = 1; }   // v2.5: something new to wear - a soft glow (no blinking) + a red dot
   pill(138, 2, 40, 13); drawC(pauseIcon(), 149, 8); txt('菜单', 155, 8.5, 7, '#ffffff', 'left');
+  if (dressNew()) { g.fillStyle = OUT; g.fillRect(173, 0, 7, 7); g.fillStyle = '#e04a3a'; g.fillRect(174, 1, 5, 5); g.fillStyle = '#ff9a8a'; g.fillRect(175, 2, 2, 1); }
   // second row (7.1, from star 2): the sky dial (sun / moon on the arc, no text), the rank pill, the bell pill (open calls)
   if (star() < 2) return;
   const dl = dayLight(); g.drawImage(skyDialArt(dl.night), 2, 17);

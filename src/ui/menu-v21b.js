@@ -53,12 +53,30 @@ function rareFace(id) {
   RFACE.set(id, c); return c;
 }
 // the info card of a garden piece (cards.js): the silhouette of the guest it may bring, "?" and when it comes
+// v2.5 (player feedback "what do the water wheel and the rest do? what do they bring?"): the second row of the card -
+// 会引来 [face / silhouette until met] [?] [season / moon: when it comes] -> [the keepsake it leaves]
 function infoRareB(u, x, cy) {
   const r = RARE[u.rare]; if (!r) return;
+  txt('会引来', x, cy + .5, 7, '#c8a878', 'left', null); x += textW('会引来', 7) + 3;
   const f = rareSeen(r.id) ? rareFace(r.id) : silOf(rareFace(r.id));
-  g.drawImage(f, R(x), R(cy - 7)); x += 15;
+  g.fillStyle = OUT; g.fillRect(R(x) - 1, R(cy - 8), 16, 15); g.fillStyle = '#fff3d0'; g.fillRect(R(x), R(cy - 7), 14, 13);   // a light tile: the dark silhouette reads on the dark card
+  g.drawImage(f, R(x), R(cy - 7)); x += 16;
   if (!rareSeen(r.id)) { txt('?', x, cy + .5, 7, '#ffe9a8', 'left'); x += 6; }
-  if (r.when !== undefined) drawC(r.when === 'night' ? moonIcon() : seasonIcon(r.when), x + 4, cy);
+  if (r.when !== undefined) { drawC(r.when === 'night' ? moonIcon() : seasonIcon(r.when), x + 4, cy); x += 10; }
+  txt('→', x + 1, cy + .5, 7, '#c8a878', 'left', null); x += textW('→', 7) + 4;
+  const k = keepsakeArt(r.keep); g.drawImage(k, R(x), R(cy - k.height), k.width * 2, k.height * 2);
+}
+// the first row of a garden piece's card: what it gives every day - the garden cottages' fee +GZ_FEE
+function gzBonusB(x, cy) { g.drawImage(padIcon('cottage'), R(x), R(cy - 6), 12, 12); txt('+' + R(GZ_FEE * 100) + '%', x + 14, cy + .5, 7, '#ff9ad0', 'left'); }
+// after a garden piece is bought: a small bubble with its guest's silhouette and "?" over it, until that guest first comes
+function gzHintDraw() {
+  for (const [id, , , at, rid] of GARDEN_B) {
+    if (!S.unlocked[id] || rareSeen(rid) || (VIPG && VIPG.id === rid)) continue;
+    const x = tcx(at), y = at[1] * TILE - 12 + R(Math.sin(T * 2 + at[0]) * .8); if (!VIS(x, y, 16)) continue;
+    drawA(bubbleArt('blank', 0), x, y, 7, 12);
+    g.drawImage(silOf(rareFace(rid)), 2, 1, 10, 9, R(x) - 5 - CX, R(y) - 11 - CY, 10, 9);
+    txt('?', R(x) + 9 - CX, R(y) - 10 - CY + .5, 7, '#ffe9a8', 'left');
+  }
 }
 // the preview on the info card (cards.js drawPreview): the next shrine hall
 function drawPreviewB(u, gh) { shrinePreview(u, gh); }
@@ -74,6 +92,7 @@ function bannerPartsB(b) {
   return null;
 }
 // ---- first-time picture cards (7.4) for the two new wishes; the lines (16.12 E11 + the innkeeper's three new ones)
+FIRST_CARD.dress = () => [{ img: pauseIcon() }, { t: '菜单', c: '#5a3a1a', z: 7 }, { img: ARROW_R }, { img: menuIcon('dress') }, '换装'];   // v2.5: where the clothes you bought are switched
 FIRST_CARD.stay = () => [{ img: bubbleArt('stay', 0, true) }, { img: ARROW_R }, { img: faceOf(PLAYER_LOOK) }, '站着别动'];
 FIRST_CARD.show = () => [{ img: bubbleArt('show', 0, true) }, { img: ARROW_R }, { img: PAWS }, { img: gzIcon((RARE[VIPG && VIPG.id] || RARES[4]).piece) }, '带去看看'];
 RARES.forEach(r => { LINES[r.lineId] = { id: r.lineId, who: 'v', text: r.line, p: 1, ev: true }; });

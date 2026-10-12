@@ -81,7 +81,7 @@ st([], 3);
   eq(S.gifts.join(), 'kawa', 'gift on the shelf'); eq(S.stats.vips, 1, 'stats.vips'); ok(!VIPG, 'the VIP slot is free at once'); ok(VSLEEP.length === 1 && RT.c3.guest === VSLEEP[0] && VSLEEP[0].id === 'kawa', 'v2.4: it goes to bed in its suite');
   eq(S.vipOwe, 0, 'nothing owed'); ok(FX.some(x => x.k === 'polaroid'), 'polaroid flies'); ok(vipT - S.stats.time >= 180 - .1 && vipT - S.stats.time <= 240 + .1, 'next in 210 +- 30: ' + R(vipT - S.stats.time));
   run(20); eq(S.rooms.c3, 'occupied', 'asleep in the futon'); eq(VSLEEP[0].st, 'sleep', 'sleeping'); ok(!suiteAvail(ROOM.c3), 'the suite is taken while it sleeps');
-  VSLEEP[0].rec.w = S.day + 1; S.clock = DAWN_AT - .002; run(1); eq(VSLEEP[0] && VSLEEP[0].st, 'leave', 'wakes at dawn and leaves'); eq(S.rooms.c3, 'messy', 'suite messy'); ok(RT.c3.vipMess, 'long clean');
+  VSLEEP[0].rec.t = .1; run(1); eq(VSLEEP[0] && VSLEEP[0].st, 'leave', 'wakes after its sleep (v2.5: VIP_SLEEP_T) and leaves'); eq(S.rooms.c3, 'messy', 'suite messy'); ok(RT.c3.vipMess, 'long clean');
   run(45, () => !VSLEEP.length); ok(!VSLEEP.length, 'gone'); ok(!RT.c3.guest, 'suite free');
   // cleaning a VIP suite takes twice as long
   STAFF.length = 0; RT.c3.cleanP = 0; P.x = ROOM.c3.cleanC[0]; P.y = ROOM.c3.cleanC[1]; run(CLEAN_T * 2 - .1); eq(S.rooms.c3, 'messy', 'not clean at 2 x CLEAN_T - 0.1'); run(.2); eq(S.rooms.c3, 'clean', 'clean at 2 x CLEAN_T'); ok(!RT.c3.vipMess, 'flag cleared'); }
