@@ -70,15 +70,22 @@ function drawPad(u) {
   if (raisesStar(u)) drawC(starIcon(true), x + 14, y + 2);   // "buying this adds a star" badge (1)
 }
 // dashed rounded frame of a pad; the dashes creep slowly round
+// (one cached 16 x 16 image per step of the creep and colour: 18.2 perf, it was 31 one-pixel fills a pad a frame)
+const DASHC = new Map();
 function padDash(x, y, on) {
-  const off = Math.floor(T * 4);
-  g.fillStyle = on ? '#ffe14a' : '#fff6d8';
-  for (let i = 0; i < 52; i++) {
-    if (((i + off) % 5) >= 3) continue;
-    const k = i % 13, side = (i / 13) | 0;
-    const px = side === 0 ? 1 + k : side === 1 ? 15 : side === 2 ? 14 - k : 0, py = side === 0 ? 0 : side === 1 ? 1 + k : side === 2 ? 15 : 14 - k;
-    g.fillRect(x + px, y + py, 1, 1);
+  const off = Math.floor(T * 4) % 5, key = (on ? 'on' : 'off') + off;
+  let c = DASHC.get(key);
+  if (!c) {
+    c = mk(16, 16); const o = c.getContext('2d'); o.fillStyle = on ? '#ffe14a' : '#fff6d8';
+    for (let i = 0; i < 52; i++) {
+      if (((i + off) % 5) >= 3) continue;
+      const k = i % 13, side = (i / 13) | 0;
+      const px = side === 0 ? 1 + k : side === 1 ? 15 : side === 2 ? 14 - k : 0, py = side === 0 ? 0 : side === 1 ? 1 + k : side === 2 ? 15 : 14 - k;
+      o.fillRect(px, py, 1, 1);
+    }
+    c.dash = on ? '#ffe14a' : '#fff6d8'; DASHC.set(key, c);
   }
+  g.drawImage(c, x, y);
 }
 // The price goes under the pad; beside it (right) when another visible pad sits right below, or when you stand just
 // below the pad (it would cover your head); over it when another visible pad sits right beside it (跑鞋 / 竹篮,
@@ -168,11 +175,11 @@ function guestDraws(L, gu) {
     const y = tcy(SEATS[gu.seat].at) + 4;
     L.push({ y, f: () => drawSitter(gu.seat, gu.look, false, gu.st === 'eat') });
     if (m && m.mode === 'park' && gu.seat2 >= 0) L.push({ y: y + .01, f: () => drawSitter(gu.seat2, m.look, m.kind === 'kitten', gu.st === 'eat') });
-    else if (m && VIS(m.x, m.y, 24)) L.push({ y: m.y, f: () => drawMate(m) });
+    else if (m && VIS(m.x, m.y, 24)) L.push({ y: m.y, x: m.x, hw: 10, f: () => drawMate(m) });
     return;
   }
-  if (VIS(gu.x, gu.y, 24)) L.push({ y: gu.y, f: () => drawCat(gu, gu.look, gu.ox) });
-  if (m && m.mode !== 'park' && VIS(m.x, m.y, 24)) L.push({ y: m.y, f: () => drawMate(m) });
+  if (VIS(gu.x, gu.y, 24)) L.push({ y: gu.y, x: gu.x + (gu.ox || 0), hw: 10, f: () => drawCat(gu, gu.look, gu.ox) });
+  if (m && m.mode !== 'park' && VIS(m.x, m.y, 24)) L.push({ y: m.y, x: m.x, hw: 10, f: () => drawMate(m) });
 }
 // the hand tray (4.1): in front of the chest, beside the head when walking up; portions stagger 2 px each
 function drawTray(e, items) {
@@ -182,11 +189,13 @@ function drawTray(e, items) {
   g.fillStyle = OUT; g.fillRect(x - 6, y, 12, 3); g.fillStyle = '#b07a48'; g.fillRect(x - 5, y + 1, 10, 1);
   items.forEach((k, i) => drawC(itemIcon(k), x - 3 + i * 2, y - 3 - (i & 1)));
 }
+const OCC_DY = 72;   // the tallest sprite (the pine, the shrine) reaches this far up from its base
 // live: guests, staff, pads, piles; card (the share card): the people without the game's markers (pads, empty slots)
 function drawScene(vw, vh, live, noPlayer, card) {
   const marks = live && !card;
-  g.fillStyle = '#243a22'; g.fillRect(0, 0, vw, vh);
-  const sx = clamp(CX, 0, MAPW), sy = clamp(CY, 0, MAPH), sw = Math.min(vw - (sx - CX), MAPW - sx), sh = Math.min(vh - (sy - CY), MAPH - sy);
+  const m = VM;   // the world layers draw 1 px round the view too (render.js worldBegin)
+  g.fillStyle = '#243a22'; g.fillRect(-m, -m, vw + 2 * m, vh + 2 * m);
+  const sx = clamp(CX - m, 0, MAPW), sy = clamp(CY - m, 0, MAPH), sw = Math.min(vw + m - (sx - CX), MAPW - sx), sh = Math.min(vh + m - (sy - CY), MAPH - sy);
   if (sw > 0 && sh > 0) g.drawImage(WORLD, sx, sy, sw, sh, sx - CX, sy - CY, sw, sh);
   // animated water (visible tiles only): onsen, roten, the koi pond
   const fr = Math.floor(T / .4) & 3, sea = seasonNow(), water = (x0, x1, y0, y1, fn) => { for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) if (VIS(tx * TILE + 8, ty * TILE + 8, 12)) g.drawImage(fn(fr, tx, ty, sea), tx * TILE - CX, ty * TILE - CY); };   // v2.1: + the season (pondArt)
@@ -227,7 +236,7 @@ function drawScene(vw, vh, live, noPlayer, card) {
   }
   // ---- y-sorted props, area boards and cats
   const L = [];
-  for (const o of OBJS) { if (o.ground) continue; const by = (o.ty + o.fh) * TILE; if (VIS(o.tx * TILE + o.fw * 8, by - 16, 64)) L.push({ y: by, f: () => drawObj(propImg(o), o.tx, by, o.fw, popScale(POPA[o.uid])) }); }   // propImg: v2.1 snow caps in winter
+  for (const o of OBJS) { if (o.ground) continue; const by = (o.ty + o.fh) * TILE; if (VIS(o.tx * TILE + o.fw * 8, by - 16, 64)) L.push({ y: by, x: o.tx * TILE + o.fw * 8, hw: Math.max(o.fw * 8, 24), f: () => drawObj(propImg(o), o.tx, by, o.fw, popScale(POPA[o.uid])) }); }   // propImg: v2.1 snow caps in winter
   for (const a of AREAS) if (a.sign && !areaOpen(a)) {   // star-n board at a locked area; lights up (and pops) once its gate pad shows
     const gate = UNLOCK[a.open], lit = PADPOS.has(gate.id), x = tcx(a.sign), y = (a.sign[1] + 1) * TILE - 1;
     if (VIS(x, y - 8, 24)) L.push({ y, f: () => { const c = areaSignArt(a.n, lit), s = lit ? popScale(POPA['pad:' + gate.id]) : 1; if (s >= 1) drawA(c, x, y, 7, 17); else if (s > .02) g.drawImage(c, R(x - 7 * s) - CX, R(y - 17 * s) - CY, R(c.width * s) || 1, R(c.height * s) || 1); } });
@@ -245,8 +254,8 @@ function drawScene(vw, vh, live, noPlayer, card) {
   }
   if (live) {
     for (const gu of GUESTS) guestDraws(L, gu);
-    for (const s of STAFF) if (VIS(s.x, s.y, 24)) L.push({ y: s.y, f: () => drawCat(s, staffLook(s)) });
-    if (!noPlayer) L.push({ y: P.y + .01, f: () => drawCat(P, playerLook()) });
+    for (const s of STAFF) if (VIS(s.x, s.y, 24)) L.push({ y: s.y, x: s.x, hw: 10, f: () => drawCat(s, staffLook(s)) });
+    if (!noPlayer) L.push({ y: P.y + .01, pl: true, f: () => drawCat(P, playerLook()) });
     if (PET && !noPlayer && VIS(PET.x, PET.y, 24)) L.push({ y: PET.y, f: () => drawPet(PET) });   // (the share card draws its own, 2x)
     if (TRY.pet && !noPlayer) { const gh = { kind: TRY.pet, x: P.x - 11, y: P.y + 2, dir: P.dir, moving: P.moving, walkT: P.walkT, idle: 0 }; L.push({ y: gh.y, f: () => drawPet(gh, true) }); }   // try-on: its ghost at your feet
   }
@@ -254,7 +263,14 @@ function drawScene(vw, vh, live, noPlayer, card) {
   // (drawn over everyone it hid them - stage 2B note)
   if (S.unlocked.shop && VIS(88, 30 * TILE, 100)) L.push({ y: 30 * TILE - .5, f: () => g.drawImage(awningArt(), 16 - CX, 30 * TILE - 12 - CY) });
   if (live && !card) { rareDraws(L); if (!noPlayer) dressGhostDraws(L); }   // v2.1: the kitten brothers following, the uniform ghost
-  L.sort((a, b) => a.y - b.y); for (const e of L) e.f();
+  // the main view (render: PSPLIT) leaves the innkeeper out - he has his own layer - and keeps what is drawn in front of
+  // him near him (y-sorted after him, base within OCC_DY below his feet) to draw it again over his layer
+  L.sort((a, b) => a.y - b.y); let after = false;
+  for (const e of L) {
+    if (e.pl && PSPLIT) { after = true; continue; }
+    e.f(); if (after && e.y < P.y + OCC_DY && (e.x === undefined || Math.abs(e.x - P.x) < e.hw + 10)) OCC.push(e.f);   // x / hw: its centre and half width, when known
+  }
   // ---- over everyone: the entrance noren
-  g.drawImage(entranceNoren(), 16 * TILE - CX, 29 * TILE - 6 - CY);
+  const noren = () => g.drawImage(entranceNoren(), 16 * TILE - CX, 29 * TILE - 6 - CY);
+  noren(); if (PSPLIT && Math.abs(P.y - 29 * TILE) < 48 && Math.abs(P.x - 17.5 * TILE) < 48) OCC.push(noren);
 }

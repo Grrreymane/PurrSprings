@@ -74,9 +74,18 @@ function drawObj(c, tx, yBottom, fw, s) {
 }
 // small pixel progress ring (radius ~5)
 const RING = (() => { const a = []; for (let y = -6; y <= 6; y++) for (let x = -6; x <= 6; x++) { const d = Math.hypot(x, y); if (d >= 3.6 && d <= 5.6) a.push([x, y, (Math.atan2(x, -y) + Math.PI * 2) % (Math.PI * 2) / (Math.PI * 2), d]); } return a; })();
+// drawn from a cache (18.2 perf: ~60 one-pixel fills per ring per frame before): one image per colour and filled count
+const RING_IN = RING.filter(e => e[3] < 5).sort((a, b) => a[2] - b[2]), RINGC = new Map();
 function ring(x, y, p, col) {
-  x = R(x); y = R(y);
-  g.fillStyle = OUT; for (const [dx, dy] of RING) g.fillRect(x + dx, y + dy, 1, 1);
-  g.fillStyle = '#6a6a7e'; for (const [dx, dy, , d] of RING) if (d < 5) g.fillRect(x + dx, y + dy, 1, 1);
-  g.fillStyle = col || '#7ae07a'; for (const [dx, dy, a, d] of RING) if (a <= p && d < 5) g.fillRect(x + dx, y + dy, 1, 1);
+  col = col || '#7ae07a';
+  let n = 0; while (n < RING_IN.length && RING_IN[n][2] <= p) n++;
+  const key = col + n; let c = RINGC.get(key);
+  if (!c) {
+    c = mk(13, 13); const o = c.getContext('2d');
+    o.fillStyle = OUT; for (const [dx, dy] of RING) o.fillRect(6 + dx, 6 + dy, 1, 1);
+    o.fillStyle = '#6a6a7e'; for (const [dx, dy] of RING_IN) o.fillRect(6 + dx, 6 + dy, 1, 1);
+    o.fillStyle = col; for (let i = 0; i < n; i++) o.fillRect(6 + RING_IN[i][0], 6 + RING_IN[i][1], 1, 1);
+    RINGC.set(key, c);
+  }
+  g.drawImage(c, R(x) - 6, R(y) - 6);
 }

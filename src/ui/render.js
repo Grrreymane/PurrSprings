@@ -6,10 +6,13 @@
 // The night tint is its own layer: each lamp (and the hand lantern) cuts a soft hole into it before the one multiply,
 // so what stands under a lamp keeps its day colours and its dark outline; a weaker additive glow on top adds the warm
 // colour (stage M: with the glow only added on top, a cat under a corridor lamp washed out to a pale blur).
-const DARK = mk(W, H);
+const WM = 1;   // the world canvases' margin round the view (logical px): room for the camera's sub-pixel shift (render)
+let VM = 0;     // the margin of the canvas drawn into now: WM in the world layers, 0 elsewhere (full-view fills cover it)
+const DARK = mk(W + 2 * WM, H + 2 * WM);   // pixel (0, 0) = world (CX - WM, CY - WM)
+let LGT = null;   // this frame's light pass (null by day): the small player / occluder layers are lit the same way (lightLayer)
 const holeArt = r => art('hole:' + r, () => { const c = mk(2 * r, 2 * r), x = c.getContext('2d'), gl = glowArt(r, '#ffffff'); x.drawImage(gl, 0, 0); x.drawImage(gl, 0, 0); return c; });   // glowArt's rings x2: .75 / .51 / .33 / .15
 function drawLighting() {
-  const dl = dayLight(); LIGHT_N = 0;
+  const dl = dayLight(); LIGHT_N = 0; LGT = null;
   if (dl.a < .004 && dl.night < .004) return;
   const cx = CX + W / 2, cy = CY + H / 2, vis = [];   // lamps in view, the nearest to the view centre first (<= 16)
   if (dl.night > .02) {
@@ -18,33 +21,20 @@ function drawLighting() {
   }
   let lant = 0; const [lx, ly] = lanternXY();   // the hand lantern adds less under a lamp (stacked on one, the innkeeper burnt out white)
   if (dl.night > .5 && state !== 'title') { let under = 0; for (const v of vis) under = Math.max(under, 1 - Math.hypot(v.L.x - lx, v.L.y - ly) / v.r); lant = (dl.night - .5) * 2 * (1 - .8 * clamp(under, 0, 1)); }
-  const d = DARK.getContext('2d'); d.globalCompositeOperation = 'source-over'; d.globalAlpha = 1; d.clearRect(0, 0, W, H); d.fillStyle = dl.col; d.fillRect(0, 0, W, H);
+  const d = DARK.getContext('2d'), dw = DARK.width, dh = DARK.height; d.globalCompositeOperation = 'source-over'; d.globalAlpha = 1; d.clearRect(0, 0, dw, dh); d.fillStyle = dl.col; d.fillRect(0, 0, dw, dh);
   if (vis.length || lant > 0) {
     d.globalCompositeOperation = 'destination-out'; d.globalAlpha = dl.night;
-    for (const v of vis) d.drawImage(holeArt(v.r), R(v.L.x) - v.r - CX, R(v.L.y) - v.r - CY);
-    if (lant > 0) { d.globalAlpha = lant; d.drawImage(holeArt(24), lx - 24 - CX, ly - 24 - CY); }
+    for (const v of vis) d.drawImage(holeArt(v.r), R(v.L.x) - v.r - CX + WM, R(v.L.y) - v.r - CY + WM);
+    if (lant > 0) { d.globalAlpha = lant; d.drawImage(holeArt(24), lx - 24 - CX + WM, ly - 24 - CY + WM); }
     d.globalCompositeOperation = 'source-over'; d.globalAlpha = 1;
   }
-  g.globalCompositeOperation = 'multiply';
-  const mul = g.globalCompositeOperation === 'multiply';
-  if (!mul) g.globalCompositeOperation = 'source-over';
-  g.globalAlpha = mul ? dl.a : dl.a * .55; g.drawImage(DARK, 0, 0);
-  if (dl.night > .02) {
-    g.globalCompositeOperation = 'lighter';
-    const add = g.globalCompositeOperation === 'lighter', k = add ? 1 : .45;
-    if (!add) g.globalCompositeOperation = 'source-over';
-    g.globalAlpha = dl.night * k * GLOW_K;
-    for (const v of vis) { drawA(glowArt(v.r, v.L.col), v.L.x, v.L.y, v.r, v.r); LIGHT_N++; }
-    if (lant > 0) { g.globalAlpha = lant * k * GLOW_K; drawA(glowArt(24, LAMP_COL), lx, ly, 24, 24); }
-    g.globalAlpha = dl.night * .7 * k; let n = 0;   // fish piles glint softly
-    for (const id in S.piles) { if (n >= GLINT_MAX) break; if (!(S.piles[id] > 0)) continue; const [tx, ty] = PILE_AT[id], x = tx * TILE + 8, y = ty * TILE + 10; if (VIS(x, y, 10)) { drawA(glowArt(10, '#ffe9a8'), x, y, 10, 10); n++; } }
-    g.globalCompositeOperation = 'source-over';
-    if (S.unlocked.roten && dl.night > .3) for (const st of STAR_SPOTS) {   // stars on the water, each fading in and out slowly
-      if (!VIS(st.x, st.y, 4)) continue;
-      const a = (dl.night - .3) / .7 * (.3 + .7 * (.5 + .5 * Math.sin(T * Math.PI * 2 * st.f + st.ph)));
-      g.globalAlpha = a; g.fillStyle = '#fff6c0'; g.fillRect(st.x - CX, st.y - CY, 1, 1);
-      if (a > .6) { g.globalAlpha = (a - .6) * 1.5; g.fillRect(st.x - 1 - CX, st.y - CY, 3, 1); g.fillRect(st.x - CX, st.y - 1 - CY, 1, 3); }
-    }
+  LGT = { dl, vis, lant, lx, ly, dx: CX - WM, dy: CY - WM };
+  LIGHT_N = applyLight();
+  if (dl.night > .02 && S.unlocked.roten && dl.night > .3) for (const st of STAR_SPOTS) {   // stars on the water, each fading in and out slowly
+    if (!VIS(st.x, st.y, 4)) continue;
+    const a = (dl.night - .3) / .7 * (.3 + .7 * (.5 + .5 * Math.sin(T * Math.PI * 2 * st.f + st.ph)));
+    g.globalAlpha = a; g.fillStyle = '#fff6c0'; g.fillRect(st.x - CX, st.y - CY, 1, 1);
+    if (a > .6) { g.globalAlpha = (a - .6) * 1.5; g.fillRect(st.x - 1 - CX, st.y - CY, 3, 1); g.fillRect(st.x - CX, st.y - 1 - CY, 1, 3); }
   }
   g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
   if (dl.a > .02 && state !== 'title') for (const u of visiblePads()) {   // pad frames stay bright at night
@@ -52,6 +42,81 @@ function drawLighting() {
     padDash(tx * TILE - CX, ty * TILE - CY, P.pouring === u.id || INFO === u);
     if (raisesStar(u)) drawC(starIcon(true), tx * TILE - CX + 14, ty * TILE - CY + 2);
   }
+}
+// the light pass proper (LGT, from drawLighting) onto g at the camera CX / CY: one multiply of DARK (a thin plain tint
+// where multiply is missing), then the additive glows - lamps, the hand lantern, fish-pile glints. Returns the lamps drawn.
+function applyLight() {
+  const { dl, vis, lant, lx, ly } = LGT;
+  g.globalCompositeOperation = 'multiply';
+  const mul = g.globalCompositeOperation === 'multiply';
+  if (!mul) g.globalCompositeOperation = 'source-over';
+  g.globalAlpha = mul ? dl.a : dl.a * .55; g.drawImage(DARK, LGT.dx - CX, LGT.dy - CY);
+  let lamps = 0;
+  if (dl.night > .02) {
+    g.globalCompositeOperation = 'lighter';
+    const add = g.globalCompositeOperation === 'lighter', k = add ? 1 : .45;
+    if (!add) g.globalCompositeOperation = 'source-over';
+    g.globalAlpha = dl.night * k * GLOW_K;
+    for (const v of vis) { drawA(glowArt(v.r, v.L.col), v.L.x, v.L.y, v.r, v.r); lamps++; }
+    if (lant > 0) { g.globalAlpha = lant * k * GLOW_K; drawA(glowArt(24, LAMP_COL), lx, ly, 24, 24); }
+    g.globalAlpha = dl.night * .7 * k; let n = 0;   // fish piles glint softly
+    for (const id in S.piles) { if (n >= GLINT_MAX) break; if (!(S.piles[id] > 0)) continue; const [tx, ty] = PILE_AT[id], x = tx * TILE + 8, y = ty * TILE + 10; if (VIS(x, y, 10)) { drawA(glowArt(10, '#ffe9a8'), x, y, 10, 10); n++; } }
+  }
+  g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+  return lamps;
+}
+// ---- the world in layers, moved by the camera's sub-pixel remainder (18.2, "walking feels choppy"). The view is drawn with a
+// whole-pixel camera (CX, CY) into lowW, a world canvas 1 px bigger than the view on every side, and put on the screen
+// shifted by the remainder (cam - CX) * K device px; the innkeeper has his own small layer put at his exact position, so
+// while the camera is locked to him he stays on one device pixel and the world scrolls in even device-pixel steps. Pixel
+// art stays nearest-neighbour; text lands on whole device px. Order: world (to the innkeeper's row of the y-sort, then the
+// rest, the light pass, the sky) -> the innkeeper -> what stands in front of him again (its own small layer, on the world's
+// grid) -> overlays (bubbles, rings, the arrow) -> what he carries -> the line bubble -> the HUD (no shift).
+const lowW = mk(W + 2 * WM, H + 2 * WM);
+const PLW = 64, PLH = 80, PAX = 32, PAY = 60;   // the small layers: size, where the innkeeper's feet sit in them
+const lowP = mk(PLW, PLH), lowO = mk(PLW, PLH), LMASK = mk(PLW, PLH);
+let SUBX = 0, SUBY = 0, WDX = 0, WDY = 0;   // the camera's remainder (logical px); where lowW's pixel (0, 0) lands (device px)
+let PSPLIT = false; const OCC = [];         // drawScene: leave the innkeeper out, collect what is drawn in front of him
+function worldBegin() {
+  const x = lowW.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1; x.imageSmoothingEnabled = false;
+  x.clearRect(0, 0, lowW.width, lowW.height); x.setTransform(1, 0, 0, 1, WM, WM); g = x; VM = WM; CX = R(cam.x); CY = R(cam.y);
+}
+function worldFlush() {
+  layerOn(true); g.setTransform(1, 0, 0, 1, 0, 0);   // lowW is opaque and reaches past every screen edge
+  WDX = -(WM + SUBX) * K; WDY = -(WM + SUBY) * K;   // not rounded: nearest-neighbour sampling puts each logical pixel on the device pixels nearest its exact place (even steps also at a K like 4.33)
+  flushLayer(lowW, WDX, WDY, -SUBX * K, -SUBY * K);
+}
+function smallBegin(c, gx, gy) {
+  const x = c.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1; x.imageSmoothingEnabled = false;
+  x.clearRect(0, 0, c.width, c.height); g = x; VM = 0; CX = gx; CY = gy;
+}
+// light a small layer exactly like the world under it (the night tint, the glows, the fireworks' dusk), kept to the
+// layer's own pixels: its alpha, saved first, cuts away what the tint and the glows put round them
+function lightLayer(c, gx, gy) {
+  const fa = fwDuskA(); if (!LGT && fa <= .004) return;
+  const x = c.getContext('2d'), m = LMASK.getContext('2d');
+  m.globalCompositeOperation = 'copy'; m.drawImage(c, 0, 0); m.globalCompositeOperation = 'source-over';
+  const cx0 = CX, cy0 = CY; CX = gx; CY = gy;
+  if (LGT) applyLight();
+  if (fa > .004) fwDusk(fa, 0, 0, c.width, c.height);
+  x.globalCompositeOperation = 'destination-in'; x.globalAlpha = 1; x.drawImage(LMASK, 0, 0); x.globalCompositeOperation = 'source-over';
+  CX = cx0; CY = cy0;
+}
+// the innkeeper at his exact (sub-pixel) place, then whatever the y-sort draws in front of him, again, on the world's grid
+function playerLayer() {
+  const gx = R(P.x) - PAX, gy = R(P.y) - PAY, cw = R(cam.x), ch = R(cam.y);
+  smallBegin(lowP, gx, gy); drawCat(P, playerLook()); lightLayer(lowP, gx, gy);
+  flushLayer(lowP, (P.x - PAX - cam.x) * K, (P.y - PAY - cam.y) * K);
+  if (OCC.length) {
+    smallBegin(lowO, gx, gy); for (const f of OCC) f(); lightLayer(lowO, gx, gy);
+    flushLayer(lowO, WDX + (gx - cw + WM) * K, WDY + (gy - ch + WM) * K);   // the same device grid as lowW
+  }
+}
+// what he carries (towels, the tray, the lantern, rings at his feet) in his small layer, over the overlays
+function attachLayer() {
+  const gx = R(P.x) - PAX, gy = R(P.y) - PAY;
+  smallBegin(lowP, gx, gy);
+  if (drawPlayerAttach()) flushLayer(lowP, (P.x - PAX - cam.x) * K, (P.y - PAY - cam.y) * K);
 }
 // where the innkeeper holds the little lantern at night (the paw on the side away from the tray)
 const lanternXY = () => [R(P.x) + (P.dir === 'left' || P.dir === 'up' ? -6 : 6), R(P.y) - 7];
@@ -123,18 +188,6 @@ function drawOverlays() {
     const nt = newTagArt(), x = R(s.x) - CX, y = R(s.y) - 30 - CY - (s === badgeStaff() ? 10 : 0) - (s.carry > 0 ? 4 + s.carry * 2 : 0);
     if (y > 34) { drawC(nt, x, y); txt('新', x, y + .5, 6, '#ffffff', 'center', null); }
   }
-  // bought shoes: speed lines at your feet for 2 s; a new tray slot flashes once (7.3.4)
-  for (const fx of FX) if (fx.k === 'speed' && fx.t >= 0) {
-    const a = 1 - fx.t / fx.life, sd = P.dir === 'left' ? 1 : P.dir === 'right' ? -1 : 0, up = P.dir === 'up' ? 1 : P.dir === 'down' ? -1 : 0;
-    g.globalAlpha = .8 * a; g.fillStyle = '#ffffff';
-    for (let i = 0; i < 3; i++) { const o = ((fx.t * 40 + i * 5) % 12); if (sd) g.fillRect(R(P.x) + sd * (6 + o) - CX, R(P.y) - 9 + i * 4 - CY, 3, 1); else g.fillRect(R(P.x) - 5 + i * 5 - CX, R(P.y) + up * (4 + o) - (up < 0 ? 22 : 0) - CY, 1, 3); }
-    g.globalAlpha = 1;
-  }
-  // the hand lantern at night (3 x 4 px) and two sparkles round a hat you are trying on (4.10 / 4.11)
-  if (dayLight().night > .5) { const [lx, ly] = lanternXY(), x = lx - CX, y = ly - CY; g.fillStyle = OUT; g.fillRect(x, y - 3, 1, 1); g.fillStyle = '#7a4a2a'; g.fillRect(x - 1, y - 2, 3, 1); g.fillStyle = '#ffd27a'; g.fillRect(x - 1, y - 1, 3, 2); g.fillStyle = '#fff3c0'; g.fillRect(x, y - 1, 1, 1); }
-  if (TRY.hat && !P.towels) { const fr = Math.floor(T * 3) & 3, b = headBob(P); drawA(sparkleArt(fr), R(P.x) - 7, R(P.y) - 25 - b, 4, 4); drawA(sparkleArt((fr + 2) & 3), R(P.x) + 7, R(P.y) - 21 - b, 4, 4); }
-  // the decor slot you stand on: a small ring at your feet until the next piece swaps in
-  if (P.slot.key && !P.slot.stop && P.slot.t > 0) ring(R(P.x) - CX, R(P.y) + 6 - CY, P.slot.t / (P.slot.n ? DECOR_T : DECOR_T0), '#ffe9a8');
   // the VIP (4.4): name card / "..." / its wish, progress rings, the wish board over the door. v2.0.1 G1: the current wish
   // is a big gold bubble (the 14 x 13 bubble at 2x, pixel exact, a slow 1 px bob) - no red rim, a wish never runs out;
   // a wish done pops a big tick over its head (FX 'vipok') and gets a tick on the board
@@ -180,20 +233,9 @@ function drawOverlays() {
     g.fillRect(R(fx.x) - CX, R(fx.y - p * 4) - CY, 1, 1); if (p > .3 && p < .7) { g.globalAlpha *= .5; g.fillRect(R(fx.x) - 1 - CX, R(fx.y - p * 4) - CY, 3, 1); g.fillRect(R(fx.x) - CX, R(fx.y - p * 4) - 1 - CY, 1, 3); }
     g.globalAlpha = 1;
   }
-  // towel stacks on heads (the top layers lag a little when walking)
-  const stack = (e, n, sway) => { const tw = towelArt(), b = headBob(e); for (let i = 0; i < n; i++) drawA(tw, R(e.x + sway * i / Math.max(4, n)), R(e.y) - 17 - b - i * 2, 5, 2); };   // the first towel rests on the head (ear tips are 18px up)
-  if (P.towels > 0) stack(P, P.towels, P.sway);
-  for (const s of STAFF) if (s.carry > 0) stack(s, s.carry, 0);
-  // trays (4.1): the innkeeper's and the waiters'
-  drawTray(P, P.tray);
-  for (const fx of FX) if (fx.k === 'trayslot' && fx.t >= 0) {   // a new tray: its new empty place glows once (7.3.4)
-    const up = P.dir === 'up', sd = P.dir === 'left' ? -1 : P.dir === 'right' ? 1 : 0, x = R(P.x) + (up ? 7 : sd * 5) - CX, y = R(P.y) - (up ? 14 : 8) - headBob(P) - CY, n = P.tray.length;
-    const sx = x - 3 + n * 2 - 3, sy = y - 3 - (n & 1) - 3;
-    g.globalAlpha = Math.sin(fx.t / fx.life * Math.PI); g.fillStyle = '#ffd23f'; g.fillRect(sx, sy, 7, 1); g.fillRect(sx, sy + 6, 7, 1); g.fillRect(sx, sy, 1, 7); g.fillRect(sx + 6, sy, 1, 7); g.globalAlpha = 1;
-  }
-
+  // towel stacks on the staff's heads and the waiters' trays (the innkeeper's own: drawPlayerAttach)
+  for (const s of STAFF) if (s.carry > 0) towelStack(s, s.carry, 0);
   for (const s of STAFF) if (s.tray.length) drawTray(s, s.tray);
-  if (P.cookK) ring(R(P.x) - CX, R(P.y) - 30 - CY, P.cookT / (P.cookK === 'kaiseki' ? KAISEKI_T : STOVE_T), P.cookK === 'kaiseki' ? '#ffd23f' : '#ffe9a8');   // cooking at the stove (kaiseki: gold)
   for (const fx of FX) {
     if (fx.t < 0) continue;
     const fr = clamp(Math.floor(fx.t / fx.life * 4), 0, 3);
@@ -205,6 +247,35 @@ function drawOverlays() {
   for (const u of visiblePads()) { const [tx, ty] = padXY(u); if (VIS(tx * TILE + 8, ty * TILE + 8, 20)) padLabels(u); }
   manekiPaw(); rareOverlay(); fwClock();   // v2.1 core B: the maneki outfit's wave, rare guests' rings / bubble, the fireworks' clock
   for (const p of POPS) if (!(p.wait > 0)) txt(p.s, p.x - CX, p.y - CY, p.size, p.col, 'center', OUT, Math.min(1, p.life / p.max * 2));
+}
+// towel stacks on heads (the top layers lag a little when walking); the first towel rests on the head (ear tips are 18px up)
+function towelStack(e, n, sway) { const tw = towelArt(), b = headBob(e); for (let i = 0; i < n; i++) drawA(tw, R(e.x + sway * i / Math.max(4, n)), R(e.y) - 17 - b - i * 2, 5, 2); }
+// what the innkeeper carries / shows on himself, drawn in his own small layer so it moves with him to the device pixel
+// (render: attachLayer); returns whether anything was drawn
+function drawPlayerAttach() {
+  let any = false;
+  // bought shoes: speed lines at your feet for 2 s (7.3.4)
+  for (const fx of FX) if (fx.k === 'speed' && fx.t >= 0) {
+    const a = 1 - fx.t / fx.life, sd = P.dir === 'left' ? 1 : P.dir === 'right' ? -1 : 0, up = P.dir === 'up' ? 1 : P.dir === 'down' ? -1 : 0;
+    g.globalAlpha = .8 * a; g.fillStyle = '#ffffff'; any = true;
+    for (let i = 0; i < 3; i++) { const o = ((fx.t * 40 + i * 5) % 12); if (sd) g.fillRect(R(P.x) + sd * (6 + o) - CX, R(P.y) - 9 + i * 4 - CY, 3, 1); else g.fillRect(R(P.x) - 5 + i * 5 - CX, R(P.y) + up * (4 + o) - (up < 0 ? 22 : 0) - CY, 1, 3); }
+    g.globalAlpha = 1;
+  }
+  // the hand lantern at night (3 x 4 px) and two sparkles round a hat you are trying on (4.10 / 4.11)
+  if (dayLight().night > .5) { const [lx, ly] = lanternXY(), x = lx - CX, y = ly - CY; g.fillStyle = OUT; g.fillRect(x, y - 3, 1, 1); g.fillStyle = '#7a4a2a'; g.fillRect(x - 1, y - 2, 3, 1); g.fillStyle = '#ffd27a'; g.fillRect(x - 1, y - 1, 3, 2); g.fillStyle = '#fff3c0'; g.fillRect(x, y - 1, 1, 1); any = true; }
+  if (TRY.hat && !P.towels) { const fr = Math.floor(T * 3) & 3, b = headBob(P); drawA(sparkleArt(fr), R(P.x) - 7, R(P.y) - 25 - b, 4, 4); drawA(sparkleArt((fr + 2) & 3), R(P.x) + 7, R(P.y) - 21 - b, 4, 4); any = true; }
+  // the decor slot you stand on: a small ring at your feet until the next piece swaps in
+  if (P.slot.key && !P.slot.stop && P.slot.t > 0) { ring(R(P.x) - CX, R(P.y) + 6 - CY, P.slot.t / (P.slot.n ? DECOR_T : DECOR_T0), '#ffe9a8'); any = true; }
+  if (P.towels > 0) { towelStack(P, P.towels, P.sway); any = true; }
+  // the tray (4.1); a new tray: its new empty place glows once (7.3.4)
+  if (P.tray.length) { drawTray(P, P.tray); any = true; }
+  for (const fx of FX) if (fx.k === 'trayslot' && fx.t >= 0) {
+    const up = P.dir === 'up', sd = P.dir === 'left' ? -1 : P.dir === 'right' ? 1 : 0, x = R(P.x) + (up ? 7 : sd * 5) - CX, y = R(P.y) - (up ? 14 : 8) - headBob(P) - CY, n = P.tray.length;
+    const sx = x - 3 + n * 2 - 3, sy = y - 3 - (n & 1) - 3; any = true;
+    g.globalAlpha = Math.sin(fx.t / fx.life * Math.PI); g.fillStyle = '#ffd23f'; g.fillRect(sx, sy, 7, 1); g.fillRect(sx, sy + 6, 7, 1); g.fillRect(sx, sy, 1, 7); g.fillRect(sx + 6, sy, 1, 7); g.globalAlpha = 1;
+  }
+  if (P.cookK) { ring(R(P.x) - CX, R(P.y) - 30 - CY, P.cookT / (P.cookK === 'kaiseki' ? KAISEKI_T : STOVE_T), P.cookK === 'kaiseki' ? '#ffd23f' : '#ffe9a8'); any = true; }   // cooking at the stove (kaiseki: gold)
+  return any;
 }
 function drawGuide() {
   if (!S.tut.moved) {   // first-time hint: a hand dragging a ghost joystick + 拖动走路
@@ -240,11 +311,17 @@ function drawGuide() {
 }
 const GUIDE_BUBBLED = new Set(['deliver', 'vip', 'photo', 'stay']);   // v2.1: + a rare guest's 'stay' wish
 // a dotted ring of radius r round the innkeeper's feet (the net's reach)
+// (one cached image per whole radius: 18.2 perf)
+const NETC = new Map();
 function netRing(r, a) {
   if (a <= 0) return;
-  const n = Math.ceil(r * 2.4); g.globalAlpha = a; g.fillStyle = '#fff6d8';
-  for (let i = 0; i < n; i++) { if (i % 3 === 2) continue; const t = i / n * Math.PI * 2; g.fillRect(R(P.x + Math.cos(t) * r) - CX, R(P.y - 2 + Math.sin(t) * r) - CY, 1, 1); }
-  g.globalAlpha = 1;
+  r = R(r); let c = NETC.get(r);
+  if (!c) {
+    c = mk(2 * r + 3, 2 * r + 3); const o = c.getContext('2d'), n = Math.ceil(r * 2.4); o.fillStyle = '#fff6d8';
+    for (let i = 0; i < n; i++) { if (i % 3 === 2) continue; const t = i / n * Math.PI * 2; o.fillRect(r + 1 + R(Math.cos(t) * r), r + 1 + R(Math.sin(t) * r), 1, 1); }
+    NETC.set(r, c);
+  }
+  g.globalAlpha = a; g.drawImage(c, R(P.x) - r - 1 - CX, R(P.y - 2) - r - 1 - CY); g.globalAlpha = 1;
 }
 // the top centre (world px) of the bubble a guest / the VIP shows (the same places drawOverlays draws them), or null
 function bubbleTop(e) {
@@ -310,17 +387,26 @@ function drawFly() {
   }
 }
 function render() {
-  TQ.length = 0; TQ0 = 0; g = low.getContext('2d'); g.imageSmoothingEnabled = false; g.globalAlpha = 1;
-  CX = R(cam.x); CY = R(cam.y);
+  TQ.length = 0; TQ0 = 0; VM = 0; LGT = null; g = low.getContext('2d'); g.imageSmoothingEnabled = false; g.globalAlpha = 1;
   padsUpdate();
-  drawScene(W, H, state !== 'title');
+  if (state === 'title') {   // a still camera: one layer as before; the speaker stays on the title (7.1)
+    CX = R(cam.x); CY = R(cam.y); SUBX = SUBY = 0;
+    drawScene(W, H, false); drawSeasonFx(0); drawTitle(); drawC(soundIcon(musicOn || sfxOn), 172, 8); present(); return;
+  }
+  // the world layers (see worldBegin): whole-pixel camera + the remainder on the screen
+  SUBX = cam.x - R(cam.x); SUBY = cam.y - R(cam.y);
+  worldBegin(); OCC.length = 0; PSPLIT = true;
+  drawScene(W, H, true); PSPLIT = false;
   drawSeasonFx(0);   // v2.1: petals / leaves / snow, under the night tint
-  if (state === 'title') { drawTitle(); drawC(soundIcon(musicOn || sfxOn), 172, 8); present(); return; }   // the speaker stays on the title (7.1)
-  drawLighting(); drawSkyB(); drawSeasonFx(1); if (INFO && state === 'play') drawPreview(INFO); drawOverlays(); drawGuide(); drawJoy();   // v2.1: drawSkyB = the plaza's fireworks show (plaza.js); drawSeasonFx(1) = fireflies, festival fireworks, the full moon, lantern glow (seasons.js)
-  if (LINE) { layerBreak(); drawLine(); }   // the line bubble covers the world's words under it (prices, names)
-  layerBreak();
-
-  drawEdgeNew(); drawBanner(); drawHUD(); drawBottomCard(); drawFly();
+  drawLighting(); drawSkyB(); drawSeasonFx(1);   // v2.1: drawSkyB = the plaza's fireworks show (plaza.js); drawSeasonFx(1) = fireflies, festival fireworks, the full moon, lantern glow (seasons.js)
+  worldFlush();
+  playerLayer();
+  worldBegin(); if (INFO && state === 'play') drawPreview(INFO); drawOverlays(); drawGuide(); worldFlush();
+  attachLayer();
+  if (LINE) { worldBegin(); drawLine(); worldFlush(); }   // the line bubble covers the world's words under it (prices, names)
+  // the HUD layer: no shift
+  g = low.getContext('2d'); VM = 0; CX = R(cam.x); CY = R(cam.y); g.clearRect(0, 0, W, H);
+  drawJoy(); drawEdgeNew(); drawBanner(); drawHUD(); drawBottomCard(); drawFly();
   if (state === 'celebrate') { layerBreak(); drawCelebrate(); }
   if (state === 'menu') { layerBreak(); drawMenu(); }
   if (state === 'card') { layerBreak(); drawModal(); }   // v2.1: the year report / press result / family photo (yearly.js)

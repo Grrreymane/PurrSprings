@@ -29,8 +29,17 @@ function spawnGuests(dt) {
 // camera (2.7): follow the player, clamp to the map; never shakes, never pans by itself
 function updCam(dt, snap) {
   const tx = clamp(P.x - W / 2, 0, MAPW - W), ty = clamp(P.y - H / 2 - 8, camTopB(), MAPH - H + camBotB());   // v2.1 (shrine.js): the view may go past the map's top at the shrine (its hall would sit under the HUD) and past its bottom in the shop (its last row under the bottom card)
-  if (snap) { cam.x = tx; cam.y = ty; return; }
-  const k = Math.min(1, dt * 6); cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
+  if (snap) { cam.x = cam.tx = tx; cam.y = cam.ty = ty; cam.gx = cam.gy = 0; return; }
+  // 18.2 (smooth walking): locked to the innkeeper - walking moves the target and the camera exactly with it, so he
+  // stays on one screen pixel (render.js puts the world's sub-pixel remainder on the screen). A target that jumps (a
+  // shop / shrine margin coming in, a teleport) opens a gap that eases out (x6 a second) while the lock goes on.
+  const lim = playerSpeed() * dt * 1.5 + .5;
+  // (moved from outside - the title's camera, a test - counts as a jump too)
+  if (cam.tx === undefined || Math.abs(tx - cam.tx) > lim || Math.abs(cam.x - cam.tx - cam.gx) > .01) cam.gx = cam.x - tx;
+  if (cam.ty === undefined || Math.abs(ty - cam.ty) > lim || Math.abs(cam.y - cam.ty - cam.gy) > .01) cam.gy = cam.y - ty;
+  const k = 1 - Math.min(1, dt * 6);
+  cam.gx = Math.abs(cam.gx * k) < .02 ? 0 : cam.gx * k; cam.gy = Math.abs(cam.gy * k) < .02 ? 0 : cam.gy * k;
+  cam.tx = tx; cam.ty = ty; cam.x = tx + cam.gx; cam.y = ty + cam.gy;
 }
 function gameUpdate(dt) {
   S.stats.time += dt;

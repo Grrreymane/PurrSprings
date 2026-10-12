@@ -47,8 +47,8 @@ for (const [h, k] of [[4999, 'silver'], [4200, 'silver'], [4199, 'bronze'], [370
   eq(seen.join(','), 'gold,bronze', 'the newest two on the wall');
   ok(!hallOfFame(), 'silver gold bronze: no hall of fame'); S.awards = [{ y: 1, k: 'gold' }, { y: 2, k: 'gold' }, { y: 4, k: 'gold' }]; ok(!hallOfFame(), 'gold 1, 2, 4: not in a row');
   S.awards = [{ y: 1, k: 'silver' }, { y: 2, k: 'gold' }, { y: 3, k: 'gold' }, { y: 4, k: 'gold' }]; ok(hallOfFame(), 'gold three years running: 殿堂旅馆');
-  const g = low.getContext('2d'), L = [], _fr = g.fillRect; g.fillRect = function (x, y, w, h) { L.push(this.fillStyle); return _fr.call(this, x, y, w, h); };
-  P.x = 20 * 16 + 16; P.y = 31 * 16; updCam(0, true); render(); g.fillRect = _fr; ok(L.includes('#ffd23f'), 'the sign wears its gold frame');
+  const L = [], cs = [low, lowW].map(c => c.getContext('2d')), frs = cs.map(x => x.fillRect); cs.forEach((x, i) => { x.fillRect = function (a, b, w, h) { L.push(this.fillStyle); return frs[i].call(this, a, b, w, h); }; });
+  P.x = 20 * 16 + 16; P.y = 31 * 16; updCam(0, true); render(); cs.forEach((x, i) => { x.fillRect = frs[i]; }); ok(L.includes('#ffd23f'), 'the sign wears its gold frame');
   setup(36, .049); S.awards = [{ y: 1, k: 'gold' }, { y: 2, k: 'gold' }]; S.year.n = 3; S.hearts = S.year.h + 6000; run(1, () => state === 'card'); ok(MODAL_Q[0] && MODAL_Q[0].hall, 'the card says 殿堂旅馆 the year it happens'); modalClose(); }
 sfx = _sfx;
 console.log(errs.length ? 'SYS YEARLY FAIL\n  ' + errs.join('\n  ') : 'SYS YEARLY OK');

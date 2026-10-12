@@ -70,7 +70,12 @@ const PICKUPS = [
   { id: 'pass', k: 'rice', t: .15, on: () => !!S.unlocked.dining },
 ];
 const inZone = z => dist(P.x, P.y, z.c[0], z.c[1]) <= z.r;
-const canPick = (pk, L) => pk.on() && P.tray.length < trayCap() && wantCount(pk.k, L) - heldCount(pk.k) > 0 && (pk.id !== 'pass' || PASS.n > 0);
+// the counter's rice is the waiter's once one is hired (18.2, "the rice I cook ends up back in my hands": the stove sits
+// inside the pass zone, so what you just cooked onto the counter came straight back onto your tray and the waiter had
+// nothing to carry). With a waiter you only take a portion from it for a call or the VIP; seated diners are his. With no
+// waiter the counter is yours as before.
+const pickWant = (pk, L) => pk.id === 'pass' && hasWaiter() ? (L || playerWants()).filter(w => w.k === 'rice' && !w.seat).length - countK(P.tray, 'rice') : wantCount(pk.k, L) - heldCount(pk.k);
+const canPick = (pk, L) => pk.on() && P.tray.length < trayCap() && pickWant(pk, L) > 0 && (pk.id !== 'pass' || PASS.n > 0);
 // what the innkeeper would cook standing at the stove right now: a kaiseki box for the VIP (3 s, only by hand), else
 // rice while nobody's chef (1 s a portion, only what is wanted). Rice for seated diners goes onto the counter when a
 // waiter is hired (he carries it; SPEC_v2 18.2), else onto the tray.

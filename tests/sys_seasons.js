@@ -61,8 +61,8 @@ const run = (sec, f) => { for (let i = 0, n = Math.round(sec / DT); i < n; i++) 
   setup(ALL, 7); const r0 = fee('room', { rm: ROOM.room1 }), t0 = fee('tip', { rm: ROOM.room1 }); S.popT = 30;
   eq(fee('room', { rm: ROOM.room1 }), R(r0 * POP_K), '"popular": room x1.3'); eq(fee('tip', { rm: ROOM.room1 }), R(t0 * POP_K), '"popular": tip x1.3'); }
 // ---- particles: capped, outdoors, no Math.random, slow
-{ const ctx = low.getContext('2d'), _fr = ctx.fillRect; let L = [];
-  ctx.fillRect = function (x, y, w, h) { L.push([this.fillStyle, this.globalAlpha, x, y, w, h, this.globalCompositeOperation]); return _fr.call(this, x, y, w, h); };
+{ let L = [];   // every canvas the frame is drawn into (18.2: the world has its own layers - render.js)
+  for (const c of [low, lowW, lowP, lowO]) { const ctx = c.getContext('2d'), _fr = ctx.fillRect; ctx.fillRect = function (x, y, w, h) { L.push([this.fillStyle, this.globalAlpha, x, y, w, h, this.globalCompositeOperation]); return _fr.call(this, x, y, w, h); }; }
   const shotAt = (tx, ty, extra) => { P.x = tx * 16 + 8; P.y = ty * 16 + 8; updCam(0, true); L = []; render(); return L; };
   const count = (cols, LL) => { let n = 0; for (const e of LL) if (cols.includes(e[0])) n++; return n; };
   const spots = [[17, 31], [30, 24], [17, 5], [13, 14], [32, 30]];
@@ -94,7 +94,7 @@ const run = (sec, f) => { for (let i = 0, n = Math.round(sec / DT); i < n; i++) 
     const caps = []; const _sc = snowCapArt; snowCapArt = c => { caps.push(c); return _sc(c); };
     setup(ALL, 10, .3); shotAt(17, 31); ok(caps.length >= 2, 'winter: snow caps on the stone lanterns (' + caps.length + ')');
     caps.length = 0; setup(ALL, 7, .3); shotAt(17, 31); eq(caps.length, 0, 'autumn: none'); snowCapArt = _sc; }
-  ctx.fillRect = _fr; }
+  }
 // ---- seasonal decor: on sale after that season's first festival; the arrow starts a seasonal combo in a re-dressed room
 { setup(ALL, 1); S.money = 1e5; padsUpdate();
   ok(!UNLOCKS_V21A.some(u => padEligible(u)), 'no seasonal decor before a festival');

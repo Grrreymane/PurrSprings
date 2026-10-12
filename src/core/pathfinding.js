@@ -113,22 +113,43 @@ function boxHit(x, y) {
   for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) if (!walkable(tx, ty)) return true;
   return false;
 }
-// blocked head-on by a corner: if a free lane is within 7px sideways, ease toward it (makes 1-tile doors easy)
-function cornerAssist(e, axis, step) {
-  for (let k = 1; k <= 7; k++) for (const s of [-1, 1]) {
-    const free = axis === 'x' ? !boxHit(e.x + step, e.y + s * k) : !boxHit(e.x + s * k, e.y + step);
-    if (!free) continue;
-    const n = Math.min(1, Math.abs(step));
-    if (axis === 'x') { if (!boxHit(e.x, e.y + s * n)) e.y += s * n; } else if (!boxHit(e.x + s * n, e.y)) e.x += s * n;
-    return;
+// Door magnetism / corner rounding (18.2, "the doorways are tiny, I get stuck"): blocked while pushing mostly (within ~45 deg) into a
+// wall or furniture, with a free lane - a door, a gate, a gap - within LANE_R px sideways that the box can slide to:
+// slide toward it at walking speed instead of stopping (the nearest lane; on a tie the side the stick leans to). The
+// stick's own sideways part is dropped while it pulls the other way. Pushing along a wall (more than 45 deg off it) never
+// pulls you into a doorway you pass.
+const LANE_R = 8, LANE_K = .7;   // sideways reach (px); how much of the push must point into the wall (cos 45 deg)
+function laneOff(e, axis, step, lean) {
+  for (let k = 1; k <= LANE_R; k++) for (const s of lean < 0 ? [-1, 1] : [1, -1]) {
+    const o = s * k;
+    if (axis === 'x' ? boxHit(e.x + step, e.y + o) || boxHit(e.x, e.y + o) : boxHit(e.x + o, e.y + step) || boxHit(e.x + o, e.y)) continue;
+    let clear = true;   // the slide over there is free all the way
+    for (let j = 1; j < k && clear; j++) if (axis === 'x' ? boxHit(e.x, e.y + s * j) : boxHit(e.x + s * j, e.y)) clear = false;
+    if (clear) return o;
   }
+  return 0;
 }
+// moves the box by (dx, dy) in <= 1 px sub-steps, axis by axis (so walls can be slid along); the pushed-into axis first
 function moveBox(e, dx, dy) {
-  const n = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy))));
-  const sx = dx / n, sy = dy / n;
+  const len = Math.hypot(dx, dy), n = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy))));
+  const sx = dx / n, sy = dy / n, step = len / n, xFirst = Math.abs(dx) >= Math.abs(dy);
   for (let i = 0; i < n; i++) {
-    if (sx) { if (!boxHit(e.x + sx, e.y)) e.x += sx; else if (Math.abs(dx) > Math.abs(dy) * 2) cornerAssist(e, 'x', sx); }
-    if (sy) { if (!boxHit(e.x, e.y + sy)) e.y += sy; else if (Math.abs(dy) > Math.abs(dx) * 2) cornerAssist(e, 'y', sy); }
+    let skipX = false, skipY = false;
+    for (const axis of xFirst ? ['x', 'y'] : ['y', 'x']) {
+      if (axis === 'x') {
+        if (!sx || skipX) continue;
+        if (!boxHit(e.x + sx, e.y)) { e.x += sx; continue; }
+        if (Math.abs(dx) < len * LANE_K) continue;
+        const o = laneOff(e, 'x', sx, sy); if (!o) continue;
+        e.y += Math.sign(o) * Math.min(Math.abs(o), step); skipY = true;
+      } else {
+        if (!sy || skipY) continue;
+        if (!boxHit(e.x, e.y + sy)) { e.y += sy; continue; }
+        if (Math.abs(dy) < len * LANE_K) continue;
+        const o = laneOff(e, 'y', sy, sx); if (!o) continue;
+        e.x += Math.sign(o) * Math.min(Math.abs(o), step); skipX = true;
+      }
+    }
   }
 }
 // something popped up under the player (a table on its own pad): step to the nearest free spot

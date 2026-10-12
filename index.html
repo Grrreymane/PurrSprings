@@ -8130,11 +8130,20 @@ function drawObj(c, tx, yBottom, fw, s) {
 }
 // small pixel progress ring (radius ~5)
 const RING = (() => { const a = []; for (let y = -6; y <= 6; y++) for (let x = -6; x <= 6; x++) { const d = Math.hypot(x, y); if (d >= 3.6 && d <= 5.6) a.push([x, y, (Math.atan2(x, -y) + Math.PI * 2) % (Math.PI * 2) / (Math.PI * 2), d]); } return a; })();
+// drawn from a cache (18.2 perf: ~60 one-pixel fills per ring per frame before): one image per colour and filled count
+const RING_IN = RING.filter(e => e[3] < 5).sort((a, b) => a[2] - b[2]), RINGC = new Map();
 function ring(x, y, p, col) {
-  x = R(x); y = R(y);
-  g.fillStyle = OUT; for (const [dx, dy] of RING) g.fillRect(x + dx, y + dy, 1, 1);
-  g.fillStyle = '#6a6a7e'; for (const [dx, dy, , d] of RING) if (d < 5) g.fillRect(x + dx, y + dy, 1, 1);
-  g.fillStyle = col || '#7ae07a'; for (const [dx, dy, a, d] of RING) if (a <= p && d < 5) g.fillRect(x + dx, y + dy, 1, 1);
+  col = col || '#7ae07a';
+  let n = 0; while (n < RING_IN.length && RING_IN[n][2] <= p) n++;
+  const key = col + n; let c = RINGC.get(key);
+  if (!c) {
+    c = mk(13, 13); const o = c.getContext('2d');
+    o.fillStyle = OUT; for (const [dx, dy] of RING) o.fillRect(6 + dx, 6 + dy, 1, 1);
+    o.fillStyle = '#6a6a7e'; for (const [dx, dy] of RING_IN) o.fillRect(6 + dx, 6 + dy, 1, 1);
+    o.fillStyle = col; for (let i = 0; i < n; i++) o.fillRect(6 + RING_IN[i][0], 6 + RING_IN[i][1], 1, 1);
+    RINGC.set(key, c);
+  }
+  g.drawImage(c, R(x) - 6, R(y) - 6);
 }
 // ==== end source:src/ui/drawing.js ====
 
@@ -9088,22 +9097,43 @@ function boxHit(x, y) {
   for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) if (!walkable(tx, ty)) return true;
   return false;
 }
-// blocked head-on by a corner: if a free lane is within 7px sideways, ease toward it (makes 1-tile doors easy)
-function cornerAssist(e, axis, step) {
-  for (let k = 1; k <= 7; k++) for (const s of [-1, 1]) {
-    const free = axis === 'x' ? !boxHit(e.x + step, e.y + s * k) : !boxHit(e.x + s * k, e.y + step);
-    if (!free) continue;
-    const n = Math.min(1, Math.abs(step));
-    if (axis === 'x') { if (!boxHit(e.x, e.y + s * n)) e.y += s * n; } else if (!boxHit(e.x + s * n, e.y)) e.x += s * n;
-    return;
+// Door magnetism / corner rounding (18.2, "the doorways are tiny, I get stuck"): blocked while pushing mostly (within ~45 deg) into a
+// wall or furniture, with a free lane - a door, a gate, a gap - within LANE_R px sideways that the box can slide to:
+// slide toward it at walking speed instead of stopping (the nearest lane; on a tie the side the stick leans to). The
+// stick's own sideways part is dropped while it pulls the other way. Pushing along a wall (more than 45 deg off it) never
+// pulls you into a doorway you pass.
+const LANE_R = 8, LANE_K = .7;   // sideways reach (px); how much of the push must point into the wall (cos 45 deg)
+function laneOff(e, axis, step, lean) {
+  for (let k = 1; k <= LANE_R; k++) for (const s of lean < 0 ? [-1, 1] : [1, -1]) {
+    const o = s * k;
+    if (axis === 'x' ? boxHit(e.x + step, e.y + o) || boxHit(e.x, e.y + o) : boxHit(e.x + o, e.y + step) || boxHit(e.x + o, e.y)) continue;
+    let clear = true;   // the slide over there is free all the way
+    for (let j = 1; j < k && clear; j++) if (axis === 'x' ? boxHit(e.x, e.y + s * j) : boxHit(e.x + s * j, e.y)) clear = false;
+    if (clear) return o;
   }
+  return 0;
 }
+// moves the box by (dx, dy) in <= 1 px sub-steps, axis by axis (so walls can be slid along); the pushed-into axis first
 function moveBox(e, dx, dy) {
-  const n = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy))));
-  const sx = dx / n, sy = dy / n;
+  const len = Math.hypot(dx, dy), n = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy))));
+  const sx = dx / n, sy = dy / n, step = len / n, xFirst = Math.abs(dx) >= Math.abs(dy);
   for (let i = 0; i < n; i++) {
-    if (sx) { if (!boxHit(e.x + sx, e.y)) e.x += sx; else if (Math.abs(dx) > Math.abs(dy) * 2) cornerAssist(e, 'x', sx); }
-    if (sy) { if (!boxHit(e.x, e.y + sy)) e.y += sy; else if (Math.abs(dy) > Math.abs(dx) * 2) cornerAssist(e, 'y', sy); }
+    let skipX = false, skipY = false;
+    for (const axis of xFirst ? ['x', 'y'] : ['y', 'x']) {
+      if (axis === 'x') {
+        if (!sx || skipX) continue;
+        if (!boxHit(e.x + sx, e.y)) { e.x += sx; continue; }
+        if (Math.abs(dx) < len * LANE_K) continue;
+        const o = laneOff(e, 'x', sx, sy); if (!o) continue;
+        e.y += Math.sign(o) * Math.min(Math.abs(o), step); skipY = true;
+      } else {
+        if (!sy || skipY) continue;
+        if (!boxHit(e.x, e.y + sy)) { e.y += sy; continue; }
+        if (Math.abs(dy) < len * LANE_K) continue;
+        const o = laneOff(e, 'y', sy, sx); if (!o) continue;
+        e.x += Math.sign(o) * Math.min(Math.abs(o), step); skipX = true;
+      }
+    }
   }
 }
 // something popped up under the player (a table on its own pad): step to the nearest free spot
@@ -10212,7 +10242,12 @@ const PICKUPS = [
   { id: 'pass', k: 'rice', t: .15, on: () => !!S.unlocked.dining },
 ];
 const inZone = z => dist(P.x, P.y, z.c[0], z.c[1]) <= z.r;
-const canPick = (pk, L) => pk.on() && P.tray.length < trayCap() && wantCount(pk.k, L) - heldCount(pk.k) > 0 && (pk.id !== 'pass' || PASS.n > 0);
+// the counter's rice is the waiter's once one is hired (18.2, "the rice I cook ends up back in my hands": the stove sits
+// inside the pass zone, so what you just cooked onto the counter came straight back onto your tray and the waiter had
+// nothing to carry). With a waiter you only take a portion from it for a call or the VIP; seated diners are his. With no
+// waiter the counter is yours as before.
+const pickWant = (pk, L) => pk.id === 'pass' && hasWaiter() ? (L || playerWants()).filter(w => w.k === 'rice' && !w.seat).length - countK(P.tray, 'rice') : wantCount(pk.k, L) - heldCount(pk.k);
+const canPick = (pk, L) => pk.on() && P.tray.length < trayCap() && pickWant(pk, L) > 0 && (pk.id !== 'pass' || PASS.n > 0);
 // what the innkeeper would cook standing at the stove right now: a kaiseki box for the VIP (3 s, only by hand), else
 // rice while nobody's chef (1 s a portion, only what is wanted). Rice for seated diners goes onto the counter when a
 // waiter is hired (he carries it; SPEC_v2 18.2), else onto the tray.
@@ -11082,16 +11117,17 @@ function chochinRow(n) {
   return art('core:chochinRow:' + n, () => { const c = mk(n * TILE, 12), x = c.getContext('2d'); x.imageSmoothingEnabled = false; const s = chochinString(); for (let px = 0; px < n * TILE; px += s.width) x.drawImage(s, px, 1); return c; });
 }
 // after the light pass: the show's faint night tint, then the bursts (never white, no flash)
+// the show's own dusk (fun check, SPEC_v2 18.2): a multiply tint like the night's, eased in / out over 1.5 s - with the
+// old plain .25 veil the soft bursts were all but invisible by day (on snow not at all); at night it adds nothing
+function fwDuskA() { if (FWS.t <= 0) return 0; const k = clamp(Math.min((FW_T - FWS.t) / 1.5, FWS.t / 1.5), 0, 1); return FW_DUSK * k * (1 - dayLight().night); }
+function fwDusk(a, x, y, w, h) {
+  g.globalCompositeOperation = 'multiply'; const mul = g.globalCompositeOperation === 'multiply'; if (!mul) g.globalCompositeOperation = 'source-over';
+  g.globalAlpha = mul ? a : a * .55; g.fillStyle = '#2a3468'; g.fillRect(x, y, w, h); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+}
 function drawSkyB() {
   if (FWS.t <= 0 && !BURSTS.length) return;
-  const k = clamp(Math.min((FW_T - FWS.t) / 1.5, FWS.t / 1.5), 0, 1), dl = dayLight();
-  // the show's own dusk (fun check, SPEC_v2 18.2): a multiply tint like the night's, eased in / out over 1.5 s - with the
-  // old plain .25 veil the soft bursts were all but invisible by day (on snow not at all); at night it adds nothing
-  const a = FW_DUSK * k * (1 - dl.night);
-  if (a > .004) {
-    g.globalCompositeOperation = 'multiply'; const mul = g.globalCompositeOperation === 'multiply'; if (!mul) g.globalCompositeOperation = 'source-over';
-    g.globalAlpha = mul ? a : a * .55; g.fillStyle = '#2a3468'; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
-  }
+  const a = fwDuskA();
+  if (a > .004) fwDusk(a, -VM, -VM, W + 2 * VM, H + 2 * VM);
   for (const b of BURSTS) {
     const sx = b.x - CX, sy = b.y - CY; if (sx < -36 || sx > W + 36 || sy < -36 || sy > H + 36) continue;
     if (b.t < b.rise) {   // a dim trail rising, then it opens
@@ -11180,8 +11216,17 @@ function spawnGuests(dt) {
 // camera (2.7): follow the player, clamp to the map; never shakes, never pans by itself
 function updCam(dt, snap) {
   const tx = clamp(P.x - W / 2, 0, MAPW - W), ty = clamp(P.y - H / 2 - 8, camTopB(), MAPH - H + camBotB());   // v2.1 (shrine.js): the view may go past the map's top at the shrine (its hall would sit under the HUD) and past its bottom in the shop (its last row under the bottom card)
-  if (snap) { cam.x = tx; cam.y = ty; return; }
-  const k = Math.min(1, dt * 6); cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
+  if (snap) { cam.x = cam.tx = tx; cam.y = cam.ty = ty; cam.gx = cam.gy = 0; return; }
+  // 18.2 (smooth walking): locked to the innkeeper - walking moves the target and the camera exactly with it, so he
+  // stays on one screen pixel (render.js puts the world's sub-pixel remainder on the screen). A target that jumps (a
+  // shop / shrine margin coming in, a teleport) opens a gap that eases out (x6 a second) while the lock goes on.
+  const lim = playerSpeed() * dt * 1.5 + .5;
+  // (moved from outside - the title's camera, a test - counts as a jump too)
+  if (cam.tx === undefined || Math.abs(tx - cam.tx) > lim || Math.abs(cam.x - cam.tx - cam.gx) > .01) cam.gx = cam.x - tx;
+  if (cam.ty === undefined || Math.abs(ty - cam.ty) > lim || Math.abs(cam.y - cam.ty - cam.gy) > .01) cam.gy = cam.y - ty;
+  const k = 1 - Math.min(1, dt * 6);
+  cam.gx = Math.abs(cam.gx * k) < .02 ? 0 : cam.gx * k; cam.gy = Math.abs(cam.gy * k) < .02 ? 0 : cam.gy * k;
+  cam.tx = tx; cam.ty = ty; cam.x = tx + cam.gx; cam.y = ty + cam.gy;
 }
 function gameUpdate(dt) {
   S.stats.time += dt;
@@ -11312,15 +11357,22 @@ function drawPad(u) {
   if (raisesStar(u)) drawC(starIcon(true), x + 14, y + 2);   // "buying this adds a star" badge (1)
 }
 // dashed rounded frame of a pad; the dashes creep slowly round
+// (one cached 16 x 16 image per step of the creep and colour: 18.2 perf, it was 31 one-pixel fills a pad a frame)
+const DASHC = new Map();
 function padDash(x, y, on) {
-  const off = Math.floor(T * 4);
-  g.fillStyle = on ? '#ffe14a' : '#fff6d8';
-  for (let i = 0; i < 52; i++) {
-    if (((i + off) % 5) >= 3) continue;
-    const k = i % 13, side = (i / 13) | 0;
-    const px = side === 0 ? 1 + k : side === 1 ? 15 : side === 2 ? 14 - k : 0, py = side === 0 ? 0 : side === 1 ? 1 + k : side === 2 ? 15 : 14 - k;
-    g.fillRect(x + px, y + py, 1, 1);
+  const off = Math.floor(T * 4) % 5, key = (on ? 'on' : 'off') + off;
+  let c = DASHC.get(key);
+  if (!c) {
+    c = mk(16, 16); const o = c.getContext('2d'); o.fillStyle = on ? '#ffe14a' : '#fff6d8';
+    for (let i = 0; i < 52; i++) {
+      if (((i + off) % 5) >= 3) continue;
+      const k = i % 13, side = (i / 13) | 0;
+      const px = side === 0 ? 1 + k : side === 1 ? 15 : side === 2 ? 14 - k : 0, py = side === 0 ? 0 : side === 1 ? 1 + k : side === 2 ? 15 : 14 - k;
+      o.fillRect(px, py, 1, 1);
+    }
+    c.dash = on ? '#ffe14a' : '#fff6d8'; DASHC.set(key, c);
   }
+  g.drawImage(c, x, y);
 }
 // The price goes under the pad; beside it (right) when another visible pad sits right below, or when you stand just
 // below the pad (it would cover your head); over it when another visible pad sits right beside it (跑鞋 / 竹篮,
@@ -11410,11 +11462,11 @@ function guestDraws(L, gu) {
     const y = tcy(SEATS[gu.seat].at) + 4;
     L.push({ y, f: () => drawSitter(gu.seat, gu.look, false, gu.st === 'eat') });
     if (m && m.mode === 'park' && gu.seat2 >= 0) L.push({ y: y + .01, f: () => drawSitter(gu.seat2, m.look, m.kind === 'kitten', gu.st === 'eat') });
-    else if (m && VIS(m.x, m.y, 24)) L.push({ y: m.y, f: () => drawMate(m) });
+    else if (m && VIS(m.x, m.y, 24)) L.push({ y: m.y, x: m.x, hw: 10, f: () => drawMate(m) });
     return;
   }
-  if (VIS(gu.x, gu.y, 24)) L.push({ y: gu.y, f: () => drawCat(gu, gu.look, gu.ox) });
-  if (m && m.mode !== 'park' && VIS(m.x, m.y, 24)) L.push({ y: m.y, f: () => drawMate(m) });
+  if (VIS(gu.x, gu.y, 24)) L.push({ y: gu.y, x: gu.x + (gu.ox || 0), hw: 10, f: () => drawCat(gu, gu.look, gu.ox) });
+  if (m && m.mode !== 'park' && VIS(m.x, m.y, 24)) L.push({ y: m.y, x: m.x, hw: 10, f: () => drawMate(m) });
 }
 // the hand tray (4.1): in front of the chest, beside the head when walking up; portions stagger 2 px each
 function drawTray(e, items) {
@@ -11424,11 +11476,13 @@ function drawTray(e, items) {
   g.fillStyle = OUT; g.fillRect(x - 6, y, 12, 3); g.fillStyle = '#b07a48'; g.fillRect(x - 5, y + 1, 10, 1);
   items.forEach((k, i) => drawC(itemIcon(k), x - 3 + i * 2, y - 3 - (i & 1)));
 }
+const OCC_DY = 72;   // the tallest sprite (the pine, the shrine) reaches this far up from its base
 // live: guests, staff, pads, piles; card (the share card): the people without the game's markers (pads, empty slots)
 function drawScene(vw, vh, live, noPlayer, card) {
   const marks = live && !card;
-  g.fillStyle = '#243a22'; g.fillRect(0, 0, vw, vh);
-  const sx = clamp(CX, 0, MAPW), sy = clamp(CY, 0, MAPH), sw = Math.min(vw - (sx - CX), MAPW - sx), sh = Math.min(vh - (sy - CY), MAPH - sy);
+  const m = VM;   // the world layers draw 1 px round the view too (render.js worldBegin)
+  g.fillStyle = '#243a22'; g.fillRect(-m, -m, vw + 2 * m, vh + 2 * m);
+  const sx = clamp(CX - m, 0, MAPW), sy = clamp(CY - m, 0, MAPH), sw = Math.min(vw + m - (sx - CX), MAPW - sx), sh = Math.min(vh + m - (sy - CY), MAPH - sy);
   if (sw > 0 && sh > 0) g.drawImage(WORLD, sx, sy, sw, sh, sx - CX, sy - CY, sw, sh);
   // animated water (visible tiles only): onsen, roten, the koi pond
   const fr = Math.floor(T / .4) & 3, sea = seasonNow(), water = (x0, x1, y0, y1, fn) => { for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) if (VIS(tx * TILE + 8, ty * TILE + 8, 12)) g.drawImage(fn(fr, tx, ty, sea), tx * TILE - CX, ty * TILE - CY); };   // v2.1: + the season (pondArt)
@@ -11469,7 +11523,7 @@ function drawScene(vw, vh, live, noPlayer, card) {
   }
   // ---- y-sorted props, area boards and cats
   const L = [];
-  for (const o of OBJS) { if (o.ground) continue; const by = (o.ty + o.fh) * TILE; if (VIS(o.tx * TILE + o.fw * 8, by - 16, 64)) L.push({ y: by, f: () => drawObj(propImg(o), o.tx, by, o.fw, popScale(POPA[o.uid])) }); }   // propImg: v2.1 snow caps in winter
+  for (const o of OBJS) { if (o.ground) continue; const by = (o.ty + o.fh) * TILE; if (VIS(o.tx * TILE + o.fw * 8, by - 16, 64)) L.push({ y: by, x: o.tx * TILE + o.fw * 8, hw: Math.max(o.fw * 8, 24), f: () => drawObj(propImg(o), o.tx, by, o.fw, popScale(POPA[o.uid])) }); }   // propImg: v2.1 snow caps in winter
   for (const a of AREAS) if (a.sign && !areaOpen(a)) {   // star-n board at a locked area; lights up (and pops) once its gate pad shows
     const gate = UNLOCK[a.open], lit = PADPOS.has(gate.id), x = tcx(a.sign), y = (a.sign[1] + 1) * TILE - 1;
     if (VIS(x, y - 8, 24)) L.push({ y, f: () => { const c = areaSignArt(a.n, lit), s = lit ? popScale(POPA['pad:' + gate.id]) : 1; if (s >= 1) drawA(c, x, y, 7, 17); else if (s > .02) g.drawImage(c, R(x - 7 * s) - CX, R(y - 17 * s) - CY, R(c.width * s) || 1, R(c.height * s) || 1); } });
@@ -11487,8 +11541,8 @@ function drawScene(vw, vh, live, noPlayer, card) {
   }
   if (live) {
     for (const gu of GUESTS) guestDraws(L, gu);
-    for (const s of STAFF) if (VIS(s.x, s.y, 24)) L.push({ y: s.y, f: () => drawCat(s, staffLook(s)) });
-    if (!noPlayer) L.push({ y: P.y + .01, f: () => drawCat(P, playerLook()) });
+    for (const s of STAFF) if (VIS(s.x, s.y, 24)) L.push({ y: s.y, x: s.x, hw: 10, f: () => drawCat(s, staffLook(s)) });
+    if (!noPlayer) L.push({ y: P.y + .01, pl: true, f: () => drawCat(P, playerLook()) });
     if (PET && !noPlayer && VIS(PET.x, PET.y, 24)) L.push({ y: PET.y, f: () => drawPet(PET) });   // (the share card draws its own, 2x)
     if (TRY.pet && !noPlayer) { const gh = { kind: TRY.pet, x: P.x - 11, y: P.y + 2, dir: P.dir, moving: P.moving, walkT: P.walkT, idle: 0 }; L.push({ y: gh.y, f: () => drawPet(gh, true) }); }   // try-on: its ghost at your feet
   }
@@ -11496,9 +11550,16 @@ function drawScene(vw, vh, live, noPlayer, card) {
   // (drawn over everyone it hid them - stage 2B note)
   if (S.unlocked.shop && VIS(88, 30 * TILE, 100)) L.push({ y: 30 * TILE - .5, f: () => g.drawImage(awningArt(), 16 - CX, 30 * TILE - 12 - CY) });
   if (live && !card) { rareDraws(L); if (!noPlayer) dressGhostDraws(L); }   // v2.1: the kitten brothers following, the uniform ghost
-  L.sort((a, b) => a.y - b.y); for (const e of L) e.f();
+  // the main view (render: PSPLIT) leaves the innkeeper out - he has his own layer - and keeps what is drawn in front of
+  // him near him (y-sorted after him, base within OCC_DY below his feet) to draw it again over his layer
+  L.sort((a, b) => a.y - b.y); let after = false;
+  for (const e of L) {
+    if (e.pl && PSPLIT) { after = true; continue; }
+    e.f(); if (after && e.y < P.y + OCC_DY && (e.x === undefined || Math.abs(e.x - P.x) < e.hw + 10)) OCC.push(e.f);   // x / hw: its centre and half width, when known
+  }
   // ---- over everyone: the entrance noren
-  g.drawImage(entranceNoren(), 16 * TILE - CX, 29 * TILE - 6 - CY);
+  const noren = () => g.drawImage(entranceNoren(), 16 * TILE - CX, 29 * TILE - 6 - CY);
+  noren(); if (PSPLIT && Math.abs(P.y - 29 * TILE) < 48 && Math.abs(P.x - 17.5 * TILE) < 48) OCC.push(noren);
 }
 // ==== end source:src/ui/render-world.js ====
 // ==== source:src/ui/render.js ====
@@ -11510,10 +11571,13 @@ function drawScene(vw, vh, live, noPlayer, card) {
 // The night tint is its own layer: each lamp (and the hand lantern) cuts a soft hole into it before the one multiply,
 // so what stands under a lamp keeps its day colours and its dark outline; a weaker additive glow on top adds the warm
 // colour (stage M: with the glow only added on top, a cat under a corridor lamp washed out to a pale blur).
-const DARK = mk(W, H);
+const WM = 1;   // the world canvases' margin round the view (logical px): room for the camera's sub-pixel shift (render)
+let VM = 0;     // the margin of the canvas drawn into now: WM in the world layers, 0 elsewhere (full-view fills cover it)
+const DARK = mk(W + 2 * WM, H + 2 * WM);   // pixel (0, 0) = world (CX - WM, CY - WM)
+let LGT = null;   // this frame's light pass (null by day): the small player / occluder layers are lit the same way (lightLayer)
 const holeArt = r => art('hole:' + r, () => { const c = mk(2 * r, 2 * r), x = c.getContext('2d'), gl = glowArt(r, '#ffffff'); x.drawImage(gl, 0, 0); x.drawImage(gl, 0, 0); return c; });   // glowArt's rings x2: .75 / .51 / .33 / .15
 function drawLighting() {
-  const dl = dayLight(); LIGHT_N = 0;
+  const dl = dayLight(); LIGHT_N = 0; LGT = null;
   if (dl.a < .004 && dl.night < .004) return;
   const cx = CX + W / 2, cy = CY + H / 2, vis = [];   // lamps in view, the nearest to the view centre first (<= 16)
   if (dl.night > .02) {
@@ -11522,33 +11586,20 @@ function drawLighting() {
   }
   let lant = 0; const [lx, ly] = lanternXY();   // the hand lantern adds less under a lamp (stacked on one, the innkeeper burnt out white)
   if (dl.night > .5 && state !== 'title') { let under = 0; for (const v of vis) under = Math.max(under, 1 - Math.hypot(v.L.x - lx, v.L.y - ly) / v.r); lant = (dl.night - .5) * 2 * (1 - .8 * clamp(under, 0, 1)); }
-  const d = DARK.getContext('2d'); d.globalCompositeOperation = 'source-over'; d.globalAlpha = 1; d.clearRect(0, 0, W, H); d.fillStyle = dl.col; d.fillRect(0, 0, W, H);
+  const d = DARK.getContext('2d'), dw = DARK.width, dh = DARK.height; d.globalCompositeOperation = 'source-over'; d.globalAlpha = 1; d.clearRect(0, 0, dw, dh); d.fillStyle = dl.col; d.fillRect(0, 0, dw, dh);
   if (vis.length || lant > 0) {
     d.globalCompositeOperation = 'destination-out'; d.globalAlpha = dl.night;
-    for (const v of vis) d.drawImage(holeArt(v.r), R(v.L.x) - v.r - CX, R(v.L.y) - v.r - CY);
-    if (lant > 0) { d.globalAlpha = lant; d.drawImage(holeArt(24), lx - 24 - CX, ly - 24 - CY); }
+    for (const v of vis) d.drawImage(holeArt(v.r), R(v.L.x) - v.r - CX + WM, R(v.L.y) - v.r - CY + WM);
+    if (lant > 0) { d.globalAlpha = lant; d.drawImage(holeArt(24), lx - 24 - CX + WM, ly - 24 - CY + WM); }
     d.globalCompositeOperation = 'source-over'; d.globalAlpha = 1;
   }
-  g.globalCompositeOperation = 'multiply';
-  const mul = g.globalCompositeOperation === 'multiply';
-  if (!mul) g.globalCompositeOperation = 'source-over';
-  g.globalAlpha = mul ? dl.a : dl.a * .55; g.drawImage(DARK, 0, 0);
-  if (dl.night > .02) {
-    g.globalCompositeOperation = 'lighter';
-    const add = g.globalCompositeOperation === 'lighter', k = add ? 1 : .45;
-    if (!add) g.globalCompositeOperation = 'source-over';
-    g.globalAlpha = dl.night * k * GLOW_K;
-    for (const v of vis) { drawA(glowArt(v.r, v.L.col), v.L.x, v.L.y, v.r, v.r); LIGHT_N++; }
-    if (lant > 0) { g.globalAlpha = lant * k * GLOW_K; drawA(glowArt(24, LAMP_COL), lx, ly, 24, 24); }
-    g.globalAlpha = dl.night * .7 * k; let n = 0;   // fish piles glint softly
-    for (const id in S.piles) { if (n >= GLINT_MAX) break; if (!(S.piles[id] > 0)) continue; const [tx, ty] = PILE_AT[id], x = tx * TILE + 8, y = ty * TILE + 10; if (VIS(x, y, 10)) { drawA(glowArt(10, '#ffe9a8'), x, y, 10, 10); n++; } }
-    g.globalCompositeOperation = 'source-over';
-    if (S.unlocked.roten && dl.night > .3) for (const st of STAR_SPOTS) {   // stars on the water, each fading in and out slowly
-      if (!VIS(st.x, st.y, 4)) continue;
-      const a = (dl.night - .3) / .7 * (.3 + .7 * (.5 + .5 * Math.sin(T * Math.PI * 2 * st.f + st.ph)));
-      g.globalAlpha = a; g.fillStyle = '#fff6c0'; g.fillRect(st.x - CX, st.y - CY, 1, 1);
-      if (a > .6) { g.globalAlpha = (a - .6) * 1.5; g.fillRect(st.x - 1 - CX, st.y - CY, 3, 1); g.fillRect(st.x - CX, st.y - 1 - CY, 1, 3); }
-    }
+  LGT = { dl, vis, lant, lx, ly, dx: CX - WM, dy: CY - WM };
+  LIGHT_N = applyLight();
+  if (dl.night > .02 && S.unlocked.roten && dl.night > .3) for (const st of STAR_SPOTS) {   // stars on the water, each fading in and out slowly
+    if (!VIS(st.x, st.y, 4)) continue;
+    const a = (dl.night - .3) / .7 * (.3 + .7 * (.5 + .5 * Math.sin(T * Math.PI * 2 * st.f + st.ph)));
+    g.globalAlpha = a; g.fillStyle = '#fff6c0'; g.fillRect(st.x - CX, st.y - CY, 1, 1);
+    if (a > .6) { g.globalAlpha = (a - .6) * 1.5; g.fillRect(st.x - 1 - CX, st.y - CY, 3, 1); g.fillRect(st.x - CX, st.y - 1 - CY, 1, 3); }
   }
   g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
   if (dl.a > .02 && state !== 'title') for (const u of visiblePads()) {   // pad frames stay bright at night
@@ -11556,6 +11607,81 @@ function drawLighting() {
     padDash(tx * TILE - CX, ty * TILE - CY, P.pouring === u.id || INFO === u);
     if (raisesStar(u)) drawC(starIcon(true), tx * TILE - CX + 14, ty * TILE - CY + 2);
   }
+}
+// the light pass proper (LGT, from drawLighting) onto g at the camera CX / CY: one multiply of DARK (a thin plain tint
+// where multiply is missing), then the additive glows - lamps, the hand lantern, fish-pile glints. Returns the lamps drawn.
+function applyLight() {
+  const { dl, vis, lant, lx, ly } = LGT;
+  g.globalCompositeOperation = 'multiply';
+  const mul = g.globalCompositeOperation === 'multiply';
+  if (!mul) g.globalCompositeOperation = 'source-over';
+  g.globalAlpha = mul ? dl.a : dl.a * .55; g.drawImage(DARK, LGT.dx - CX, LGT.dy - CY);
+  let lamps = 0;
+  if (dl.night > .02) {
+    g.globalCompositeOperation = 'lighter';
+    const add = g.globalCompositeOperation === 'lighter', k = add ? 1 : .45;
+    if (!add) g.globalCompositeOperation = 'source-over';
+    g.globalAlpha = dl.night * k * GLOW_K;
+    for (const v of vis) { drawA(glowArt(v.r, v.L.col), v.L.x, v.L.y, v.r, v.r); lamps++; }
+    if (lant > 0) { g.globalAlpha = lant * k * GLOW_K; drawA(glowArt(24, LAMP_COL), lx, ly, 24, 24); }
+    g.globalAlpha = dl.night * .7 * k; let n = 0;   // fish piles glint softly
+    for (const id in S.piles) { if (n >= GLINT_MAX) break; if (!(S.piles[id] > 0)) continue; const [tx, ty] = PILE_AT[id], x = tx * TILE + 8, y = ty * TILE + 10; if (VIS(x, y, 10)) { drawA(glowArt(10, '#ffe9a8'), x, y, 10, 10); n++; } }
+  }
+  g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+  return lamps;
+}
+// ---- the world in layers, moved by the camera's sub-pixel remainder (18.2, "walking feels choppy"). The view is drawn with a
+// whole-pixel camera (CX, CY) into lowW, a world canvas 1 px bigger than the view on every side, and put on the screen
+// shifted by the remainder (cam - CX) * K device px; the innkeeper has his own small layer put at his exact position, so
+// while the camera is locked to him he stays on one device pixel and the world scrolls in even device-pixel steps. Pixel
+// art stays nearest-neighbour; text lands on whole device px. Order: world (to the innkeeper's row of the y-sort, then the
+// rest, the light pass, the sky) -> the innkeeper -> what stands in front of him again (its own small layer, on the world's
+// grid) -> overlays (bubbles, rings, the arrow) -> what he carries -> the line bubble -> the HUD (no shift).
+const lowW = mk(W + 2 * WM, H + 2 * WM);
+const PLW = 64, PLH = 80, PAX = 32, PAY = 60;   // the small layers: size, where the innkeeper's feet sit in them
+const lowP = mk(PLW, PLH), lowO = mk(PLW, PLH), LMASK = mk(PLW, PLH);
+let SUBX = 0, SUBY = 0, WDX = 0, WDY = 0;   // the camera's remainder (logical px); where lowW's pixel (0, 0) lands (device px)
+let PSPLIT = false; const OCC = [];         // drawScene: leave the innkeeper out, collect what is drawn in front of him
+function worldBegin() {
+  const x = lowW.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1; x.imageSmoothingEnabled = false;
+  x.clearRect(0, 0, lowW.width, lowW.height); x.setTransform(1, 0, 0, 1, WM, WM); g = x; VM = WM; CX = R(cam.x); CY = R(cam.y);
+}
+function worldFlush() {
+  layerOn(true); g.setTransform(1, 0, 0, 1, 0, 0);   // lowW is opaque and reaches past every screen edge
+  WDX = -(WM + SUBX) * K; WDY = -(WM + SUBY) * K;   // not rounded: nearest-neighbour sampling puts each logical pixel on the device pixels nearest its exact place (even steps also at a K like 4.33)
+  flushLayer(lowW, WDX, WDY, -SUBX * K, -SUBY * K);
+}
+function smallBegin(c, gx, gy) {
+  const x = c.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1; x.imageSmoothingEnabled = false;
+  x.clearRect(0, 0, c.width, c.height); g = x; VM = 0; CX = gx; CY = gy;
+}
+// light a small layer exactly like the world under it (the night tint, the glows, the fireworks' dusk), kept to the
+// layer's own pixels: its alpha, saved first, cuts away what the tint and the glows put round them
+function lightLayer(c, gx, gy) {
+  const fa = fwDuskA(); if (!LGT && fa <= .004) return;
+  const x = c.getContext('2d'), m = LMASK.getContext('2d');
+  m.globalCompositeOperation = 'copy'; m.drawImage(c, 0, 0); m.globalCompositeOperation = 'source-over';
+  const cx0 = CX, cy0 = CY; CX = gx; CY = gy;
+  if (LGT) applyLight();
+  if (fa > .004) fwDusk(fa, 0, 0, c.width, c.height);
+  x.globalCompositeOperation = 'destination-in'; x.globalAlpha = 1; x.drawImage(LMASK, 0, 0); x.globalCompositeOperation = 'source-over';
+  CX = cx0; CY = cy0;
+}
+// the innkeeper at his exact (sub-pixel) place, then whatever the y-sort draws in front of him, again, on the world's grid
+function playerLayer() {
+  const gx = R(P.x) - PAX, gy = R(P.y) - PAY, cw = R(cam.x), ch = R(cam.y);
+  smallBegin(lowP, gx, gy); drawCat(P, playerLook()); lightLayer(lowP, gx, gy);
+  flushLayer(lowP, (P.x - PAX - cam.x) * K, (P.y - PAY - cam.y) * K);
+  if (OCC.length) {
+    smallBegin(lowO, gx, gy); for (const f of OCC) f(); lightLayer(lowO, gx, gy);
+    flushLayer(lowO, WDX + (gx - cw + WM) * K, WDY + (gy - ch + WM) * K);   // the same device grid as lowW
+  }
+}
+// what he carries (towels, the tray, the lantern, rings at his feet) in his small layer, over the overlays
+function attachLayer() {
+  const gx = R(P.x) - PAX, gy = R(P.y) - PAY;
+  smallBegin(lowP, gx, gy);
+  if (drawPlayerAttach()) flushLayer(lowP, (P.x - PAX - cam.x) * K, (P.y - PAY - cam.y) * K);
 }
 // where the innkeeper holds the little lantern at night (the paw on the side away from the tray)
 const lanternXY = () => [R(P.x) + (P.dir === 'left' || P.dir === 'up' ? -6 : 6), R(P.y) - 7];
@@ -11627,18 +11753,6 @@ function drawOverlays() {
     const nt = newTagArt(), x = R(s.x) - CX, y = R(s.y) - 30 - CY - (s === badgeStaff() ? 10 : 0) - (s.carry > 0 ? 4 + s.carry * 2 : 0);
     if (y > 34) { drawC(nt, x, y); txt('新', x, y + .5, 6, '#ffffff', 'center', null); }
   }
-  // bought shoes: speed lines at your feet for 2 s; a new tray slot flashes once (7.3.4)
-  for (const fx of FX) if (fx.k === 'speed' && fx.t >= 0) {
-    const a = 1 - fx.t / fx.life, sd = P.dir === 'left' ? 1 : P.dir === 'right' ? -1 : 0, up = P.dir === 'up' ? 1 : P.dir === 'down' ? -1 : 0;
-    g.globalAlpha = .8 * a; g.fillStyle = '#ffffff';
-    for (let i = 0; i < 3; i++) { const o = ((fx.t * 40 + i * 5) % 12); if (sd) g.fillRect(R(P.x) + sd * (6 + o) - CX, R(P.y) - 9 + i * 4 - CY, 3, 1); else g.fillRect(R(P.x) - 5 + i * 5 - CX, R(P.y) + up * (4 + o) - (up < 0 ? 22 : 0) - CY, 1, 3); }
-    g.globalAlpha = 1;
-  }
-  // the hand lantern at night (3 x 4 px) and two sparkles round a hat you are trying on (4.10 / 4.11)
-  if (dayLight().night > .5) { const [lx, ly] = lanternXY(), x = lx - CX, y = ly - CY; g.fillStyle = OUT; g.fillRect(x, y - 3, 1, 1); g.fillStyle = '#7a4a2a'; g.fillRect(x - 1, y - 2, 3, 1); g.fillStyle = '#ffd27a'; g.fillRect(x - 1, y - 1, 3, 2); g.fillStyle = '#fff3c0'; g.fillRect(x, y - 1, 1, 1); }
-  if (TRY.hat && !P.towels) { const fr = Math.floor(T * 3) & 3, b = headBob(P); drawA(sparkleArt(fr), R(P.x) - 7, R(P.y) - 25 - b, 4, 4); drawA(sparkleArt((fr + 2) & 3), R(P.x) + 7, R(P.y) - 21 - b, 4, 4); }
-  // the decor slot you stand on: a small ring at your feet until the next piece swaps in
-  if (P.slot.key && !P.slot.stop && P.slot.t > 0) ring(R(P.x) - CX, R(P.y) + 6 - CY, P.slot.t / (P.slot.n ? DECOR_T : DECOR_T0), '#ffe9a8');
   // the VIP (4.4): name card / "..." / its wish, progress rings, the wish board over the door. v2.0.1 G1: the current wish
   // is a big gold bubble (the 14 x 13 bubble at 2x, pixel exact, a slow 1 px bob) - no red rim, a wish never runs out;
   // a wish done pops a big tick over its head (FX 'vipok') and gets a tick on the board
@@ -11684,20 +11798,9 @@ function drawOverlays() {
     g.fillRect(R(fx.x) - CX, R(fx.y - p * 4) - CY, 1, 1); if (p > .3 && p < .7) { g.globalAlpha *= .5; g.fillRect(R(fx.x) - 1 - CX, R(fx.y - p * 4) - CY, 3, 1); g.fillRect(R(fx.x) - CX, R(fx.y - p * 4) - 1 - CY, 1, 3); }
     g.globalAlpha = 1;
   }
-  // towel stacks on heads (the top layers lag a little when walking)
-  const stack = (e, n, sway) => { const tw = towelArt(), b = headBob(e); for (let i = 0; i < n; i++) drawA(tw, R(e.x + sway * i / Math.max(4, n)), R(e.y) - 17 - b - i * 2, 5, 2); };   // the first towel rests on the head (ear tips are 18px up)
-  if (P.towels > 0) stack(P, P.towels, P.sway);
-  for (const s of STAFF) if (s.carry > 0) stack(s, s.carry, 0);
-  // trays (4.1): the innkeeper's and the waiters'
-  drawTray(P, P.tray);
-  for (const fx of FX) if (fx.k === 'trayslot' && fx.t >= 0) {   // a new tray: its new empty place glows once (7.3.4)
-    const up = P.dir === 'up', sd = P.dir === 'left' ? -1 : P.dir === 'right' ? 1 : 0, x = R(P.x) + (up ? 7 : sd * 5) - CX, y = R(P.y) - (up ? 14 : 8) - headBob(P) - CY, n = P.tray.length;
-    const sx = x - 3 + n * 2 - 3, sy = y - 3 - (n & 1) - 3;
-    g.globalAlpha = Math.sin(fx.t / fx.life * Math.PI); g.fillStyle = '#ffd23f'; g.fillRect(sx, sy, 7, 1); g.fillRect(sx, sy + 6, 7, 1); g.fillRect(sx, sy, 1, 7); g.fillRect(sx + 6, sy, 1, 7); g.globalAlpha = 1;
-  }
-
+  // towel stacks on the staff's heads and the waiters' trays (the innkeeper's own: drawPlayerAttach)
+  for (const s of STAFF) if (s.carry > 0) towelStack(s, s.carry, 0);
   for (const s of STAFF) if (s.tray.length) drawTray(s, s.tray);
-  if (P.cookK) ring(R(P.x) - CX, R(P.y) - 30 - CY, P.cookT / (P.cookK === 'kaiseki' ? KAISEKI_T : STOVE_T), P.cookK === 'kaiseki' ? '#ffd23f' : '#ffe9a8');   // cooking at the stove (kaiseki: gold)
   for (const fx of FX) {
     if (fx.t < 0) continue;
     const fr = clamp(Math.floor(fx.t / fx.life * 4), 0, 3);
@@ -11709,6 +11812,35 @@ function drawOverlays() {
   for (const u of visiblePads()) { const [tx, ty] = padXY(u); if (VIS(tx * TILE + 8, ty * TILE + 8, 20)) padLabels(u); }
   manekiPaw(); rareOverlay(); fwClock();   // v2.1 core B: the maneki outfit's wave, rare guests' rings / bubble, the fireworks' clock
   for (const p of POPS) if (!(p.wait > 0)) txt(p.s, p.x - CX, p.y - CY, p.size, p.col, 'center', OUT, Math.min(1, p.life / p.max * 2));
+}
+// towel stacks on heads (the top layers lag a little when walking); the first towel rests on the head (ear tips are 18px up)
+function towelStack(e, n, sway) { const tw = towelArt(), b = headBob(e); for (let i = 0; i < n; i++) drawA(tw, R(e.x + sway * i / Math.max(4, n)), R(e.y) - 17 - b - i * 2, 5, 2); }
+// what the innkeeper carries / shows on himself, drawn in his own small layer so it moves with him to the device pixel
+// (render: attachLayer); returns whether anything was drawn
+function drawPlayerAttach() {
+  let any = false;
+  // bought shoes: speed lines at your feet for 2 s (7.3.4)
+  for (const fx of FX) if (fx.k === 'speed' && fx.t >= 0) {
+    const a = 1 - fx.t / fx.life, sd = P.dir === 'left' ? 1 : P.dir === 'right' ? -1 : 0, up = P.dir === 'up' ? 1 : P.dir === 'down' ? -1 : 0;
+    g.globalAlpha = .8 * a; g.fillStyle = '#ffffff'; any = true;
+    for (let i = 0; i < 3; i++) { const o = ((fx.t * 40 + i * 5) % 12); if (sd) g.fillRect(R(P.x) + sd * (6 + o) - CX, R(P.y) - 9 + i * 4 - CY, 3, 1); else g.fillRect(R(P.x) - 5 + i * 5 - CX, R(P.y) + up * (4 + o) - (up < 0 ? 22 : 0) - CY, 1, 3); }
+    g.globalAlpha = 1;
+  }
+  // the hand lantern at night (3 x 4 px) and two sparkles round a hat you are trying on (4.10 / 4.11)
+  if (dayLight().night > .5) { const [lx, ly] = lanternXY(), x = lx - CX, y = ly - CY; g.fillStyle = OUT; g.fillRect(x, y - 3, 1, 1); g.fillStyle = '#7a4a2a'; g.fillRect(x - 1, y - 2, 3, 1); g.fillStyle = '#ffd27a'; g.fillRect(x - 1, y - 1, 3, 2); g.fillStyle = '#fff3c0'; g.fillRect(x, y - 1, 1, 1); any = true; }
+  if (TRY.hat && !P.towels) { const fr = Math.floor(T * 3) & 3, b = headBob(P); drawA(sparkleArt(fr), R(P.x) - 7, R(P.y) - 25 - b, 4, 4); drawA(sparkleArt((fr + 2) & 3), R(P.x) + 7, R(P.y) - 21 - b, 4, 4); any = true; }
+  // the decor slot you stand on: a small ring at your feet until the next piece swaps in
+  if (P.slot.key && !P.slot.stop && P.slot.t > 0) { ring(R(P.x) - CX, R(P.y) + 6 - CY, P.slot.t / (P.slot.n ? DECOR_T : DECOR_T0), '#ffe9a8'); any = true; }
+  if (P.towels > 0) { towelStack(P, P.towels, P.sway); any = true; }
+  // the tray (4.1); a new tray: its new empty place glows once (7.3.4)
+  if (P.tray.length) { drawTray(P, P.tray); any = true; }
+  for (const fx of FX) if (fx.k === 'trayslot' && fx.t >= 0) {
+    const up = P.dir === 'up', sd = P.dir === 'left' ? -1 : P.dir === 'right' ? 1 : 0, x = R(P.x) + (up ? 7 : sd * 5) - CX, y = R(P.y) - (up ? 14 : 8) - headBob(P) - CY, n = P.tray.length;
+    const sx = x - 3 + n * 2 - 3, sy = y - 3 - (n & 1) - 3; any = true;
+    g.globalAlpha = Math.sin(fx.t / fx.life * Math.PI); g.fillStyle = '#ffd23f'; g.fillRect(sx, sy, 7, 1); g.fillRect(sx, sy + 6, 7, 1); g.fillRect(sx, sy, 1, 7); g.fillRect(sx + 6, sy, 1, 7); g.globalAlpha = 1;
+  }
+  if (P.cookK) { ring(R(P.x) - CX, R(P.y) - 30 - CY, P.cookT / (P.cookK === 'kaiseki' ? KAISEKI_T : STOVE_T), P.cookK === 'kaiseki' ? '#ffd23f' : '#ffe9a8'); any = true; }   // cooking at the stove (kaiseki: gold)
+  return any;
 }
 function drawGuide() {
   if (!S.tut.moved) {   // first-time hint: a hand dragging a ghost joystick + 拖动走路
@@ -11744,11 +11876,17 @@ function drawGuide() {
 }
 const GUIDE_BUBBLED = new Set(['deliver', 'vip', 'photo', 'stay']);   // v2.1: + a rare guest's 'stay' wish
 // a dotted ring of radius r round the innkeeper's feet (the net's reach)
+// (one cached image per whole radius: 18.2 perf)
+const NETC = new Map();
 function netRing(r, a) {
   if (a <= 0) return;
-  const n = Math.ceil(r * 2.4); g.globalAlpha = a; g.fillStyle = '#fff6d8';
-  for (let i = 0; i < n; i++) { if (i % 3 === 2) continue; const t = i / n * Math.PI * 2; g.fillRect(R(P.x + Math.cos(t) * r) - CX, R(P.y - 2 + Math.sin(t) * r) - CY, 1, 1); }
-  g.globalAlpha = 1;
+  r = R(r); let c = NETC.get(r);
+  if (!c) {
+    c = mk(2 * r + 3, 2 * r + 3); const o = c.getContext('2d'), n = Math.ceil(r * 2.4); o.fillStyle = '#fff6d8';
+    for (let i = 0; i < n; i++) { if (i % 3 === 2) continue; const t = i / n * Math.PI * 2; o.fillRect(r + 1 + R(Math.cos(t) * r), r + 1 + R(Math.sin(t) * r), 1, 1); }
+    NETC.set(r, c);
+  }
+  g.globalAlpha = a; g.drawImage(c, R(P.x) - r - 1 - CX, R(P.y - 2) - r - 1 - CY); g.globalAlpha = 1;
 }
 // the top centre (world px) of the bubble a guest / the VIP shows (the same places drawOverlays draws them), or null
 function bubbleTop(e) {
@@ -11814,17 +11952,26 @@ function drawFly() {
   }
 }
 function render() {
-  TQ.length = 0; TQ0 = 0; g = low.getContext('2d'); g.imageSmoothingEnabled = false; g.globalAlpha = 1;
-  CX = R(cam.x); CY = R(cam.y);
+  TQ.length = 0; TQ0 = 0; VM = 0; LGT = null; g = low.getContext('2d'); g.imageSmoothingEnabled = false; g.globalAlpha = 1;
   padsUpdate();
-  drawScene(W, H, state !== 'title');
+  if (state === 'title') {   // a still camera: one layer as before; the speaker stays on the title (7.1)
+    CX = R(cam.x); CY = R(cam.y); SUBX = SUBY = 0;
+    drawScene(W, H, false); drawSeasonFx(0); drawTitle(); drawC(soundIcon(musicOn || sfxOn), 172, 8); present(); return;
+  }
+  // the world layers (see worldBegin): whole-pixel camera + the remainder on the screen
+  SUBX = cam.x - R(cam.x); SUBY = cam.y - R(cam.y);
+  worldBegin(); OCC.length = 0; PSPLIT = true;
+  drawScene(W, H, true); PSPLIT = false;
   drawSeasonFx(0);   // v2.1: petals / leaves / snow, under the night tint
-  if (state === 'title') { drawTitle(); drawC(soundIcon(musicOn || sfxOn), 172, 8); present(); return; }   // the speaker stays on the title (7.1)
-  drawLighting(); drawSkyB(); drawSeasonFx(1); if (INFO && state === 'play') drawPreview(INFO); drawOverlays(); drawGuide(); drawJoy();   // v2.1: drawSkyB = the plaza's fireworks show (plaza.js); drawSeasonFx(1) = fireflies, festival fireworks, the full moon, lantern glow (seasons.js)
-  if (LINE) { layerBreak(); drawLine(); }   // the line bubble covers the world's words under it (prices, names)
-  layerBreak();
-
-  drawEdgeNew(); drawBanner(); drawHUD(); drawBottomCard(); drawFly();
+  drawLighting(); drawSkyB(); drawSeasonFx(1);   // v2.1: drawSkyB = the plaza's fireworks show (plaza.js); drawSeasonFx(1) = fireflies, festival fireworks, the full moon, lantern glow (seasons.js)
+  worldFlush();
+  playerLayer();
+  worldBegin(); if (INFO && state === 'play') drawPreview(INFO); drawOverlays(); drawGuide(); worldFlush();
+  attachLayer();
+  if (LINE) { worldBegin(); drawLine(); worldFlush(); }   // the line bubble covers the world's words under it (prices, names)
+  // the HUD layer: no shift
+  g = low.getContext('2d'); VM = 0; CX = R(cam.x); CY = R(cam.y); g.clearRect(0, 0, W, H);
+  drawJoy(); drawEdgeNew(); drawBanner(); drawHUD(); drawBottomCard(); drawFly();
   if (state === 'celebrate') { layerBreak(); drawCelebrate(); }
   if (state === 'menu') { layerBreak(); drawMenu(); }
   if (state === 'card') { layerBreak(); drawModal(); }   // v2.1: the year report / press result / family photo (yearly.js)
@@ -13500,16 +13647,23 @@ function renderCover() {
 // and the next layer is drawn over it - so text of a lower layer never shows through a panel above it
 // TQ keeps the whole frame's text (tests read it after render()); TQ0 = how much of it is already on the screen
 let LAYERED = false, TQ0 = 0;
-function screenBase() { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false; ctx.globalAlpha = 1; ctx.fillStyle = '#0b1020'; ctx.fillRect(0, 0, cv.width, cv.height); }
-function flushLayer() {
-  ctx.drawImage(low, 0, 0, W, H, 0, 0, W * K, H * K);
+function screenBase(covered) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false; ctx.globalAlpha = 1; if (!covered) { ctx.fillStyle = '#0b1020'; ctx.fillRect(0, 0, cv.width, cv.height); } }   // covered: the first layer is opaque over the whole screen (the world: no fill under it)
+// src: the canvas holding the layer (default the UI canvas `low`), its pixel (0,0) put at device (ox, oy); the layer's
+// queued text moves (tx, ty) device px with it. World layers come with the camera's sub-pixel remainder (render.js
+// worldFlush): pixel art stays nearest-neighbour, text stays on whole device px.
+function flushLayer(src, ox, oy, tx, ty) {
+  const c = src || low;
+  if (c === low) ctx.drawImage(low, 0, 0, W, H, 0, 0, W * K, H * K);
+  else ctx.drawImage(c, 0, 0, c.width, c.height, ox, oy, c.width * K, c.height * K);
+  tx = tx || 0; ty = ty || 0;
   for (let i = TQ0; i < TQ.length; i++) {
     const t = TQ[i], c = textSprite(t), tw = c.w - 2 * c.pad;
-    ctx.globalAlpha = t.alpha; ctx.drawImage(c.cv, R(t.x * K - c.pad - (t.align === 'center' ? tw / 2 : t.align === 'right' ? tw : 0)), R(t.y * K - c.h / 2));
+    ctx.globalAlpha = t.alpha; ctx.drawImage(c.cv, R(t.x * K + tx - c.pad - (t.align === 'center' ? tw / 2 : t.align === 'right' ? tw : 0)), R(t.y * K + ty - c.h / 2));
   }
   ctx.globalAlpha = 1; TQ0 = TQ.length;
 }
 function layerBreak() { if (!LAYERED) { screenBase(); LAYERED = true; } flushLayer(); g.clearRect(0, 0, W, H); }
+function layerOn(covered) { if (!LAYERED) { screenBase(covered); LAYERED = true; } }
 function present() { if (!LAYERED) screenBase(); LAYERED = false; flushLayer(); }
 // Outlined text rendered once per (text, size, colours, scale) in the pixel font at txtPx(size) = u device px per glyph
 // pixel. Baseline and every glyph edge land on whole device px (crisp); the outline is the glyphs stamped one glyph
@@ -13544,9 +13698,12 @@ resetWorld();
 // Test hook (see tools/make_test_page.py): _test.html replaces the line below to expose eval + bots.
 /*TEST_HOOK*/
 if (location.hash === '#cover') { (document.fonts ? document.fonts.ready : Promise.resolve()).then(renderCover); window.__gameBooted = true; return; }
-let last = performance.now(), frameErr = 0;
+let last = performance.now(), frameErr = 0, FRAME_DT = 1 / 60;
 function frame(now) {
-  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  let dt = Math.min(.05, Math.max(0, (now - last) / 1000)); last = now;
+  // 18.2 (smooth walking): rAF timestamps jitter by a fraction of a millisecond; on a steady display every frame should
+  // move the innkeeper the same distance, so a frame time near the running average counts as exactly that average
+  if (dt > .004 && dt < .045) { FRAME_DT += (dt - FRAME_DT) * .05; if (Math.abs(dt - FRAME_DT) < FRAME_DT * .25) dt = FRAME_DT; }
   try { update(dt); render(); frameErr = 0; }
   catch (e) { if (frameErr++ === 0 && window.__gameErr) window.__gameErr(String(e && e.stack || e).slice(0, 600)); }
   requestAnimationFrame(frame);

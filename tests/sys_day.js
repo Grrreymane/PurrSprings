@@ -19,11 +19,15 @@ function setup(list) {
 }
 const run = (sec, f) => { for (let i = 0, n = Math.round(sec / DT); i < n; i++) { update(DT); if (f && f()) return true; } return false; };
 // draw log of the low canvas: [op, what, alpha, style, x, y, w, h]
-const ctx = low.getContext('2d'), LOG = [];
+// (18.2: the world is drawn into its own canvases - lowW, the innkeeper's lowP / lowO - before the HUD canvas low)
+const ctx = lowW.getContext('2d'), LOG = [], CTXS = [low, lowW, lowP, lowO].map(c => c.getContext('2d'));
 const _fr = ctx.fillRect, _di = ctx.drawImage;
-ctx.fillRect = function (x, y, w, h) { LOG.push([this.globalCompositeOperation, 'rect', this.globalAlpha, this.fillStyle, x, y, w, h]); };
-ctx.drawImage = function (c, ...a) { LOG.push([this.globalCompositeOperation, 'img', this.globalAlpha, c, ...a]); };
-const frame = () => { LOG.length = 0; render(); return LOG.slice(); };
+for (const x of CTXS) {
+  x.fillRect = function (x, y, w, h) { const e = [this.globalCompositeOperation, 'rect', this.globalAlpha, this.fillStyle, x, y, w, h]; e.cv = this.canvas; LOG.push(e); };
+  x.drawImage = function (c, ...a) { const e = [this.globalCompositeOperation, 'img', this.globalAlpha, c, ...a]; e.cv = this.canvas; LOG.push(e); };
+}
+let ALLC = [];   // every canvas; frame() returns the world canvas's calls (the light pass proper), ALLC also the innkeeper's layers
+const frame = () => { LOG.length = 0; render(); ALLC = LOG.slice(); return LOG.filter(e => e.cv === lowW); };
 // ---- the clock: 360 s a day, only while playing
 setup();
 { eq(S.clock, .12, 'a new save starts at 0.12'); run(36); near(S.clock, .22, .001, '36 s = 0.1 day');
@@ -63,14 +67,15 @@ setup();
 setup(ALL); P.x = 17 * 16 + 8; P.y = 13 * 16 + 8; updCam(0, true);
 { S.clock = .3; let L = frame(); ok(!L.some(e => e[0] === 'multiply' || e[0] === 'lighter'), 'daytime: no light pass'); eq(LIGHT_N, 0, 'no lamps by day');
   S.clock = .9; L = frame(); const tint = L.find(e => e[0] === 'multiply' && e[1] === 'img');
-  ok(tint && Math.abs(tint[2] - .55) < 1e-9 && tint[3] === DARK && tint[4] === 0 && tint[5] === 0 && DARK.width === W && DARK.height === H && DARK.getContext('2d').fillStyle === '#2a3468', 'night: one full-view multiply tint .55 #2a3468 (the DARK layer; v2.1: .42 -> .55)');
+  ok(tint && Math.abs(tint[2] - .55) < 1e-9 && tint[3] === DARK && tint[4] === -WM && tint[5] === -WM && DARK.width === W + 2 * WM && DARK.height === H + 2 * WM && DARK.getContext('2d').fillStyle === '#2a3468', 'night: one full-view multiply tint .55 #2a3468 (the DARK layer; v2.1: .42 -> .55)');
   eq(L.filter(e => e[0] === 'multiply').length, 1, 'exactly one multiply fill');
   const glows = L.filter(e => e[0] === 'lighter'); ok(LIGHT_N > 8 && LIGHT_N <= LIGHT_MAX, 'lamps drawn in the main corridor: ' + LIGHT_N);
   ok(glows.length >= LIGHT_N, 'additive glows ' + glows.length);
-  const iT = L.indexOf(tint), lastLight = L.map(e => e[0]).lastIndexOf('lighter'), firstPad = L.findIndex((e, i) => i > lastLight && e[0] === 'source-over' && e[1] === 'rect' && (e[3] === '#fff6d8' || e[3] === '#ffe14a'));
+  const iT = L.indexOf(tint), lastLight = L.map(e => e[0]).lastIndexOf('lighter'), firstPad = L.findIndex((e, i) => i > lastLight && e[0] === 'source-over' && e[1] === 'img' && e[3] && e[3].dash);   // padDash's cached frame image
   ok(iT >= 0 && lastLight > iT, 'glows after the tint');
   ok(visiblePads().some(u => { const [tx, ty] = padXY(u); return VIS(tx * 16 + 8, ty * 16 + 8, 20); }) ? firstPad > lastLight : true, 'pad frames drawn again after the light pass');
-  ok(L.some(e => e[1] === 'rect' && e[3] === '#ffd27a'), 'the hand lantern at night');
+  ok(ALLC.some(e => e[1] === 'rect' && e[3] === '#ffd27a'), 'the hand lantern at night');
+  ok(ALLC.filter(e => e[0] === 'multiply' && e[3] === DARK && e.cv === lowP).length === 1, 'the innkeeper layer gets the same tint');
   // the 16 cap holds anywhere on the map at night
   let worst = 0; for (let ty = 2; ty < MH - 1; ty += 2) for (let tx = 1; tx < MW - 1; tx += 2) if (walkable(tx, ty)) { P.x = tx * 16 + 8; P.y = ty * 16 + 8; updCam(0, true); frame(); worst = Math.max(worst, LIGHT_N); }
   ok(worst <= LIGHT_MAX, 'at most ' + LIGHT_MAX + ' lamps anywhere (worst ' + worst + ')');
@@ -99,6 +104,6 @@ setup(ALL); P.x = 17 * 16 + 8; P.y = 13 * 16 + 8; updCam(0, true);
 // ---- clock and day are saved
 setup(); S.clock = .4567; S.day = 9; S.dayLog = { g: 3, h: 4, best: 20 }; saveNow(); S = loadState();
 eq(S.clock + ',' + S.day + ',' + S.dayLog.g + ',' + S.dayLog.best, '0.4567,9,3,20', 'clock / day / log saved');
-ctx.fillRect = _fr; ctx.drawImage = _di;
+// (the canvases' own no-op stubs stay replaced: nothing reads them after this)
 console.log(errs.length ? 'SYS DAY FAIL\n  ' + errs.join('\n  ') : 'SYS DAY OK');
 if (errs.length) process.exitCode = 1;

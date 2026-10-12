@@ -76,16 +76,17 @@ function chochinRow(n) {
   return art('core:chochinRow:' + n, () => { const c = mk(n * TILE, 12), x = c.getContext('2d'); x.imageSmoothingEnabled = false; const s = chochinString(); for (let px = 0; px < n * TILE; px += s.width) x.drawImage(s, px, 1); return c; });
 }
 // after the light pass: the show's faint night tint, then the bursts (never white, no flash)
+// the show's own dusk (fun check, SPEC_v2 18.2): a multiply tint like the night's, eased in / out over 1.5 s - with the
+// old plain .25 veil the soft bursts were all but invisible by day (on snow not at all); at night it adds nothing
+function fwDuskA() { if (FWS.t <= 0) return 0; const k = clamp(Math.min((FW_T - FWS.t) / 1.5, FWS.t / 1.5), 0, 1); return FW_DUSK * k * (1 - dayLight().night); }
+function fwDusk(a, x, y, w, h) {
+  g.globalCompositeOperation = 'multiply'; const mul = g.globalCompositeOperation === 'multiply'; if (!mul) g.globalCompositeOperation = 'source-over';
+  g.globalAlpha = mul ? a : a * .55; g.fillStyle = '#2a3468'; g.fillRect(x, y, w, h); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+}
 function drawSkyB() {
   if (FWS.t <= 0 && !BURSTS.length) return;
-  const k = clamp(Math.min((FW_T - FWS.t) / 1.5, FWS.t / 1.5), 0, 1), dl = dayLight();
-  // the show's own dusk (fun check, SPEC_v2 18.2): a multiply tint like the night's, eased in / out over 1.5 s - with the
-  // old plain .25 veil the soft bursts were all but invisible by day (on snow not at all); at night it adds nothing
-  const a = FW_DUSK * k * (1 - dl.night);
-  if (a > .004) {
-    g.globalCompositeOperation = 'multiply'; const mul = g.globalCompositeOperation === 'multiply'; if (!mul) g.globalCompositeOperation = 'source-over';
-    g.globalAlpha = mul ? a : a * .55; g.fillStyle = '#2a3468'; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
-  }
+  const a = fwDuskA();
+  if (a > .004) fwDusk(a, -VM, -VM, W + 2 * VM, H + 2 * VM);
   for (const b of BURSTS) {
     const sx = b.x - CX, sy = b.y - CY; if (sx < -36 || sx > W + 36 || sy < -36 || sy > H + 36) continue;
     if (b.t < b.rise) {   // a dim trail rising, then it opens

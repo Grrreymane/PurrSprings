@@ -33,7 +33,7 @@
 | `src/data/tables-v21b.js` | 128 | v2.1 核心 B 的数据：`UNLOCKS_V21B`（衣服、制服、宠物、金摆设、庭院摆设、神社、广场、烟花）、稀客表 `RARES`、物件 `PROPS_V21B`（由 `tables.js` / `pathfinding.js` 拼进去） |
 | `src/data/tables.js` | 200 | 解锁表 `UNLOCKS`、`STARS`、客人类型、组合、贵宾、对手旅馆、昼夜、全部常数 |
 | `src/core/state-save.js` | 204 | `defaults / migrateV1 / loadState / saveNow`、收费 `fee`、价格圈 `padsUpdate` |
-| `src/core/pathfinding.js` | 141 | `BLOCK`、物件 `PROPS`、BFS `findPath`、走路、碰撞 |
+| `src/core/pathfinding.js` | 162 | `BLOCK`、物件 `PROPS`、BFS `findPath`、走路、碰撞（门口吸附 `laneOff`，18.2） |
 | `src/core/entities.js` | 86 | 掌柜 `P`、`GUESTS / STAFF / RUN` 等运行表、人气 ♥ / 金★、员工等级、`earn` |
 | `src/systems/guests.js` | 291 | 客人类型、跟随者、选房、呼叫、食堂座位、`updGuest`、`checkIn` |
 | `src/systems/staff.js` | 223 | `STAFF_DEF`、员工、配膳、仲居、账房 |
@@ -50,7 +50,7 @@
 | `src/systems/plaza.js` | 142 | v2.1 祭典广场（16.9）：烟花、屋台（夜市）、客人买屋台；核心 B 的 `tickB / resetB / loadStateB` |
 | `src/core/update.js` | 88 | 状态机 `go`、`update / gameUpdate`、镜头、`audioTick` |
 | `src/ui/render-world.js` | 260 | 静态层 `rebuildWorld`、猫、价格圈、被褥、`drawScene` |
-| `src/ui/render.js` | 328 | 夜间光照、覆盖层、箭头、HUD、`render()` |
+| `src/ui/render.js` | 414 | 夜间光照、世界分层（亚像素镜头：`worldBegin / worldFlush`、掌柜自己的小层 `playerLayer / attachLayer`，18.2）、覆盖层、箭头、HUD、`render()` |
 | `src/systems/lines.js` | 118 | 猫猫台词（SPEC_v2 第 8 节） |
 | `src/systems/seasons.js` | 245 | v2.1 四季（16.1）：日历、换季横幅 + 重建、季节收费、粒子 / 萤火虫 / 满月、冬天蒸汽和雪帽、季节组合的重新布置；核心 A 的总入口 `v21aReset / v21aTick`、存档字段 `loadV21a`、HUD 第二行、横幅、大堂北墙 |
 | `src/systems/festival.js` | 96 | v2.1 季节祭典（16.2）：灯笼进度、提灯串、夏天烟花、奖励 |
