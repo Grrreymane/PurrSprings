@@ -110,8 +110,8 @@ setupB(true, ['o_maneki']);
   walkB(17, 24); ok(maneki < 1, 'walking: no wave');
   const bows = []; const _cb = catBow; catBow = (f, fr, h, o) => { bows.push(o); return _cb(f, fr, h, o); }; go('title'); render(); catBow = _cb; go('play'); ok(bows.includes('o_maneki'), 'the title bow gets the outfit'); }
 // ---- v2.5 ("there should be a place to switch what I bought"): the first wearable -> picture card [菜单] -> [装扮] 换装,
-// the HUD 菜单 button glows (+ red dot) and the menu's 装扮 row shows 新 until the page is opened once; booths show a tick
-// and how many of that kind you own; the mirror opens the page (sys_boutique)
+// the HUD 菜单 button glows (+ red dot) and the menu's 装扮 row shows 新 until the page is opened once (v2.6: no booth tick /
+// owned count any more); the mirror opens the page (sys_boutique)
 setupB(true);
 { ok(!dressNew(), 'nothing worn yet: no glow'); FIRST_Q.length = 0;
   S.money = 99999; const u = UNLOCK.o_yukata; atB(OUTFIT_PAD[0], OUTFIT_PAD[1]); runB(12, () => !!S.unlocked.o_yukata); ok(S.unlocked.o_yukata, 'bought the yukata');
@@ -121,7 +121,7 @@ setupB(true);
   const t0 = TQ.length; openMenu(); TQ.length = 0; render(); ok(TQ.some(q => q.s === '新'), 'the 装扮 row says 新');
   menuGo('dress'); ok(S.tut.dressOpen && !dressNew(), 'opened once: no more glow'); ok(!FIRST_Q.some(f => f.key === 'dress'), 'the card goes'); closeMenu();
   saveNow(); const s2 = loadState(JSON.parse(localStorage.getItem(SAVE + 'state'))); ok(s2.tut.dressOpen, 'saved');
-  atB(OUTFIT_PAD[0], OUTFIT_PAD[1] - 2); updCam(0, true); TQ.length = 0; render(); ok(TQ.some(q => q.s === '1'), 'the outfit booth: a tick + 1 owned'); }
+  atB(OUTFIT_PAD[0], OUTFIT_PAD[1] - 2); updCam(0, true); TQ.length = 0; render(); ok(!TQ.some(q => q.s === '1'), 'v2.6: the outfit booth shows no tick / owned count'); }
 setupB(true, ['h_straw', 'h_flower']); { S.tut.dressOpen = true; ok(!dressNew(), 'an old player who opened it: no glow'); }
 console.log(errs.length ? 'SYS WARDROBE FAIL\n  ' + errs.join('\n  ') : 'SYS WARDROBE OK');
 if (errs.length) process.exitCode = 1;

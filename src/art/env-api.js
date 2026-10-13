@@ -21,7 +21,7 @@ function tileArt(ch, tx, ty, nb, season, look) {
   // its top edge (snow on the cap) when the outside is right above it, or its eave on an outer (facade) wall.
   let cap = false;
   if (ch === '#') {
-    const face = nb.d !== '#' && nb.d != null, facade = face && _EN_FACADE.has(nb.d);
+    const face = _enIsFace(nb), facade = face && _EN_FACADE.has(nb.d);
     cap = face && !facade && season === 3 && (nb.u == null || _EN_OUTCH.has(nb.u));
     if (face ? !(facade || cap) : !_enExposed(nb)) season = 0;
   } else if (!_EN_OUTCH.has(ch) || ch === 'E') season = 0;
@@ -61,7 +61,10 @@ function waterArt(frame, tx, ty) {
 // v2.4: span 'w' = a door 2 tiles wide (32 x 16: onsen / hdoor / gateH), 'h' = 2 tiles tall (16 x 32: left / right /
 // gate); anchor = its top-left tile. beyond (hdoor): what the doorway shows past the noren - 'din' the dining floor,
 // 'sand' the shrine's raked sand, else the west wing hall.
-function doorArt(kind, open, col, emb, gold, tx, ty, floor, season, span, beyond) {
+// sides (v2.6, optional, open doors): per door tile (row by row) [a, b], a / b = [char, look] of the floor tile on each
+// side - left / right of a door in a vertical wall (left, right, gate), above / below one in a horizontal wall (onsen,
+// hdoor, gateH). The doorway's floor is then those floors themselves, run on into the door tile (see _enDoorGround).
+function doorArt(kind, open, col, emb, gold, tx, ty, floor, season, span, beyond, sides) {
   open = !!open;
   const gate = kind === 'gate' || kind === 'gateH';
   const DW = span === 'w' ? 32 : 16, DH = span === 'h' ? 32 : 16;
@@ -70,6 +73,19 @@ function doorArt(kind, open, col, emb, gold, tx, ty, floor, season, span, beyond
   if (gate) { tx = tx == null ? (kind === 'gate' ? 24 : 25) : tx | 0; ty = ty == null ? (kind === 'gate' ? 4 : 29) : ty | 0; }
   const fl = sty && Array.isArray(floor) ? floor : null, sea = gate || kind === 'onsen' ? (season | 0) & 3 : 0;
   const k = 'en:d:' + kind + ':' + (open ? 1 : 0) + (sty ? ':' + (col || '') + ':' + (emb || '') + ':' + (gold ? 1 : 0) : '') + (gate ? ':' + tx + ',' + ty + ':' + (emb || '') + ':' + sea : '') + (fl ? ':' + fl.join('/') : '') + (kind === 'onsen' && sea === 3 ? ':w' : '') + ':' + DW + 'x' + DH + (beyond ? ':' + beyond : '');
+  const grd = open && Array.isArray(sides) && sides.length ? sides : null;
+  if (grd) {   // v2.6: an open door / gate is the floor running through, plus its noren (or the roten gate's star lamp)
+    const sa = (season | 0) & 3, ks = grd.map(t => t.map(q => (q && q[0] || '') + (q && q[1] ? '=' + q[1] : '')).join(';')).join('/');
+    const kk = 'en:dg:' + kind + ':' + (col || '') + ':' + (emb || '') + ':' + (gold ? 1 : 0) + ':' + tx + ',' + ty + ':' + sa + ':' + DW + 'x' + DH + ':' + ks;
+    return art(kk, () => _enMake(DW, DH, G => {
+      const across = kind === 'onsen' || kind === 'hdoor' || kind === 'gateH';
+      _enDoorGround(G, grd, tx | 0, ty | 0, !across, sa, !gate);
+      if (kind === 'onsen') _enOnsenNoren(G);
+      else if (kind === 'hdoor') _enHDoorNoren(G, col, emb, gold);
+      else if (gate) { if (emb === 'star' || (kind === 'gate' && tx === 24 && ty === 4)) _enStarLamp(G, G.w - 8, 2); }
+      else _enRoomNoren(G, kind === 'right', col, emb, gold);
+    }));
+  }
   return art(k, () => {
     if (kind === 'onsen') return _enMake(DW, DH, G => _enOnsenDoor(G, open, sea === 3 ? tx | 0 : null));   // winter: the snow line on the outer wall's top runs over it
     if (kind === 'hdoor') return _enMake(DW, DH, G => _enHDoor(G, open, col, emb, gold, beyond));
@@ -176,6 +192,69 @@ function _enNoren(G, x0, x1, ry, y1, base, gold, slits, sy) {
   }
   for (let x = x0 + 1; x < x1; x++) { const c = G.get(x, y1 + 1); if (c) G.set(x, y1 + 1, _enM(c, OUT, .28)); }   // its shadow on the floor
 }
+// v2.6 (player: "the edges of the doorway are still there, and what was taken away still leaves a mark"): an open
+// doorway has no outline at all. Its floor is the two neighbouring floors painted by their own painters at the door's
+// coords (planks, slabs, stones run on without a seam), meeting at a plain wooden sill indoors (shikii) or a dithered
+// edge outdoors; the wall beside it simply ends (its own end post / end face, env.js), and a floor tile next to a door
+// gets no wall shadow (_enAO). One floor tile of side q = [char, look] at tile (tx, ty); di / dj = the door's offset
+// from that tile (a room floor's rug / mat layout is room-local); bare = no stepping stone (half a doorway).
+function _enFloorRun(T, q, tx, ty, di, dj, season, bare) {
+  const c = q && q[0]; let look = q && q[1] || null;
+  if (!c || c === '#' || c === 'D' || c === 'b' || c === '~' || c === 'o') return false;
+  if (look && c === 't') { const L = _enLook(look); if (_EN_FLOOR[L.id]) look = L.id + '|' + (L.a + di) + ',' + (L.b + dj); }   // the rug / tokonoma stay in the room
+  const nb = { u: c, d: c, l: c, r: c, bare: !!bare }, f = (look ? _enLookFn(c, look, nb) : null) || _EN_TILE[c];
+  if (!f) return false;
+  f(T, tx, ty, nb, season); return true;
+}
+function _enDoorGround(G, sides, tx, ty, vert, season, indoor) {
+  const nx = G.w >> 4, ny = G.h >> 4;
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    const q = sides[j * nx + i] || sides[0], A = new Grid(16, 16), B = new Grid(16, 16), x0 = tx + i, y0 = ty + j;
+    const okA = _enFloorRun(A, q[0], x0, y0, vert ? 1 : 0, vert ? 0 : 1, season, vert);
+    const okB = vert && _enFloorRun(B, q[1], x0, y0, -1, 0, season, true);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const a = okA ? A.get(x, y) : null, b = okB ? B.get(x, y) : null;
+      let c;
+      if (vert) {
+        c = (x >= 8 ? b || a : a || b) || _EN.wood;
+        if (indoor && x === 7) c = _enM(_enM(a || c, b || c, .5), _EN.woodH, .3);   // the sill: one lit board ...
+        else if (indoor && x === 8) c = _enM(c, _EN.dw, .2);                           // ... and its soft shadow
+        else if (!indoor && x === 7 && (q[0] || [])[0] !== (q[1] || [])[0]) c = _enM(c, OUT, .1);      // outdoors: just where one ground meets the other
+      } else {
+        c = a || _EN.wood;
+        if (indoor && j === ny - 1 && y === 15) c = _enM(c, _EN.dwH, .35);         // a faint sill where the wall stood
+      }
+      G.set(i * 16 + x, j * 16 + y, c);
+    }
+  }
+}
+// the noren of an open room door (left: rod over the whole opening; right: the same, mirrored slit / crest, lit top-left)
+function _enRoomNoren(G, right, col, emb, gold) {
+  const NH = G.h > 16 ? 10 : 8, base = col || _EN.ind, s = right ? 7 : 8;
+  _enNoren(G, 0, 15, 0, NH, base, gold, [s], NH - 3);
+  if (emb) _enEmblem(G, emb, right ? 5 : 6, 2, base);
+  else if (!col) [[7, 2], [8, 2], [9, 2], [6, 3], [10, 3], [6, 4], [10, 4], [7, 5], [9, 5]].forEach(([x, y]) => G.set(x - (right ? 1 : 0), y, _EN.wht));   // v1: white ring crest
+}
+function _enHDoorNoren(G, col, emb, gold) {
+  const W = G.w, base = col || _EN.ind, ox = (W - 16) >> 1;
+  _enNoren(G, 0, W - 1, 2, 9, base, gold, [Math.floor(W / 3), Math.floor(2 * W / 3)], 6);   // the rod runs on the walls' beam line
+  if (emb) _enEmblem(G, emb, ox + 5, 3, base);
+  else [[6, 3], [7, 3], [8, 3], [5, 4], [9, 4], [5, 5], [9, 5], [6, 6], [7, 6], [8, 6]].forEach(([x, y]) => G.set(ox + x, y, _EN.wht));
+}
+function _enOnsenNoren(G) {
+  const W = G.w, ox = (W - 16) >> 1;
+  _enNoren(G, 0, W - 1, 1, 11, _EN.red, false, [Math.floor(W / 3), Math.floor(2 * W / 3)], 9);
+  _EN_YU.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === 'X') G.set(ox + 3 + i, 2 + j, _EN.wht); }));
+}
+// the roten gate's little star lantern, hung from the fence end over the open way (x0: its left column)
+function _enStarLamp(G, x0, y0) {
+  for (let y = 0; y < y0 + 2; y++) G.set(x0 + 2, y, '#3a2418');   // its cord, from the top of the opening
+  const ST = ['..X..', 'XXXXX', '.XXX.', 'X...X'], L = new Grid(7, 6);
+  ST.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === 'X') L.set(1 + i, 1 + j, j === 0 || (j === 1 && i < 3) ? '#fff2a8' : j === 3 ? '#e0a020' : '#ffd23a'); }));
+  L.set(3, 2, '#fffbe0'); L.outline('#7a4a18');   // a warm dark rim so it reads on the light deck
+  for (let y = 0; y < 6; y++) for (let x = 0; x < 7; x++) { const c = L.get(x, y); if (c) G.set(x0 - 1 + x, y0 + 1 + y, c); }
+  for (let x = x0; x <= x0 + 4; x++) { const c = G.get(x + 1, y0 + 8); if (c) G.set(x + 1, y0 + 8, _enM(c, OUT, .2)); }   // its soft shadow on the floor
+}
 function _enRoomDoor(G, open, sty) {   // left room's door; its room is to the left, the corridor to the right (v2.4: G.h 32 = 2 tiles tall)
   const DH = G.h;
   if (!open) {   // locked: shoji in a dark frame
@@ -261,6 +340,7 @@ function _enGate(G, open, tx, ty, horiz, lamp, season) {   // v2.4: G.w = 32 (ga
     G.set(ox + 9, 6, '#fffbe0');
   }
 }
+const _EN_YU = ['X..XXXXX.', '.X.X...X.', '...XXXXX.', 'X.XXXXXXX', '.X..X...X', '...X.X..X', '.XX.X.X.X', 'X..X...X.'];   // the white yu (hot water) glyph
 function _enOnsenDoor(G, open, snowTx) {   // sits in a wall-face row (v2.4: G.w 32 = 2 tiles wide); snowTx != null = winter
   const W = G.w, t1 = Math.floor(W / 3), t2 = Math.floor(2 * W / 3), ox = (W - 16) >> 1;
   if (!open) { _enCap(G, false); G.rect(0, 5, W, 1, _EN.dwD); _enShoji(G, 0, 6, W - 1, 14, 2); for (let x = 0; x < W; x++) G.set(x, 15, _EN.dwH); if (snowTx != null) _enCapSnow(G, snowTx); return; }
@@ -270,17 +350,7 @@ function _enOnsenDoor(G, open, snowTx) {   // sits in a wall-face row (v2.4: G.w
   }
   // red noren with a white yu (hot water) glyph, the hem cut into three tongues
   _enNoren(G, 1, W - 2, 1, 11, _EN.red, false, [t1, t2], 9);
-  const GLY = [
-    'X..XXXXX.',
-    '.X.X...X.',
-    '...XXXXX.',
-    'X.XXXXXXX',
-    '.X..X...X',
-    '...X.X..X',
-    '.XX.X.X.X',
-    'X..X...X.',
-  ];
-  GLY.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === 'X') G.set(ox + 3 + i, 2 + j, _EN.wht); }));
+  _EN_YU.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === 'X') G.set(ox + 3 + i, 2 + j, _EN.wht); }));
   _enWallEnds(G);
   if (snowTx != null) for (let x = 0; x < W; x++) if (x < 2 || x >= W - 2) { G.set(x, 0, _EN_SN.w); G.set(x, 1, _EN_SN.s); }   // winter: snow on the wall ends' caps
 }

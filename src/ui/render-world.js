@@ -17,7 +17,10 @@ function paintDoor(dr) {
   const rm = dr.room ? ROOM[dr.room] : null, c = rm ? roomCombo(rm) : null;
   // a room door shows its own room's floor through the doorway, and what lies outside (corridor / west hall / gravel)
   const fl = rm ? [rm.floor, tileLook(tx + (rm.left ? 1 : -1), ty) || ch(tx + (rm.left ? 1 : -1), ty)] : null;
-  wg.drawImage(doorArt(dr.kind, doorIsOpen(dr), c ? c.col : dr.col || null, c ? c.emb : dr.emb || null, !!dr.gold, tx, ty, fl, seasonNow(), dw > 1 ? 'w' : dh > 1 ? 'h' : null, dr.beyond || null), tx * TILE, ty * TILE);   // gates paint their own ground: they need where they stand (v2.1: in the season's colours)
+  // v2.6: the floor tiles on both sides of each door tile (left / right of a vertical-wall door, above / below a horizontal one)
+  const across = dr.kind === 'onsen' || dr.kind === 'hdoor' || dr.kind === 'gateH', sd = (x, y) => [ch(x, y), tileLook(x, y) || ''], sides = [];
+  for (let j = 0; j < dh; j++) for (let i = 0; i < dw; i++) sides.push(across ? [sd(tx + i, ty - 1), sd(tx + i, ty + dh)] : [sd(tx - 1, ty + j), sd(tx + dw, ty + j)]);
+  wg.drawImage(doorArt(dr.kind, doorIsOpen(dr), c ? c.col : dr.col || null, c ? c.emb : dr.emb || null, !!dr.gold, tx, ty, fl, seasonNow(), dw > 1 ? 'w' : dh > 1 ? 'h' : null, dr.beyond || null, sides), tx * TILE, ty * TILE);   // gates paint their own ground: they need where they stand (v2.1: in the season's colours)
 }
 const tubBusy = rm => !!VIPG && VIPG.suite === rm.id && (VIPG.st === 'soak' || (VIPG.st === 'seated' && VIPG.actT > 0 && vipWish() === 'bath'));
 // a VIP's face, 8x8 from its front sprite (photo frames, the polaroid; the album crops its own)

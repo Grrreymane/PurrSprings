@@ -30,7 +30,8 @@ function wear(k, id) {
 // ---- v2.5 (player feedback "there should be a place to switch the clothes and hats you bought"): the 装扮 page existed
 // but nobody found it. The first wearable bought: a picture card [菜单] -> [装扮] 换装 (S.seen.dress), the HUD's 菜单
 // button glows with a red dot and the menu's 装扮 row wears a 新 tag until the page is opened once (S.tut.dressOpen); the
-// shop's mirror opens the page (stand still in front of it MIRROR_OPEN_T s); each booth shows a tick + how many you own.
+// shop's mirror opens the page (stand still in front of it MIRROR_OPEN_T s). v2.6: the booths no longer show a tick + an
+// owned count (player: "why a tick again after buying clothes?" - it read as "sold out / done").
 SEEN_KEYS.push('dress');
 const MIRROR_OPEN_T = .8;
 const dressOwnedAny = () => DRESS_KINDS.some(k => dressList(k).some(id => S.unlocked[id]));
@@ -40,17 +41,10 @@ function openDress() {   // the mirror: straight to the page (the game pauses as
   if (state !== 'play') return;
   openMenu(); MENU.page = 'dress'; dressOpened();
 }
-const BOOTH_AT = () => ({ hat: HAT_PAD, pet: PET_PAD, outfit: OUTFIT_PAD, uniform: UNIFORM_PAD });
 function dressHintDraw() {
   if (!boutiqueOpen() || !dressOwnedAny()) return;
   const [mx, my] = SPOT.mirror, x = mx * TILE - 1, y = (my - 1) * TILE - 6 + R(Math.sin(T * 2) * .8);   // over the mirror: a bubble with the wardrobe icon
   if (VIS(x, y, 16)) { drawA(bubbleArt('blank', 0), x, y, 7, 12); drawA(menuIcon('dress'), x, y - 6, 5, 5); }
-  const at = BOOTH_AT();
-  for (const k of DRESS_KINDS) {
-    const n = dressList(k).filter(id => S.unlocked[id]).length, p = at[k]; if (!n || !p) continue;
-    const bx = p[0] * TILE + 11, by = p[1] * TILE - 3; if (!VIS(bx, by, 10)) continue;
-    g.drawImage(TICK, R(bx) - CX, R(by) - CY); txt(String(n), R(bx) + 8 - CX, R(by) + 3 - CY + .5, 6, '#ffffff', 'left');
-  }
 }
 // ---- after a purchase (unlock.js calls this once the unlock is in): wear it, gild the rooms, the shrine's bell, the
 // rare guest of a garden piece, ... - the v2.1 core B side of a purchase

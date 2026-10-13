@@ -165,7 +165,7 @@ function drawOverlays() {
       g.drawImage(c, R(bx - w / 2) - CX, R(cy - h) - CY, w, h);
     }
   }
-  gzHintDraw(); dressHintDraw();   // v2.5: a garden piece's "?" guest bubble; the mirror's wardrobe bubble + owned-count ticks on the booths
+  gzHintDraw(); dressHintDraw();   // v2.5: a garden piece's "?" guest bubble; the mirror's wardrobe bubble
   // decor rooms (4.5): a combo room shows its 1-char plate over the door while you're within 3 tiles; a room with decor
   // but no combo a small star
   for (const rm of GUEST_ROOMS) {

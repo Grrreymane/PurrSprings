@@ -7,6 +7,8 @@
 //                                             (v2.0 always 0, drawn the same). 'o' = static pond tile (frame 0 of pondArt).
 //   doorArt(kind, open, col, emb, gold, tx, ty)  16x16, opaque. kind: left | right | onsen | hdoor | gate | gateH.
 //   v2.4: + floor, season, span ('w' 32x16 / 'h' 16x32: a door 2 tiles wide / tall), beyond (hdoor: 'din' | 'sand').
+//   v2.6: + sides (open doors: per door tile [a, b] = [char, look] of the floors either side): the doorway is those
+//         floors run on, plus the noren / star lamp - no frame, posts or edge lines (open gates have no posts either).
 //                                             left/right/hdoor open: noren in colour col (null = v1 indigo / hdoor tea
 //                                             brown), 5x5 crest emb (see _EN_EMB), gold = 1px gold edge (suites).
 //                                             gate / gateH paint their own paving: pass tx, ty so it lines up
@@ -82,7 +84,7 @@ function _enCanvas(G) { return G.canvas(); }
 function _enMake(w, h, fn) { const G = new Grid(w, h); fn(G); return _enCanvas(G); }
 // ambient occlusion along walls: walls / doors / fences above or to the left cast a soft shadow onto the floor
 function _enAO(G, nb, dark, k) {
-  const hard = c => c === '#' || c === 'D' || c === 'b';
+  const hard = c => c === '#' || c === 'b';   // v2.6: a door 'D' is a passage, it casts no wall shadow on the floor beside it
   const u = hard(nb.u), l = hard(nb.l), r = hard(nb.r);
   if (!u && !l && !r) return;
   k = k || 1;
@@ -340,7 +342,7 @@ function _enSlate(G, tx, ty, nb, season) {
       if (_enBay(x, 5) < .5) G.set(x, 5, _enM(G.get(x, 5), '#5a8c80', .3));
     }
   }
-  const soft = { u: nb.u === 'r' || nb.u === '#' || nb.u === 'D' ? '#' : null, l: nb.l === 'f' || nb.l === 'r' ? '#' : null, r: nb.r === 'f' || nb.r === 'r' ? '#' : null };
+  const soft = { u: nb.u === 'r' || nb.u === '#' ? '#' : null, l: nb.l === 'f' || nb.l === 'r' ? '#' : null, r: nb.r === 'f' || nb.r === 'r' ? '#' : null };
   if (season === 3) _enSnowOver(G, tx, ty, _enDrift(tx, ty, nb, 'frbg', 4));   // winter: snow banked against the bushes and rocks; the warm wet stone stays clear
   else _enScatter(G, tx, ty, season, 1.15, (x, y) => !(nb.u === '~' && y < 5));
   _enAO(G, soft, OUT, .8);
@@ -468,7 +470,7 @@ function _enGardenPath(G, tx, ty, nb, season) {
     G.set(x, y, c);
   }
   // stepping stones: centre stone + one per arm, staggered a little by hash
-  const spots = [[8, 8]];   // one stone per tile, longer across the walk (tobi-ishi are spaced a stride apart)
+  const spots = nb.bare ? [] : [[8, 8]];   // (nb.bare: gravel only, half a doorway's floor) one stone per tile, longer across the walk (tobi-ishi are spaced a stride apart)
   const STONES = ['#bcb6a8', '#c6c0b2', '#b0aa9c', '#c0b8a4', '#b8b4aa'];
   for (const [sx, sy] of spots) {
     const wx = tx * 16 + sx, wy = ty * 16 + sy;   // world centre: shared by the two tiles that meet at an arm
@@ -950,8 +952,12 @@ function _enWaterPx(G, frame, tx, ty) {
   }
 }
 
+// a wall tile drawn as a face: floor below it; v2.6 also the junction right under a doorway in a vertical wall where a
+// horizontal wall meets it (roten gate (24,6), shrine gate (10,6)): the horizontal wall's face runs on to the opening and
+// ends in its post there, instead of a lone dark wall-top square under the open way
+function _enIsFace(nb) { return (nb.d !== '#' && nb.d != null) || (nb.u === 'D' && nb.d === '#' && (nb.l === '#' || nb.r === '#')); }
 const _EN_TILE = {
-  '#': (G, tx, ty, nb, s) => (nb.d !== '#' && nb.d != null) ? _enWallFace(G, tx, ty, nb, s) : _enWallTop(G, tx, ty, nb, s),
+  '#': (G, tx, ty, nb, s) => _enIsFace(nb) ? _enWallFace(G, tx, ty, nb, s) : _enWallTop(G, tx, ty, nb, s),
   't': _enTatami, '.': _enCorridor, 'l': _enLobby, 's': _enSlate, 'E': _enGenkan, 'g': _enGrass, 'p': _enPath,
   'b': _enFence, 'f': _enBush, 'r': _enRock,
   'k': _enKitchen, 'm': _enDining, 'z': _enSand, 'x': _enDeck, 'q': _enStoneQ,
@@ -1256,7 +1262,7 @@ function _enSunoko(G, tx, ty, nb, inRoom, season) {   // hinoki duckboard: 3 px 
     G.set(x, y, c);
   }
   if (!inRoom && season === 3) _enSnowOver(G, tx, ty, _enDrift(tx, ty, { u: nb.u, l: nb.l === 'f' ? 'f' : null, r: nb.r === 'f' ? 'f' : null }, 'fr', 3));   // winter: a little drift under the rocks
-  _enAO(G, inRoom ? nb : { u: nb.u === 'r' || nb.u === '#' ? '#' : null, l: nb.l === 'D' || nb.l === '#' ? '#' : null, r: null }, OUT, .7);
+  _enAO(G, inRoom ? nb : { u: nb.u === 'r' || nb.u === '#' ? '#' : null, l: nb.l === '#' ? '#' : null, r: null }, OUT, .7);
 }
 // bath corners (the 'r' tiles at each end of the roten pool): deck, stacked buckets, a bamboo lantern
 function _enRotenSide(G, tx, ty, nb, season) {
