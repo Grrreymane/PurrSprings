@@ -16,6 +16,7 @@ function defaults() {
     pressS: 0, fest: { s: 0, n: 0, goal: 1, end: true }, fests: [0, 0, 0, 0], popT: 0, popTV: false,
     rare: {}, fw: { n: 0, cool: 0 },   // v2.1 core B (16.13): rare guest id -> visits completed; fireworks shown, next one from (stats.time)
     rep: { r: 45, s: 0, n: 0, d: 0, s2: 0, s5: 0 },   // v2.2 (19.2, business.js): reputation in tenths of a star (4.5 = par), today's ratings, days rated
+    rush5: null,   // the current big rush: scores so far, unfinished guests, and its original result deadline
   };
 }
 const starOf = s => 1 + (s.unlocked.onsen ? 1 : 0) + (s.unlocked.dining ? 1 : 0) + (s.unlocked.garden ? 1 : 0) + (s.unlocked.roten ? 1 : 0);
@@ -116,12 +117,13 @@ function loadState(rawIn) {
   s.vipOwe = 0;
   loadV21a(s, raw);   // v2.1 core A's fields (seasons.js)
   loadRep(s, raw);    // v2.2 (business.js): the reputation; an old save starts at 4 stars
+  loadRush(s, raw);
   return s;
 }
 let S;   // set at boot (loadState needs STAFF_DEF, defined below)
 let dirty = false, saveClock = 0;
 function markDirty() { dirty = true; }
-function saveNow() { save('state', S); dirty = false; saveClock = 0; }
+function saveNow() { S.rush5 = rushSave(); save('state', S); dirty = false; saveClock = 0; }
 const hasSaveRaw = () => { try { return !!localStorage.getItem(SAVE + 'state'); } catch (e) { return false; } };
 let hasSave = hasSaveRaw();
 const star = () => clamp(Math.max(starOf(S), S.peak | 0), 1, 5);

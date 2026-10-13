@@ -9,7 +9,7 @@ function pickType() {
   return 'regular';
 }
 const ELDER_FURS = ['gray', 'graytabby', 'white'];
-function addGuest(type) {
+function addGuest(type, trackRush = true) {
   const furs = Object.keys(FURS).filter(k => k !== 'orange');
   type = GUEST_TYPES[type] ? type : pickType();
   const fur = type === 'elder' ? pick(ELDER_FURS) : pick(furs);
@@ -21,7 +21,7 @@ function addGuest(type) {
   if (type === 'couple' || type === 'family') gu.mate = { kind: type === 'couple' ? 'cat' : 'kitten', look: type === 'couple' ? { fur: pick(furs), outfit: 'guest', shirt: pick(SHIRTS), hat: 'straw' } : { fur },
     x: gu.x, y: gu.y, dir: 'up', moving: false, walkT: 0, path: [], goal: null, q: [], mode: 'follow' };
   GUESTS.push(gu); Q.push(gu);
-  rushGuest(gu);   // v2.3: the star-5 rush's guests, some of them picky (business.js)
+  if (trackRush) rushGuest(gu);   // a restored unfinished guest already belongs to its saved rush
 }
 // ---- followers (4.6; stage 2B reuses this for the VIP and the pets): the leader drops a crumb every 4 px into the
 // follower's queue; the follower walks the crumbs at its own speed and stops `gap` px (path length) behind the leader.

@@ -97,6 +97,66 @@ const pickyP = () => Math.min(PICKY_P_MAX, PICKY_P + .05 * goldStars());
 const exT = () => Math.max(EX_T_MIN, EX_T - 1.5 * goldStars());
 // runtime: this rush is the big one; its guests; when it ended (the result waits for its last guests); the bell's last ring
 const RUSH5 = { on: false, g: [], end: null, ring: -9 };
+// Ordinary stays still finish on load. Only unfinished rush work needs a live guest; everyone already settled keeps
+// a score record, including angry guests that have left GUESTS. Never save path / staff / room object references.
+const RUSH_LIVE_FIELDS = ['type', 'x', 'y', 'dir', 'spd', 't', 'pat', 'ck', 'front', 'inside', 'room', 'bedT', 'pref', 'combo'];
+function rushSave() {
+  if (!RUSH5.on) return null;
+  return { day: S.day, end: RUSH5.end, spawn: spawnT, g: RUSH5.g.map(gu => {
+    const r = { st: gu.st, qT: gu.qT || 0, picky: !!gu.picky, r2: !!gu.r2, angryR: !!gu.angryR,
+      exK: gu.exK || null, exMiss: !!gu.exMiss, exOk: !!gu.exOk };
+    if (!rushSettled(gu) && ['arrive', 'queue', 'toRoom'].includes(gu.st)) {
+      r.live = {}; for (const k of RUSH_LIVE_FIELDS) r.live[k] = gu[k];
+      if (gu.ex) r.live.ex = { k: gu.ex.k, t: gu.ex.t, max: gu.ex.max };
+    }
+    return r;
+  }) };
+}
+function loadRush(s, raw) {
+  const r = objOr(raw.rush5), c = s.clock, end = rushEnd(); s.rush5 = null;
+  if (Math.max(starOf(s), s.peak) < 5 || s.day <= s.rep.s5 || s.day <= s.rep.s2 + 1 || seasonDay(s.day) === 1 ||
+      r.day !== s.day || !Array.isArray(r.g) || c < RUSH_AT || c > end + RUSH_GRACE / DAY_LEN + 1e-6) return;
+  const ended = r.end !== null && Number.isFinite(r.end) && r.end >= 0 && r.end <= s.stats.time;
+  if (c >= end ? !ended : r.end !== null) return;
+  const num = (v, max, fallback = 0) => Number.isFinite(v) ? clamp(v, 0, max) : fallback;
+  const list = [], rooms = new Set(); let queued = 0;
+  for (const row of r.g.slice(0, 256)) {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) continue;
+    const exK = EX_KINDS.some(e => e[0] === row.exK) ? row.exK : null;
+    const gu = { st: row.st === 'angry' || row.angryR ? 'angry' : 'sleep', r2: true, qT: num(row.qT, 1e6),
+      picky: !!row.picky, exK, exMiss: !!row.exMiss, exOk: !!row.exOk };
+    if (row.live && typeof row.live === 'object') {
+      const l = row.live, rm = ROOM[l.room], inLine = row.st === 'arrive' || row.st === 'queue';
+      if (!GUEST_TYPES[l.type] || (!inLine && row.st !== 'toRoom')) continue;
+      if (inLine ? queued >= QSPOTS.length : !rm || rm.vip || !roomOpen(rm, s) || s.rooms[rm.id] !== 'clean' || rooms.has(rm.id)) continue;
+      const ex = objOr(l.ex), max = num(ex.max, EX_T, EX_T);
+      if (!inLine && (!exK || ex.k !== exK || max <= 0)) continue;
+      gu.st = row.st; gu.r2 = !inLine;
+      gu.live = { type: l.type, x: num(l.x, MAPW, EXIT[0]), y: num(l.y, MAPH + 64, EXIT[1]),
+        dir: ['up', 'down', 'left', 'right'].includes(l.dir) ? l.dir : 'up', spd: clamp(num(l.spd, G_SPEED * 2, G_SPEED), G_SPEED * .5, G_SPEED * 2),
+        t: num(l.t, 1e6), pat: num(l.pat, PATIENCE + EX_PAT), ck: num(l.ck, 60), front: num(l.front, 1e6),
+        inside: !!l.inside, room: inLine ? null : rm.id, bedT: num(l.bedT, 1e6), pref: !!l.pref, combo: !!l.combo };
+      if (exK && ex.k === exK && max > 0) gu.live.ex = { k: exK, t: num(ex.t, max), max };
+      if (inLine) queued++; else rooms.add(rm.id);
+    }
+    list.push(gu);
+  }
+  s.rush5 = { day: s.day, end: ended ? r.end : null, spawn: num(r.spawn, 60, 1.5), g: list };
+}
+function rushRestore() {
+  const saved = S.rush5;
+  RUSH5.on = !!saved || (rushOn() && hardRush()); RUSH5.g = []; RUSH5.end = saved ? saved.end : null; RUSH5.ring = -9;
+  if (!saved) return;   // old saves: track new arrivals for the rest of this rush, without replaying its announcement
+  spawnT = saved.spawn;
+  for (const row of saved.g) {
+    const { live, ...score } = row;
+    if (!live) { RUSH5.g.push(score); continue; }
+    addGuest(live.type, false); const gu = GUESTS[GUESTS.length - 1];
+    Object.assign(gu, score, live, { rush: true, ex: live.ex ? { ...live.ex } : null });
+    if (gu.st === 'toRoom') { Q.splice(Q.indexOf(gu), 1); S.rooms[gu.room] = 'reserved'; RT[gu.room].guest = gu; }
+    RUSH5.g.push(gu);
+  }
+}
 // a guest walks in during the big rush (guests.js addGuest): one of its guests, maybe a picky one
 function rushGuest(gu) {
   if (!RUSH5.on || !rushOn()) return;
@@ -140,7 +200,7 @@ const rushSettled = gu => gu.st === 'angry' || !!gu.angryR || (!!gu.r2 && !gu.ex
 const rushLive = () => { let s = 0, n = 0; for (const gu of RUSH5.g) if (rushSettled(gu)) { s += rushScore(gu); n++; } return n ? s / n / 10 : null; };
 // the big rush's result = the evening summary (repSummary with the rush's own average and what cost the most)
 function rushResult() {
-  const L = RUSH5.g; RUSH5.end = null; RUSH5.on = false; RUSH5.g = [];
+  const L = RUSH5.g; RUSH5.end = null; RUSH5.on = false; RUSH5.g = []; S.rush5 = null; markDirty();
   if (L.length < RUSH_MIN_N) { repSummary(); return; }
   let s = 0; const why = { line: 0, extra: 0 }, miss = {};
   for (const gu of L) {
@@ -217,7 +277,7 @@ function drawBizHud(x) {
   return x + 15 + textW(s, 7);
 }
 // a new game / a load (title.js resetWorld): the rush already on is not announced again; the pile averages start over
-function bizReset() { rushWas = rushOn(); starWas = 0; RUSH5.on = false; RUSH5.g = []; RUSH5.end = null; lineLongT = 0; for (const k in PILE_RATE) delete PILE_RATE[k]; for (const k in FULL_T) delete FULL_T[k]; for (const k in FULL_SEEN) delete FULL_SEEN[k]; for (const k in REP_WHY) REP_WHY[k] = 0; }
+function bizReset() { rushWas = rushOn(); starWas = 0; rushRestore(); lineLongT = 0; for (const k in PILE_RATE) delete PILE_RATE[k]; for (const k in FULL_T) delete FULL_T[k]; for (const k in FULL_SEEN) delete FULL_SEEN[k]; for (const k in REP_WHY) REP_WHY[k] = 0; }
 // ---- save (state-save.js loadState): never wiped, defaults for an old save
 function loadRep(s, raw) {
   const r = objOr(raw.rep);
