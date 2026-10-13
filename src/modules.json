@@ -20,6 +20,7 @@
   "src/data/tables-v21b.js",
   "src/data/tables.js",
   "src/core/state-save.js",
+  "src/core/cloud.js",
   "src/core/pathfinding.js",
   "src/core/entities.js",
   "src/systems/guests.js",

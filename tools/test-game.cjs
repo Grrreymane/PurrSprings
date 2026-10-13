@@ -10,7 +10,7 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 // the workspace's headless runner: ../_workflow beside the game folder, or a few levels up (a checkout nested in .claude/)
 const headless = (() => { for (let d = root, i = 0; i < 6; i++, d = path.dirname(d)) { const f = path.resolve(d, '../_workflow/tools/headless.js'); if (fs.existsSync(f)) return f; } return path.resolve(root, '../_workflow/tools/headless.js'); })();
-const QUICK = [['smoke.js', 1], ['map_check.js', 1], ['ui_check.js', 2], ['sys_rush_save.js', 3]];
+const QUICK = [['smoke.js', 1], ['map_check.js', 1], ['ui_check.js', 2], ['sys_rush_save.js', 3], ['sys_cloud.js', 1]];
 const FULL = QUICK.concat([['smoke.js', 2], ['migrate_v1.js', 1], ['lines_check.js', 3], ['music_check.js', 1], ['sys_chars21.js', 1], ['migrate_v201.js', 1],
   ['door_check.js', 1], ['smooth_walk.js', 1], ['front_walk.js', 1], ['repro_waiter_rice.js', 1],
   ['sys_vipguide.js', 4], ['sys_reputation.js', 2], ['sys_rush.js', 3], ['sys_caps.js', 5],

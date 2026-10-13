@@ -419,7 +419,7 @@ function render() {
   if (LINE) { worldBegin(); drawLine(); worldFlush(); }   // the line bubble covers the world's words under it (prices, names)
   // the HUD layer: no shift
   g = low.getContext('2d'); VM = 0; CX = R(cam.x); CY = R(cam.y); g.clearRect(0, 0, W, H);
-  drawJoy(); drawEdgeNew(); drawBanner(); drawHUD(); drawBottomCard(); drawFly();
+  drawJoy(); drawEdgeNew(); drawBanner(); drawHUD(); drawCloudNote(); drawBottomCard(); drawFly();
   if (state === 'celebrate') { layerBreak(); drawCelebrate(); }
   if (state === 'menu') { layerBreak(); drawMenu(); }
   if (state === 'card') { layerBreak(); drawModal(); }   // v2.1: the year report / press result / family photo (yearly.js)

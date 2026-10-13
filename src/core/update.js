@@ -66,7 +66,7 @@ function gameUpdate(dt) {
   // a booth piece is pointed at for at most BOOTH_HINT_T s in all (6 rule 6: once)
   if (GUIDE && GUIDE.kind === 'pad' && !GUIDE.here && GUIDE.id && UNLOCK[GUIDE.id].booth && GUIDE.id !== 'statue') { const b = boothOf(GUIDE.id); b.t += dt; if (b.t >= BOOTH_HINT_T) b.done = true; }
   if (celebrateAt && T >= celebrateAt) { celebrateAt = 0; go('celebrate'); }
-  saveClock += dt; if (dirty && saveClock >= 2) saveNow();
+  saveClock += dt; if (dirty && saveClock >= (CLOUD.on ? 15 : 2)) saveNow();   // cloud: each save is also an upload; checkpoints (a purchase, ...) still save at once
   updCam(dt);
 }
 function update(dt) {

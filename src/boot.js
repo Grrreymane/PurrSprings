@@ -1,6 +1,8 @@
 // ============================================================ boot
-S = loadState();
+const cloudy = cloudWanted();   // cloud.js: in the platform's player the SDK restores the save (from the default here)
+S = loadState(cloudy ? {} : undefined);
 resetWorld();
+if (cloudy) cloudStart();
 // Test hook (see tools/make_test_page.py): _test.html replaces the line below to expose eval + bots.
 /*TEST_HOOK*/
 if (location.hash === '#cover') { (document.fonts ? document.fonts.ready : Promise.resolve()).then(renderCover); window.__gameBooted = true; return; }

@@ -5,7 +5,8 @@
     "sync": "node tools/sync-inline.cjs",
     "test": "node tests/source-layout.cjs && node tools/sync-inline.cjs --check && node tests/source-location.cjs && node tools/test-game.cjs",
     "test:full": "node tools/sync-inline.cjs --check && node tools/test-game.cjs full",
-    "locate": "node tools/locate-source.cjs"
+    "locate": "node tools/locate-source.cjs",
+    "build:web": "node tools/sync-inline.cjs && node tools/build-web.cjs"
   },
   "engines": { "node": ">=18" }
 }

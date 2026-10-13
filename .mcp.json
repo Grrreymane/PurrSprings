@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "onegp": { "command": "npx", "args": ["--yes", "github:1gp-studio/publisher-mcp#v0.3.2"] }
+  }
+}

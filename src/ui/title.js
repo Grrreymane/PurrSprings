@@ -1,8 +1,11 @@
 // ============================================================ title / celebration / share card / cover
-const BTN = { start: [40, 200, 100, 24], share: [34, 196, 112, 22], cont: [34, 223, 112, 22] };
+const BTN = { start: [40, 200, 100, 24], fresh: [50, 230, 80, 18], share: [34, 196, 112, 22], cont: [34, 223, 112, 22] };
 function onPress(p) {
   if (state === 'title') {
-    if (inR(p, BTN.start)) { SFX.click(); if (hasSave) continueGame(); else newGame(); }
+    if (!CLOUD.ready || CLOUD.err) return;   // cloud.js: nothing starts before the save is restored (or after it failed)
+    const old = CLOUD.legacy && !hasSave;    // cloud.js: the device's pre-cloud save, continued only on this choice
+    if (old && inR(p, BTN.fresh)) { SFX.click(); newGame(); }
+    else if (inR(p, BTN.start)) { SFX.click(); if (old) cloudLegacy(); else if (hasSave) continueGame(); else newGame(); }
     return;
   }
   if (state === 'celebrate') {
@@ -40,9 +43,9 @@ function resetWorld() {
   rebuildWorld(); ensureStaff(); updCam(0, true); updPet(0);
   v21aReset();   // v2.1 core A runtime: festival / reporter / cards (seasons.js)
 }
-function newGame() { S = defaults(); resetWorld(); saveNow(); hasSave = true; go('play'); }
+function newGame() { CLOUD.legacy = null; S = defaults(); resetWorld(); saveNow(); hasSave = true; go('play'); }
 function continueGame() {
-  S = loadState(); resetWorld(); go('play'); if (!S.done && innComplete()) celebrateAt = T + 1;   // the whole inn built, its panel never seen (G2)
+  if (!CLOUD.on) S = loadState(); resetWorld(); go('play');   // cloud: S is already the restored save if (!S.done && innComplete()) celebrateAt = T + 1;   // the whole inn built, its panel never seen (G2)
   if (S.gift) { banner('gift', 0); S.gift = false; markDirty(); }                                // a v1 save: "the inn grew!" once (10.2)
 }
 function drawTitle() {
@@ -51,7 +54,11 @@ function drawTitle() {
   { const k = petOf(S.equip.pet); if (k) drawPet({ kind: k, x: 17 * TILE + 21, y: 30 * TILE + 10, dir: 'down', moving: false, walkT: 0, idle: 2 }); }
   txt('猫猫温泉旅馆', 90, 74, 21, '#ffe14a');
   txt('Purr Springs', 90, 96, 9, '#dff6ff');
-  for (let i = 0; i < 5; i++) drawC(starIcon(i < star()), 74 + i * 8, 112);
+  const old = CLOUD.legacy && !hasSave, sn = old ? legacyStar(CLOUD.legacy) : star();
+  for (let i = 0; i < 5; i++) drawC(starIcon(i < sn), 74 + i * 8, 112);
+  if (CLOUD.err) { txt('存档没读到，请刷新再试', 90, 212, 8, '#ffb0a0'); return; }
+  if (!CLOUD.ready) { txt(CLOUD.status === 'conflict' ? '请先在平台上选一份存档' : CLOUD.status === 'offline' ? '存档连不上，请在平台上重试' : '读取存档…', 90, 212, 8, '#dff6ff'); return; }
+  if (old) { button(BTN.start, '继续本机进度'); button(BTN.fresh, '重新开张', 'blue'); return; }
   button(BTN.start, hasSave ? '继续营业' : '开张营业');
 }
 function drawCelebrate() {

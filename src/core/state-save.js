@@ -123,7 +123,7 @@ function loadState(rawIn) {
 let S;   // set at boot (loadState needs STAFF_DEF, defined below)
 let dirty = false, saveClock = 0;
 function markDirty() { dirty = true; }
-function saveNow() { S.rush5 = rushSave(); save('state', S); dirty = false; saveClock = 0; }
+function saveNow() { S.rush5 = rushSave(); if (CLOUD.on) cloudSave(); else save('state', S); dirty = false; saveClock = 0; }   // cloud.js: the platform's SDK keeps the save there
 const hasSaveRaw = () => { try { return !!localStorage.getItem(SAVE + 'state'); } catch (e) { return false; } };
 let hasSave = hasSaveRaw();
 const star = () => clamp(Math.max(starOf(S), S.peak | 0), 1, 5);
