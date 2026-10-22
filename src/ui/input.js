@@ -22,6 +22,9 @@ const KEYS = {};
 let botMove = null;   // test hook: {x, y} (length <= 1) replaces joystick / keyboard input when not null
 window.addEventListener('pointerdown', e => {
   if (shareEl) return;   // the share overlay handles its own taps
+  // preventDefault also cancels the mousedown that would move focus into a frame: in the 1GP player (an iframe) the
+  // keys then went to the outer page, so a press takes the keyboard back for WASD / arrows
+  try { if (!document.hasFocus()) window.focus(); } catch (err) {}
   e.preventDefault(); initAudio();
   const p = toLogical(e);
   if (state === 'title' && p.x >= 162 && p.x <= W && p.y <= 18) { toggleSound(); return; }   // the title's speaker, top-right (not the side bars)
