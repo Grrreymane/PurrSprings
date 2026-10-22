@@ -7,7 +7,7 @@ const GAME_VERSION = '2.6.1';
 const CLOUD_ORIGIN = 'https://www.ai-made.games', CLOUD_GAME = '7565102b-995c-470d-835e-455dc82bc891';
 // legacy = the device's own pre-cloud save, offered on the title only when the SDK restored nothing (an explicit choice:
 // it is never uploaded by itself and the old key is left as it is). err = initialize failed: no fresh start over it.
-const CLOUD = { on: false, ready: true, legacy: null, status: '', code: '', err: '' };
+const CLOUD = { on: false, ready: true, legacy: null, status: '', code: '', err: '', errAt: 0 };
 function cloudWanted() {
   try { if (window.parent && window.parent !== window) return true; } catch (e) { return true; }
   try { return /[?&]cloud(?:[=&]|$)/.test(location.search || ''); } catch (e) { return false; }
@@ -40,7 +40,14 @@ async function cloudInit() {
   if (!CLOUD.on) return;   // too late: the device save is already in play
   const sv = window.AIMadeGames && window.AIMadeGames.saves;
   if (!sv) { cloudFallback(); return; }
-  try { sv.onStatus(s => { CLOUD.status = s && s.status || ''; CLOUD.code = s && s.code || ''; }); } catch (e) {}
+  try {
+    sv.onStatus(s => {
+      const st = s && s.status || '', code = s && s.code || '';
+      if (st === 'error' && CLOUD.status !== 'error') CLOUD.errAt = Date.now();   // when this run of failures began
+      if ((st === 'error' || st === 'conflict' || st === 'incompatible') && (st !== CLOUD.status || code !== CLOUD.code)) { try { console.warn('[cloud save]', st, code, s.error || ''); } catch (e) {} }
+      CLOUD.status = st; CLOUD.code = code;
+    });
+  } catch (e) {}
   try {
     const r = await sv.initialize({ platformOrigin: CLOUD_ORIGIN, gameId: CLOUD_GAME, schemaVersion: 1, gameVersion: GAME_VERSION,
       exportState: cloudExport, importState: cloudImport, summary: cloudSummary });
@@ -48,15 +55,25 @@ async function cloudInit() {
     CLOUD.ready = true;
   } catch (e) { CLOUD.err = e && e.code || 'ERROR'; }
 }
-// saveNow's cloud half: the SDK writes the device copy first, then syncs; a blocked save shows in the status note
-function cloudSave() {
+// saveNow's cloud half: the SDK writes the device copy first, then uploads. Checkpoints come in bursts (a run of
+// purchases), so uploads are at most one per CLOUD_GAP ms; the last one waits and goes out then (or at once on hide)
+const CLOUD_GAP = 10;   // seconds of T
+let cloudLast = -1e9, cloudPend = false;
+function cloudSave(now) {
   if (!CLOUD.ready || CLOUD.err) return;
+  if (!now && T - cloudLast < CLOUD_GAP) { cloudPend = true; return; }   // cloudTick sends it when the gap is over
+  cloudPend = false; cloudLast = T;
   const fail = e => { if (e && e.code) CLOUD.code = e.code; };
   try { const p = window.AIMadeGames.saves.save(); if (p && p.catch) p.catch(fail); } catch (e) { fail(e); }
 }
+function cloudTick() { if (cloudPend && T - cloudLast >= CLOUD_GAP) cloudSave(true); }
+const cloudFlush = () => { if (CLOUD.on && state !== 'title' && (cloudPend || dirty)) { S.rush5 = rushSave(); dirty = false; cloudSave(true); } };
+document.addEventListener('visibilitychange', () => { if (document.hidden) cloudFlush(); });
+window.addEventListener('pagehide', cloudFlush);
 // the title: continue the device's pre-cloud save (it is saved to the account from here on)
 function cloudLegacy() { const raw = CLOUD.legacy; CLOUD.legacy = null; S = loadState(raw); hasSave = true; continueGame(); saveNow(); }
-// one short line when progress is not reaching the cloud (or the device); nothing while all is well
+// one short line when progress really is not reaching the cloud (or the device); a passing failure the SDK retries by
+// itself (the network, a busy server) says nothing for its first 20 s
 function cloudNote() {
   if (!CLOUD.on) return '';
   const c = CLOUD.code;
@@ -64,10 +81,10 @@ function cloudNote() {
   if (CLOUD.status === 'conflict') return '有两份存档，请在平台上选一份';
   if (CLOUD.status === 'incompatible' || c === 'INCOMPATIBLE_SAVE') return '存档版本不对，暂时不保存';
   if (c === 'LOCAL_WRITE_FAILED') return '存档写不进去，进度没保存';
-  if (CLOUD.status === 'error') return '云存档没同步上';
+  if (CLOUD.status === 'error' && Date.now() - (CLOUD.errAt || 0) > 20000) return '云存档没同步上';
   return '';
 }
 function drawCloudNote() {
   const s = cloudNote(); if (!s) return;
-  const w = Math.min(W - 4, textW(s, 7) + 10 | 0); pill(R((W - w) / 2), 31, w, 11); txt(s, W / 2, 36.5, 7, '#ffb0a0');   // under the HUD's second row (sky dial, rank, calls)
+  const w = Math.min(W - 4, textW(s, 7) + 10 | 0); pill(R((W - w) / 2), 50, w, 11); txt(s, W / 2, 55.5, 7, '#ffb0a0');   // under the banner zone (y 18-48)
 }

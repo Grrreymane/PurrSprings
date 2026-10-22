@@ -11406,7 +11406,7 @@ function spawnGap() { return Math.max(1.8, STARS[star()].gap * Math.min(1, 9 / M
 // ---- price pads on the ground (3.5). PADPOS = the pads shown right now (id -> tile). At most PAD_MAX progress pads:
 // every gate whose prerequisites are met, then part-paid ones, then the cheapest. Decor (2 shop pads, stable slots),
 // one hat booth, one pet booth and the statue are extra.
-const PADPOS = new Map(), DECOR_SLOT = new Map();
+const PADPOS = new Map(), DECOR_SLOT = new Map(), PADKEEP = new Set();   // PADKEEP: the progress pads shown last time
 function padEligible(u) {
   if (S.unlocked[u.id]) return false;
   for (const r of u.req) if (!S.unlocked[r]) return false;
@@ -11430,8 +11430,10 @@ function padsUpdate() {
     else if (u.id === 'statue' || u.extra) PADPOS.set(u.id, u.pad);                  // v2.1: shrine / garden / plaza pads are extra
     else prog.push(u);
   }
-  prog.sort((a, b) => (b.gate ? 1 : 0) - (a.gate ? 1 : 0) || ((S.paid[b.id] ? 1 : 0) - (S.paid[a.id] ? 1 : 0)) || a.price - b.price);
-  for (const u of prog.slice(0, PAD_MAX)) PADPOS.set(u.id, u.pad);
+  // a pad already on the ground stays there until bought (PADKEEP): newer cheaper ones wait for a free place. It used
+  // to be the cheapest four every frame, so the milk pad (160) vanished soon after the onsen opened ("the milk is gone")
+  prog.sort((a, b) => (b.gate ? 1 : 0) - (a.gate ? 1 : 0) || ((S.paid[b.id] ? 1 : 0) - (S.paid[a.id] ? 1 : 0)) || ((PADKEEP.has(b.id) ? 1 : 0) - (PADKEEP.has(a.id) ? 1 : 0)) || a.price - b.price);
+  PADKEEP.clear(); for (const u of prog.slice(0, PAD_MAX)) { PADPOS.set(u.id, u.pad); PADKEEP.add(u.id); }
   // decor: the first two in table order keep the slot they first showed in
   const show = decor.slice(0, 2), used = new Set();
   for (const [id, i] of [...DECOR_SLOT]) if (!show.some(u => u.id === id)) DECOR_SLOT.delete(id); else used.add(i);
@@ -11461,7 +11463,7 @@ const GAME_VERSION = '2.6.1';
 const CLOUD_ORIGIN = 'https://www.ai-made.games', CLOUD_GAME = '7565102b-995c-470d-835e-455dc82bc891';
 // legacy = the device's own pre-cloud save, offered on the title only when the SDK restored nothing (an explicit choice:
 // it is never uploaded by itself and the old key is left as it is). err = initialize failed: no fresh start over it.
-const CLOUD = { on: false, ready: true, legacy: null, status: '', code: '', err: '' };
+const CLOUD = { on: false, ready: true, legacy: null, status: '', code: '', err: '', errAt: 0 };
 function cloudWanted() {
   try { if (window.parent && window.parent !== window) return true; } catch (e) { return true; }
   try { return /[?&]cloud(?:[=&]|$)/.test(location.search || ''); } catch (e) { return false; }
@@ -11494,7 +11496,14 @@ async function cloudInit() {
   if (!CLOUD.on) return;   // too late: the device save is already in play
   const sv = window.AIMadeGames && window.AIMadeGames.saves;
   if (!sv) { cloudFallback(); return; }
-  try { sv.onStatus(s => { CLOUD.status = s && s.status || ''; CLOUD.code = s && s.code || ''; }); } catch (e) {}
+  try {
+    sv.onStatus(s => {
+      const st = s && s.status || '', code = s && s.code || '';
+      if (st === 'error' && CLOUD.status !== 'error') CLOUD.errAt = Date.now();   // when this run of failures began
+      if ((st === 'error' || st === 'conflict' || st === 'incompatible') && (st !== CLOUD.status || code !== CLOUD.code)) { try { console.warn('[cloud save]', st, code, s.error || ''); } catch (e) {} }
+      CLOUD.status = st; CLOUD.code = code;
+    });
+  } catch (e) {}
   try {
     const r = await sv.initialize({ platformOrigin: CLOUD_ORIGIN, gameId: CLOUD_GAME, schemaVersion: 1, gameVersion: GAME_VERSION,
       exportState: cloudExport, importState: cloudImport, summary: cloudSummary });
@@ -11502,15 +11511,25 @@ async function cloudInit() {
     CLOUD.ready = true;
   } catch (e) { CLOUD.err = e && e.code || 'ERROR'; }
 }
-// saveNow's cloud half: the SDK writes the device copy first, then syncs; a blocked save shows in the status note
-function cloudSave() {
+// saveNow's cloud half: the SDK writes the device copy first, then uploads. Checkpoints come in bursts (a run of
+// purchases), so uploads are at most one per CLOUD_GAP ms; the last one waits and goes out then (or at once on hide)
+const CLOUD_GAP = 10;   // seconds of T
+let cloudLast = -1e9, cloudPend = false;
+function cloudSave(now) {
   if (!CLOUD.ready || CLOUD.err) return;
+  if (!now && T - cloudLast < CLOUD_GAP) { cloudPend = true; return; }   // cloudTick sends it when the gap is over
+  cloudPend = false; cloudLast = T;
   const fail = e => { if (e && e.code) CLOUD.code = e.code; };
   try { const p = window.AIMadeGames.saves.save(); if (p && p.catch) p.catch(fail); } catch (e) { fail(e); }
 }
+function cloudTick() { if (cloudPend && T - cloudLast >= CLOUD_GAP) cloudSave(true); }
+const cloudFlush = () => { if (CLOUD.on && state !== 'title' && (cloudPend || dirty)) { S.rush5 = rushSave(); dirty = false; cloudSave(true); } };
+document.addEventListener('visibilitychange', () => { if (document.hidden) cloudFlush(); });
+window.addEventListener('pagehide', cloudFlush);
 // the title: continue the device's pre-cloud save (it is saved to the account from here on)
 function cloudLegacy() { const raw = CLOUD.legacy; CLOUD.legacy = null; S = loadState(raw); hasSave = true; continueGame(); saveNow(); }
-// one short line when progress is not reaching the cloud (or the device); nothing while all is well
+// one short line when progress really is not reaching the cloud (or the device); a passing failure the SDK retries by
+// itself (the network, a busy server) says nothing for its first 20 s
 function cloudNote() {
   if (!CLOUD.on) return '';
   const c = CLOUD.code;
@@ -11518,12 +11537,12 @@ function cloudNote() {
   if (CLOUD.status === 'conflict') return '有两份存档，请在平台上选一份';
   if (CLOUD.status === 'incompatible' || c === 'INCOMPATIBLE_SAVE') return '存档版本不对，暂时不保存';
   if (c === 'LOCAL_WRITE_FAILED') return '存档写不进去，进度没保存';
-  if (CLOUD.status === 'error') return '云存档没同步上';
+  if (CLOUD.status === 'error' && Date.now() - (CLOUD.errAt || 0) > 20000) return '云存档没同步上';
   return '';
 }
 function drawCloudNote() {
   const s = cloudNote(); if (!s) return;
-  const w = Math.min(W - 4, textW(s, 7) + 10 | 0); pill(R((W - w) / 2), 31, w, 11); txt(s, W / 2, 36.5, 7, '#ffb0a0');   // under the HUD's second row (sky dial, rank, calls)
+  const w = Math.min(W - 4, textW(s, 7) + 10 | 0); pill(R((W - w) / 2), 50, w, 11); txt(s, W / 2, 55.5, 7, '#ffb0a0');   // under the banner zone (y 18-48)
 }
 // ==== end source:src/core/cloud.js ====
 // ==== source:src/core/board.js ====
@@ -14471,6 +14490,7 @@ function gameUpdate(dt) {
   if (GUIDE && GUIDE.kind === 'pad' && !GUIDE.here && GUIDE.id && UNLOCK[GUIDE.id].booth && GUIDE.id !== 'statue') { const b = boothOf(GUIDE.id); b.t += dt; if (b.t >= BOOTH_HINT_T) b.done = true; }
   if (celebrateAt && T >= celebrateAt) { celebrateAt = 0; go('celebrate'); }
   boardTick(dt);   // board.js: the 1GP hearts ranking (platform player only)
+  cloudTick();     // cloud.js: a checkpoint upload held back by the 10 s gap goes out now
   saveClock += dt; if (dirty && saveClock >= (CLOUD.on ? 15 : 2)) saveNow();   // cloud: each save is also an upload; checkpoints (a purchase, ...) still save at once
   updCam(dt);
 }
@@ -14785,7 +14805,10 @@ function drawScene(vw, vh, live, noPlayer, card) {
   L.sort((a, b) => a.y - b.y); let after = false;
   for (const e of L) {
     if (e.pl && PSPLIT) { after = true; continue; }
-    e.f(); if (after && e.y < P.y + OCC_DY && (e.x === undefined || Math.abs(e.x - P.x) < e.hw + 10)) OCC.push(e.f);   // x / hw: its centre and half width, when known
+    // x / hw: its centre and half width, when known. Everything that can reach into his small layer (PAX each side) is
+    // drawn again, not only what touches him: one left out there (a guest 20 px off) was covered by what was drawn again
+    // under it (the counter, which has no x) - a slab of counter over the guest's head, cut at the layer's edge
+    e.f(); if (after && e.y < P.y + OCC_DY && (e.x === undefined || Math.abs(e.x - P.x) < e.hw + PAX)) OCC.push(e.f);
   }
   // ---- over everyone: the entrance noren
   const noren = () => g.drawImage(entranceNoren(), 16 * TILE - CX, 29 * TILE - 6 - CY);
@@ -14904,6 +14927,11 @@ function playerLayer() {
   flushLayer(lowP, (P.x - PAX - cam.x) * K, (P.y - PAY - cam.y) * K);
   if (OCC.length) {
     smallBegin(lowO, gx, gy); for (const f of OCC) f(); lightLayer(lowO, gx, gy);
+    // kept to his own pixels (1 px wider for his sub-pixel place): the world under the rest is already right, and drawn
+    // again there it went wrong - a guest left out covered by the counter drawn again, half-clear shadows twice as dark
+    const m = LMASK.getContext('2d'); m.globalCompositeOperation = 'source-over'; m.clearRect(0, 0, PLW, PLH);
+    for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) m.drawImage(lowP, ox, oy);
+    const o = lowO.getContext('2d'); o.globalCompositeOperation = 'destination-in'; o.drawImage(LMASK, 0, 0); o.globalCompositeOperation = 'source-over';
     flushLayer(lowO, WDX + (gx - cw + WM) * K, WDY + (gy - ch + WM) * K);   // the same device grid as lowW
   }
 }
@@ -16761,7 +16789,7 @@ function resetWorld() {
   GUESTS.length = 0; Q.length = 0; STAFF.length = 0; FX.length = 0; POPS.length = 0; SLOT_OCC.fill(null); SEAT_OCC.fill(null); AREA_FADE.length = 0;
   for (const rm of ROOMS) RT[rm.id] = { guest: null, cleanP: 0, claim: null, vipMess: false };
   for (const k in POPA) delete POPA[k];
-  DECOR_SLOT.clear(); padsUpdate();
+  DECOR_SLOT.clear(); PADKEEP.clear(); padsUpdate();
   PADSEEN.clear(); for (const id of PADPOS.keys()) PADSEEN.add(id);
   // calls, trays, the counter and followers are not saved (10.1): they start empty
   Object.assign(P, { x: 17 * TILE + 8, y: 27 * TILE + 8, dir: 'up', moving: false, walkT: 0, towels: 0, dist: 0, sway: 0, atDesk: false, pourAcc: 0, pouring: null, padOn: null, padT: 0, padLock: null, shelfT: 0, basketT: 0,

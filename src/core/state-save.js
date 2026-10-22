@@ -173,7 +173,7 @@ function spawnGap() { return Math.max(1.8, STARS[star()].gap * Math.min(1, 9 / M
 // ---- price pads on the ground (3.5). PADPOS = the pads shown right now (id -> tile). At most PAD_MAX progress pads:
 // every gate whose prerequisites are met, then part-paid ones, then the cheapest. Decor (2 shop pads, stable slots),
 // one hat booth, one pet booth and the statue are extra.
-const PADPOS = new Map(), DECOR_SLOT = new Map();
+const PADPOS = new Map(), DECOR_SLOT = new Map(), PADKEEP = new Set();   // PADKEEP: the progress pads shown last time
 function padEligible(u) {
   if (S.unlocked[u.id]) return false;
   for (const r of u.req) if (!S.unlocked[r]) return false;
@@ -197,8 +197,10 @@ function padsUpdate() {
     else if (u.id === 'statue' || u.extra) PADPOS.set(u.id, u.pad);                  // v2.1: shrine / garden / plaza pads are extra
     else prog.push(u);
   }
-  prog.sort((a, b) => (b.gate ? 1 : 0) - (a.gate ? 1 : 0) || ((S.paid[b.id] ? 1 : 0) - (S.paid[a.id] ? 1 : 0)) || a.price - b.price);
-  for (const u of prog.slice(0, PAD_MAX)) PADPOS.set(u.id, u.pad);
+  // a pad already on the ground stays there until bought (PADKEEP): newer cheaper ones wait for a free place. It used
+  // to be the cheapest four every frame, so the milk pad (160) vanished soon after the onsen opened ("the milk is gone")
+  prog.sort((a, b) => (b.gate ? 1 : 0) - (a.gate ? 1 : 0) || ((S.paid[b.id] ? 1 : 0) - (S.paid[a.id] ? 1 : 0)) || ((PADKEEP.has(b.id) ? 1 : 0) - (PADKEEP.has(a.id) ? 1 : 0)) || a.price - b.price);
+  PADKEEP.clear(); for (const u of prog.slice(0, PAD_MAX)) { PADPOS.set(u.id, u.pad); PADKEEP.add(u.id); }
   // decor: the first two in table order keep the slot they first showed in
   const show = decor.slice(0, 2), used = new Set();
   for (const [id, i] of [...DECOR_SLOT]) if (!show.some(u => u.id === id)) DECOR_SLOT.delete(id); else used.add(i);

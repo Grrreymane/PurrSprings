@@ -22,7 +22,7 @@ function resetWorld() {
   GUESTS.length = 0; Q.length = 0; STAFF.length = 0; FX.length = 0; POPS.length = 0; SLOT_OCC.fill(null); SEAT_OCC.fill(null); AREA_FADE.length = 0;
   for (const rm of ROOMS) RT[rm.id] = { guest: null, cleanP: 0, claim: null, vipMess: false };
   for (const k in POPA) delete POPA[k];
-  DECOR_SLOT.clear(); padsUpdate();
+  DECOR_SLOT.clear(); PADKEEP.clear(); padsUpdate();
   PADSEEN.clear(); for (const id of PADPOS.keys()) PADSEEN.add(id);
   // calls, trays, the counter and followers are not saved (10.1): they start empty
   Object.assign(P, { x: 17 * TILE + 8, y: 27 * TILE + 8, dir: 'up', moving: false, walkT: 0, towels: 0, dist: 0, sway: 0, atDesk: false, pourAcc: 0, pouring: null, padOn: null, padT: 0, padLock: null, shelfT: 0, basketT: 0,

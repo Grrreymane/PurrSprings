@@ -67,6 +67,7 @@ function gameUpdate(dt) {
   if (GUIDE && GUIDE.kind === 'pad' && !GUIDE.here && GUIDE.id && UNLOCK[GUIDE.id].booth && GUIDE.id !== 'statue') { const b = boothOf(GUIDE.id); b.t += dt; if (b.t >= BOOTH_HINT_T) b.done = true; }
   if (celebrateAt && T >= celebrateAt) { celebrateAt = 0; go('celebrate'); }
   boardTick(dt);   // board.js: the 1GP hearts ranking (platform player only)
+  cloudTick();     // cloud.js: a checkpoint upload held back by the 10 s gap goes out now
   saveClock += dt; if (dirty && saveClock >= (CLOUD.on ? 15 : 2)) saveNow();   // cloud: each save is also an upload; checkpoints (a purchase, ...) still save at once
   updCam(dt);
 }

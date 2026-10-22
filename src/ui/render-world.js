@@ -280,7 +280,10 @@ function drawScene(vw, vh, live, noPlayer, card) {
   L.sort((a, b) => a.y - b.y); let after = false;
   for (const e of L) {
     if (e.pl && PSPLIT) { after = true; continue; }
-    e.f(); if (after && e.y < P.y + OCC_DY && (e.x === undefined || Math.abs(e.x - P.x) < e.hw + 10)) OCC.push(e.f);   // x / hw: its centre and half width, when known
+    // x / hw: its centre and half width, when known. Everything that can reach into his small layer (PAX each side) is
+    // drawn again, not only what touches him: one left out there (a guest 20 px off) was covered by what was drawn again
+    // under it (the counter, which has no x) - a slab of counter over the guest's head, cut at the layer's edge
+    e.f(); if (after && e.y < P.y + OCC_DY && (e.x === undefined || Math.abs(e.x - P.x) < e.hw + PAX)) OCC.push(e.f);
   }
   // ---- over everyone: the entrance noren
   const noren = () => g.drawImage(entranceNoren(), 16 * TILE - CX, 29 * TILE - 6 - CY);

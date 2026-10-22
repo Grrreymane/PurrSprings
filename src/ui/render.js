@@ -109,6 +109,11 @@ function playerLayer() {
   flushLayer(lowP, (P.x - PAX - cam.x) * K, (P.y - PAY - cam.y) * K);
   if (OCC.length) {
     smallBegin(lowO, gx, gy); for (const f of OCC) f(); lightLayer(lowO, gx, gy);
+    // kept to his own pixels (1 px wider for his sub-pixel place): the world under the rest is already right, and drawn
+    // again there it went wrong - a guest left out covered by the counter drawn again, half-clear shadows twice as dark
+    const m = LMASK.getContext('2d'); m.globalCompositeOperation = 'source-over'; m.clearRect(0, 0, PLW, PLH);
+    for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) m.drawImage(lowP, ox, oy);
+    const o = lowO.getContext('2d'); o.globalCompositeOperation = 'destination-in'; o.drawImage(LMASK, 0, 0); o.globalCompositeOperation = 'source-over';
     flushLayer(lowO, WDX + (gx - cw + WM) * K, WDY + (gy - ch + WM) * K);   // the same device grid as lowW
   }
 }
