@@ -19,13 +19,13 @@ function txtPx(size) { const s = size * K / 12; if (s < 1) return size * K; let 
 // scaled to txtPx(size) (cleared when fonts load)
 const TW = new Map(); let twCtx = null;
 function textW(s, size) {
-  s = String(s);
+  s = String(tr(s));   // i18n.js: measured as shown
   if (!twCtx) twCtx = mk(8, 8).getContext('2d');
   let w = 0;
   for (const c of s) { let v = TW.get(c); if (v === undefined) { twCtx.font = '12px ' + PFONT; v = twCtx.measureText(c).width; TW.set(c, v); } w += v; }
   return w * txtPx(size) / 12 / K;
 }
-function txt(s, x, y, size, col, align, stroke, alpha) { TQ.push({ s, x, y, size: size || 8, col: col || '#ffffff', align: align || 'center', stroke: stroke === undefined ? OUT : stroke, alpha: alpha === undefined ? 1 : alpha }); }
+function txt(s, x, y, size, col, align, stroke, alpha) { TQ.push({ s: tr(s), x, y, size: size || 8, col: col || '#ffffff', align: align || 'center', stroke: stroke === undefined ? OUT : stroke, alpha: alpha === undefined ? 1 : alpha }); }
 function panel(x, y, w, h) {
   g.fillStyle = OUT; g.fillRect(x, y, w, h); g.fillStyle = '#8a5a34'; g.fillRect(x + 1, y + 1, w - 2, h - 2);
   g.fillStyle = '#b77b46'; g.fillRect(x + 2, y + 2, w - 4, 1); g.fillStyle = OUT; g.fillRect(x + 3, y + 3, w - 6, h - 6);

@@ -23,7 +23,7 @@ const SEASON_COMBO = 2.0;   // a seasonal combo room in its own season: room fee
 
 // ---- 16.1 seasonal decor: two pieces a season, on sale (the shop's decor pads) from the end of that season's first
 // festival on (S.fests[s] > 0), then always. `when` is read by padEligible(); festHeld() is in festival.js.
-const SD_ROW = (id, name, price, season) => ({ id, name, price, req: ['shop'], hearts: 5, pad: 'decor', icon: 'decor', card: '春夏秋冬'[season] + '季组合加倍',
+const SD_ROW = (id, name, price, season) => ({ id, name, price, req: ['shop'], hearts: 5, pad: 'decor', icon: 'decor', card: ['春季组合加倍', '夏季组合加倍', '秋季组合加倍', '冬季组合加倍'][season],
   decor: true, season, when: () => festHeld(season) });
 const UNLOCKS_V21A = [
   SD_ROW('d_sakura', '樱枝', 1200, 0), SD_ROW('d_lantern', '灯笼', 1400, 0),

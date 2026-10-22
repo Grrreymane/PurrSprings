@@ -1,4 +1,6 @@
 [
+  "src/data/lang.js",
+  "src/core/i18n.js",
   "src/core/constants.js",
   "src/ui/pixel-painter.js",
   "src/art/stubs.js",
@@ -21,6 +23,7 @@
   "src/data/tables.js",
   "src/core/state-save.js",
   "src/core/cloud.js",
+  "src/core/board.js",
   "src/core/pathfinding.js",
   "src/core/entities.js",
   "src/systems/guests.js",

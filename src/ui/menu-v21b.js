@@ -85,7 +85,7 @@ function bannerPartsB(b) {
   const dk = '#5a3a1a', NEW = { t: '新！', c: '#e04a3a', z: 8, gap: 3 };
   switch (b.kind) {
     case 'rare': { const r = RARE[b.id]; return r && { rim: '#ffc21f', parts: [{ img: rareFace(b.id), gap: 3 }, { t: r.name, c: dk, gap: 4 }, { t: '稀客来访！', c: '#c03a8a', z: 8 }] }; }
-    case 'keep': { const r = RARE[b.id]; return r && { rim: '#ffc21f', rim2: '#a070e0', parts: [NEW, { img: keepsakeArt(r.keep), s: 2, gap: 3 }, { t: r.keepName + ' · 图鉴', c: dk }] }; }
+    case 'keep': { const r = RARE[b.id]; return r && { rim: '#ffc21f', rim2: '#a070e0', parts: [NEW, { img: keepsakeArt(r.keep), s: 2, gap: 3 }, { t: L('{0} · 图鉴', r.keepName), c: dk }] }; }
     case 'shrine': return { rim: '#ffc21f', rim2: '#d8442e', parts: [{ img: padIcon('shrine'), gap: 3 }, { t: '金猫像落成！', c: dk, z: 8, gap: 3 }, { t: '收费+10%', c: '#c03a8a' }] };
     case 'fw': return { rim: '#e88ab0', rim2: '#ffd27a', parts: [{ img: padIcon('firework'), gap: 3 }, { t: '烟花升空！', c: '#c03a8a', z: 8 }] };
   }

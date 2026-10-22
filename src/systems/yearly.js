@@ -56,9 +56,9 @@ function drawModal() {
 }
 function drawYearCard(m) {
   panel(18, 64, 144, 196);
-  txt('第' + m.y + '年 年度报告', 90, 84, 11, '#8a3a1a', 'center', null);
+  txt(L('第{0}年 年度报告', m.y), 90, 84, 11, '#8a3a1a', 'center', null);
   const row = (y, ic, lab, v) => { drawC(ic, 44, y); txt(lab, 54, y + .5, 8, '#6a4a2a', 'left', null); txt(v, 138, y + .5, 8, '#8a3a1a', 'right', null); };
-  row(104, menuIcon('cat'), '接待', m.g + ' 位'); row(119, fishIcon(), '收入', fmt(m.e)); row(134, starIcon(true), '新组合', m.c + ' 个');
+  row(104, menuIcon('cat'), '接待', L('{0} 位', m.g)); row(119, fishIcon(), '收入', fmt(m.e)); row(134, starIcon(true), '新组合', L('{0} 个', m.c));
   g.fillStyle = '#c89a5a'; g.fillRect(30, 145, 120, 1);
   // the award lands like a stamp (0.35-0.5 s), with its sound
   const k = clamp((st - .35) / .15, 0, 1), s = 4 - 2 * k, c = trophyArt(m.k);
@@ -88,5 +88,5 @@ function drawPressCard(m) {
   txt(LINES.E09.text(m.stars), 90, 182, 11, m.stars >= 4 ? '#c0392b' : '#8a3a1a', 'center', null);
   drawC(heartIcon(), 50, 204); txt('+' + m.hearts, 57, 204.5, 8, '#8a3a1a', 'left', null);
   const ca = coverArt(m.stars, m.tv, seasonNow()); g.drawImage(ca, 92, 198); txt('人气爆棚', 105, 204.5, 8, '#c0392b', 'left', null);
-  txt((m.tv ? POP_TV_T : POP_T) + '秒', 90, 222, 7, '#8a5a34', 'center', null);
+  txt(L('{0}秒', m.tv ? POP_TV_T : POP_T), 90, 222, 7, '#8a5a34', 'center', null);
 }

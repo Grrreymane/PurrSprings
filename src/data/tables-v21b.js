@@ -26,7 +26,7 @@ const OUTFIT_SHIRT = NUL(); OUTFITS_B.forEach(o => { OUTFIT_SHIRT[o[0]] = o[5]; 
 // staff uniforms: one palette map per staff outfit (look.uniform = the id after 'u_')
 const UNIFORMS_B = [['u_sakura', '樱色', 25000, 10, '全员换樱色', 'sakura'], ['u_aizome', '蓝染', 30000, 12, '全员换蓝染', 'indigo'], ['u_sailor', '水手', 40000, 15, '全员换水手服', 'sailor'], ['u_gold', '金边', 150000, 40, '全员换金边', 'gold']];   // look.uniform = the last (the character art's palette names)
 // gold decor (16.6): the piece it gilds; on sale once a combo with that piece has been found
-const GOLD_B = [['d_maneki_gold', '金猫', 'd_maneki', '金招财'], ['d_daruma_gold', '金达', 'd_daruma', '金达摩'], ['d_tank_gold', '金缸', 'd_tank', '金鱼缸'], ['d_screen_gold', '金屏', 'd_screen', '金屏风']];
+const GOLD_B = [['d_maneki_gold', '金猫', 'd_maneki', '金招财·组合加价'], ['d_daruma_gold', '金达', 'd_daruma', '金达摩·组合加价'], ['d_tank_gold', '金缸', 'd_tank', '金鱼缸·组合加价'], ['d_screen_gold', '金屏', 'd_screen', '金屏风·组合加价']];   // [id, name, base, card line]
 const GOLD_PLUS = .4;   // a combo with a gold piece in it: room fee x(1.6 + 0.4)
 // the garden pieces (16.7): chain pad, price order; at = its own ground (SPEC 2.4's eight spots; the stone lantern (29,24) -> (34,28)
 // and the chime (34,24) -> (35,24): the v2.0.1 sakura grove hid the one, the path lamp crowded the other - 18.2)
@@ -73,7 +73,7 @@ const UNLOCKS_V21B = [];
   U('p_fox', '小狐', 60000, [], 20, 'pet', 'pet', '小狐跟着你', { pet: 'fox' });
   U('p_tanuki', '小狸', 90000, [], 30, 'pet', 'pet', '会变灯笼哦', { pet: 'tanuki' });
   U('p_crane', '白鹤', 150000, [], 40, 'pet', 'pet', '白鹤跟着你', { pet: 'crane' });
-  GOLD_B.forEach(([id, name, base, full]) => U(id, name, 20000, [], 10, 'decor', 'gold:' + base, full + '·组合加价', { goldOf: base, ok: () => comboFoundWith(base) }));
+  GOLD_B.forEach(([id, name, base, card]) => U(id, name, 20000, [], 10, 'decor', 'gold:' + base, card, { goldOf: base, ok: () => comboFoundWith(base) }));
 }
 // the fireworks' price follows the shows so far (padNeed / the pad / the card read u.price)
 Object.defineProperty(UNLOCKS_V21B.find(u => u.id === 'fw'), 'price', { get: fwPrice, enumerable: true });

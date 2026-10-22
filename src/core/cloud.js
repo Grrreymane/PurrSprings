@@ -13,7 +13,7 @@ function cloudWanted() {
   try { return /[?&]cloud(?:[=&]|$)/.test(location.search || ''); } catch (e) { return false; }
 }
 const legacyStar = d => { const u = d && d.unlocked || {}; return clamp(Math.max(1 + !!u.onsen + !!u.dining + !!u.garden + !!u.roten, (d && d.peak) | 0), 1, 5); };
-const cloudSummary = d => '★' + legacyStar(d) + ' · 第 ' + Math.max(1, (d && d.day) | 0) + ' 天 · ' + fmt(Math.max(0, (d && d.money) | 0)) + ' 鱼干';
+const cloudSummary = d => L('★{0} · 第 {1} 天 · {2} 鱼干', legacyStar(d), Math.max(1, (d && d.day) | 0), fmt(Math.max(0, (d && d.money) | 0)));
 function cloudExport() { S.rush5 = rushSave(); return JSON.parse(JSON.stringify(S)); }
 // at startup and whenever the player picks another save on the platform (the cloud copy, a backup): the whole scene is
 // rebuilt from it, nothing of the old one is kept (resetWorld clears guests, staff, timers and the rush)
@@ -69,5 +69,5 @@ function cloudNote() {
 }
 function drawCloudNote() {
   const s = cloudNote(); if (!s) return;
-  const w = Math.min(W - 4, textW(s, 7) + 10 | 0); pill(R((W - w) / 2), 18, w, 11); txt(s, W / 2, 23.5, 7, '#ffb0a0');
+  const w = Math.min(W - 4, textW(s, 7) + 10 | 0); pill(R((W - w) / 2), 31, w, 11); txt(s, W / 2, 36.5, 7, '#ffb0a0');   // under the HUD's second row (sky dial, rank, calls)
 }

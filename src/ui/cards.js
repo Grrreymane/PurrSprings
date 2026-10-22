@@ -130,11 +130,11 @@ function bannerParts(b) {
     case 'statue': return { rim: '#ffc21f', parts: [NEW, { img: padIcon('statue'), gap: 3 }, { t: u.name + ' · ' + u.card, c: dk }] };
     case 'hint': { const c = COMBO[b.id]; return { rim: '#a070e0', parts: [NEW, { img: decorIcon(c.a), gap: 1 }, { t: '+', c: '#8a5ac8', gap: 1 }, { img: decorIcon(c.b), gap: 2 }, { t: '?', c: '#c03a8a', z: 8 }] }; }
     case 'combo': { const c = COMBO[b.id]; return { rim: '#a070e0', rim2: '#ffc21f', parts: [{ img: decorIcon(c.a), gap: 1 }, { t: '+', c: '#8a5ac8', gap: 1 }, { img: decorIcon(c.b), gap: 4 }, { t: '组合！', c: '#c03a8a', z: 8, gap: 2 }, { t: c.name, c: dk }] }; }
-    case 'rank': { const rv = RIVALS.find(r => r.id === b.id); return { rim: '#e0a030', parts: [{ img: rankBadge(b.id), gap: 3 }, { t: '超过了 ' + (rv ? rv.name : '') + '！', c: dk, gap: 4 }, { t: '#' + b.rank, c: '#c0392b', z: 8 }] }; }
+    case 'rank': { const rv = RIVALS.find(r => r.id === b.id); return { rim: '#e0a030', parts: [{ img: rankBadge(b.id), gap: 3 }, { t: L('超过了 {0}！', rv ? rv.name : ''), c: dk, gap: 4 }, { t: '#' + b.rank, c: '#c0392b', z: 8 }] }; }
     case 'gold': return { rim: '#ffc21f', parts: Array.from({ length: Math.max(1, b.id | 0) }, () => ({ img: starIcon(true, true), gap: 1 })).concat([{ gap: 2 }, { t: '金星点亮！', c: dk }]) };
     case 'level': { const s = STAFF.find(x => x.id === b.id), look = s ? staffLook(s) : staffDefLook[b.id]; return { rim: '#8a5a34', small: true, parts: [{ img: faceOf(look), gap: 3 }, { t: (STAFF_DEF[b.id] || {}).name || '', c: dk, gap: 3 }, { t: 'Lv' + b.lv, c: '#d08a10', z: 8 }] }; }
-    case 'day': return { rim: '#e0a030', parts: [{ img: sunIcon(), gap: 3 }, { t: '第' + b.id + '天', c: dk, gap: 5 }, { img: rankBadge('me'), gap: 2 }, { t: String(b.g), c: dk, gap: 5 }, { img: heartIcon(), gap: 2 }, { t: String(b.h), c: dk }].concat(b.rec ? [{ gap: 3 }, { img: trophyIcon() }] : []) };
-    case 'milestone': return { rim: '#e0a030', parts: [{ img: menuIcon('cat'), gap: 3 }, { t: '第' + b.id + '位客人！', c: dk }] };
+    case 'day': return { rim: '#e0a030', parts: [{ img: sunIcon(), gap: 3 }, { t: L('第{0}天', b.id), c: dk, gap: 5 }, { img: rankBadge('me'), gap: 2 }, { t: String(b.g), c: dk, gap: 5 }, { img: heartIcon(), gap: 2 }, { t: String(b.h), c: dk }].concat(b.rec ? [{ gap: 3 }, { img: trophyIcon() }] : []) };
+    case 'milestone': return { rim: '#e0a030', parts: [{ img: menuIcon('cat'), gap: 3 }, { t: L('第{0}位客人！', b.id), c: dk }] };
     case 'gift': return { rim: '#ffc21f', parts: [{ img: menuIcon('house'), gap: 3 }, { t: '旅馆扩建啦！', c: dk, z: 8 }] };
     // v2.2 (business.js): the evening rush comes; the evening summary - today's stars, the room fee from now on, hearts
     case 'rush': return b.id ? { rim: '#e8453c', rim2: '#ffc21f', parts: [{ img: clockIcon(), gap: 3 }, { t: '大高峰！', c: '#c0392b', z: 8, gap: 5 }, { img: menuIcon('cat'), gap: 2 }, { t: '×' + (b.k || 2.5).toFixed(1), c: dk }] }   // v2.3: the star-5 rush

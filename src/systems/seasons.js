@@ -234,8 +234,8 @@ function drawHudV21a(x0) {
 function bannerV21a(b) {
   const dk = '#5a3a1a';
   switch (b.kind) {
-    case 'season': return { rim: SEASONS[b.id].col, parts: [{ img: seasonIcon(b.id), s: 2, gap: 4 }].concat(b.id === 0 && b.y > 1 ? [{ t: '第' + b.y + '年', c: '#c0392b', z: 8, gap: 4 }] : [], [{ t: SEASONS[b.id].name + '来了', c: dk, z: 8 }]) };
-    case 'fest': return { rim: '#e8503a', rim2: '#ffc21f', parts: [{ img: lanternIcon(true), gap: 2 }, { img: lanternIcon(true), gap: 4 }, { t: SEASONS[b.id].fest + '！', c: '#c0392b', z: 8 }] };
+    case 'season': return { rim: SEASONS[b.id].col, parts: [{ img: seasonIcon(b.id), s: 2, gap: 4 }].concat(b.id === 0 && b.y > 1 ? [{ t: L('第{0}年', b.y), c: '#c0392b', z: 8, gap: 4 }] : [], [{ t: L('{0}来了', SEASONS[b.id].name), c: dk, z: 8 }]) };
+    case 'fest': return { rim: '#e8503a', rim2: '#ffc21f', parts: [{ img: lanternIcon(true), gap: 2 }, { img: lanternIcon(true), gap: 4 }, { t: L('{0}！', SEASONS[b.id].fest), c: '#c0392b', z: 8 }] };
     case 'festok': return { rim: '#ffc21f', rim2: '#e8503a', parts: [{ img: medalArt(b.id), gap: 3 }, { t: '祭典大成功！', c: '#c0392b', z: 8, gap: 4 }, { img: heartIcon(), gap: 1 }, { t: '+' + FEST_HEARTS, c: dk }] };
     case 'festno': return { rim: '#8a5a34', parts: [{ img: lanternIcon(false), gap: 3 }, { t: '明年再来！', c: dk }] };
     case 'press': return { rim: '#5a6a8a', parts: [{ img: coverArt(3, !!b.id, seasonNow()), gap: 3 }, { t: b.id ? '电视台来了！' : '记者来了！', c: dk, z: 8 }] };

@@ -141,7 +141,7 @@ function photoCanvas(p) {
 function drawVipPhoto(id) {
   const v = VIP[id], ph = S.album.photos.filter(p => p.v === id).pop();
   cell(30, 84, 120, 182, true);
-  if (ph) { g.drawImage(photoCanvas(ph), 50, 92, 80, 92); txt('第' + ph.d + '天', 90, 196, 8, '#5a3a1a', 'center', null); }
+  if (ph) { g.drawImage(photoCanvas(ph), 50, 92, 80, 92); txt(L('第{0}天', ph.d), 90, 196, 8, '#5a3a1a', 'center', null); }
   else { g.drawImage(faceOf(VIP_LOOK[id]), 69, 100, 42, 39); drawC(menuIcon('camera'), 90, 160); txt('?', 99, 156, 8, '#8a3a1a', 'left', null); }
   txt(v.name, 90, 212, 9, '#8a3a1a', 'center', null);
   if (S.gifts.includes(id)) { const gi = giftArt(v.gift); g.drawImage(gi, 82, 222, 16, 16); }
@@ -216,7 +216,7 @@ function drawBoughtPage() {
 }
 function drawInnPage() {
   const c = S.clock, day = c >= .08 && c < .72;
-  const items = [[menuIcon('day'), '第' + S.day + '天', day ? sunIcon() : moonIcon()], [menuIcon('cat'), S.stats.guests + '位'], [fishIcon(), fmt(S.earned)], [padIcon('room'), guestRoomsOpen() + '/' + GUEST_ROOMS.length],
+  const items = [[menuIcon('day'), L('第{0}天', S.day), day ? sunIcon() : moonIcon()], [menuIcon('cat'), L('{0}位', S.stats.guests)], [fishIcon(), fmt(S.earned)], [padIcon('room'), guestRoomsOpen() + '/' + GUEST_ROOMS.length],
     [heartIcon(), String(S.hearts)], [trophyIcon(), '#' + rankOf(S.hearts)], [starIcon(true, true), String(goldStars())], [menuIcon('chart'), String(Math.max(S.dayLog.best, S.dayLog.g))]];
   items.forEach(([ic, s, ex], i) => {
     const x = 26 + (i & 1) * 68, y = 72 + (i >> 1) * 13;
@@ -233,6 +233,7 @@ function drawInnPage() {
     txt(String(i + 1), 31, y + 5.5, 7, col, 'center', null);
     drawC(rankBadge(r.id), 42, y + 5);
     txt(r.name, 49, y + 5.5, 7, col, 'left', null);
+    if (r.me && BOARD.rank) txt('1GP #' + BOARD.rank, 53 + textW(r.name, 7), y + 5.5, 7, '#c0392b', 'left', null);   // board.js: the player's place on 1GP
     txt(String(r.h), 146, y + 5.5, 7, col, 'right', null); drawC(heartIcon(), 151, y + 5);
   });
   menuBtn([50, 246, 80, 22], menuIcon('camera'), '分享', 'blue');   // the share card, any time (G2)

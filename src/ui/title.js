@@ -52,8 +52,8 @@ function drawTitle() {
   g.fillStyle = 'rgba(12,8,28,.5)'; g.fillRect(0, 0, W, H);
   g.drawImage(catBow('orange', Math.floor(T / .9) & 1, hatOf(S.equip.hat), outfitOf(S.equip.outfit)), 17 * TILE + 8 - 8 - CX, 30 * TILE + 10 - 23 - CY);   // the innkeeper bows at the door (in its hat, 4.11; v2.1: + its outfit)
   { const k = petOf(S.equip.pet); if (k) drawPet({ kind: k, x: 17 * TILE + 21, y: 30 * TILE + 10, dir: 'down', moving: false, walkT: 0, idle: 2 }); }
-  txt('猫猫温泉旅馆', 90, 74, 21, '#ffe14a');
-  txt('Purr Springs', 90, 96, 9, '#dff6ff');
+  { const tt = tr('猫猫温泉旅馆'); let ts = 21; while (ts > 12 && textW(tt, ts) > W - 12) ts--;   // i18n: a longer title steps down to fit
+    txt(tt, 90, 74, ts, '#ffe14a'); if (tt !== 'Purr Springs') txt('Purr Springs', 90, 96, 9, '#dff6ff'); }
   const old = CLOUD.legacy && !hasSave, sn = old ? legacyStar(CLOUD.legacy) : star();
   for (let i = 0; i < 5; i++) drawC(starIcon(i < sn), 74 + i * 8, 112);
   if (CLOUD.err) { txt('存档没读到，请刷新再试', 90, 212, 8, '#ffb0a0'); return; }
@@ -71,6 +71,6 @@ function drawCelebrate() {
   // 4.11: what comes next - the rank board, the boutique, the golden statue (icons only)
   txt('接下来', 58, 142, 7, '#8a3a1a', 'center', null);
   g.drawImage(trophyIcon(), 77, 136, 14, 14); g.drawImage(padIcon('hat'), 96, 137); g.drawImage(padIcon('statue'), 115, 137);
-  rowT(158, '接待客人', S.stats.guests + ' 位'); rowT(171, '总收入', fmt(S.earned) + ' 鱼干'); rowT(184, '营业时间', Math.max(1, R(S.stats.time / 60)) + ' 分钟');
+  rowT(158, '接待客人', L('{0} 位', S.stats.guests)); rowT(171, '总收入', L('{0} 鱼干', fmt(S.earned))); rowT(184, '营业时间', L('{0} 分钟', Math.max(1, R(S.stats.time / 60))));
   button(BTN.share, '分享旅馆', 'blue'); button(BTN.cont, '继续营业');
 }

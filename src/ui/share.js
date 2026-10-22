@@ -17,7 +17,7 @@ function makeShare() {
   g.drawImage(catSprite('down', 0, equipLook()), 90 - 16, 146 - 48, 32, 48);
   { const k = petOf(S.equip.pet); if (k) { const c = petSprite(k, 'down', k === 'shiba' ? 3 : 0); g.drawImage(c, 90 + 18, 146 - c.height * 2, c.width * 2, c.height * 2); } }
   { const ph = S.album.photos[S.album.photos.length - 1];   // the latest VIP photo, redrawn from data (7.8), pinned top right
-    if (ph) { g.fillStyle = 'rgba(12,8,28,.35)'; g.fillRect(130, 36, 40, 46); g.drawImage(photoCanvas(ph), 128, 34); txt('第' + ph.d + '天', 148, 75.5, 6, '#5a3a1a', 'center', null); } }
+    if (ph) { g.fillStyle = 'rgba(12,8,28,.35)'; g.fillRect(130, 36, 40, 46); g.drawImage(photoCanvas(ph), 128, 34); txt(L('第{0}天', ph.d), 148, 75.5, 6, '#5a3a1a', 'center', null); } }
   g.fillStyle = 'rgba(12,8,28,.55)'; g.fillRect(0, 0, W, 26);
   txt('猫猫温泉旅馆', 90, 13, 15, '#ffe14a');   // the card is drawn at 4x: pixel-font sizes in steps of 3 are crisp (F1)
   g.fillStyle = '#2a1e3a'; g.fillRect(0, 150, W, H - 150); g.fillStyle = OUT; g.fillRect(0, 150, W, 2);
@@ -26,10 +26,10 @@ function makeShare() {
   const gs = goldStars();
   for (let i = 0; i < 5; i++) g.drawImage(starIcon(i < star(), i < gs), 38 + i * 15, 165, 14, 14);
   g.drawImage(trophyIcon(), 120, 166, 14, 14); txt('#' + rankOf(S.hearts), 137, 173.5, 9, '#8a3a1a', 'left', null);
-  txt(gs >= 5 ? '传说之汤' : star() >= 5 ? '五星旅馆' : star() + ' 星旅馆', 90, 191, 12, '#c0392b', 'center', null);
+  txt(gs >= 5 ? '传说之汤' : star() >= 5 ? '五星旅馆' : L('{0} 星旅馆', star()), 90, 191, 12, '#c0392b', 'center', null);
   const rowT = (y, a, b) => { txt(a, 26, y, 9, '#6a4a2a', 'left', null); txt(b, 154, y, 9, '#8a3a1a', 'right', null); };
   const ac = albumCount();
-  rowT(209, '接待客人', S.stats.guests + ' 位'); rowT(226, '总收入', fmt(S.earned) + ' 鱼干'); rowT(243, '图鉴', ac.n + '/' + ac.m);
+  rowT(209, '接待客人', L('{0} 位', S.stats.guests)); rowT(226, '总收入', L('{0} 鱼干', fmt(S.earned))); rowT(243, '图鉴', ac.n + '/' + ac.m);
   // ---- QR + link ----
   drawQR(12, 280);
   txt('扫码，一起来开旅馆', 50, 289, 9, '#ffffff', 'left');
@@ -39,7 +39,7 @@ function makeShare() {
   K = S2;
   for (const t of TQ) { const c = textSprite(t), w_ = c.w - 2 * c.pad; o.globalAlpha = t.alpha; o.drawImage(c.cv, R(t.x * K - c.pad - (t.align === 'center' ? w_ / 2 : t.align === 'right' ? w_ : 0)), R(t.y * K - c.h / 2)); }
   o.globalAlpha = 1; K = k0; TQ.length = 0; g.clearRect(0, 0, W, H);
-  showShare(out, '我的猫猫温泉旅馆' + (star() >= 5 ? '成了五星旅馆' : '开张啦') + '，接待了 ' + S.stats.guests + ' 位客人，你也来开一家：');
+  showShare(out, L(star() >= 5 ? '我的猫猫温泉旅馆成了五星旅馆，接待了 {0} 位客人，你也来开一家：' : '我的猫猫温泉旅馆开张啦，接待了 {0} 位客人，你也来开一家：', S.stats.guests));
 }
 let shareEl = null;
 function showShare(cvs, msg) {
@@ -57,7 +57,7 @@ function showShare(cvs, msg) {
     cvs.toBlob(blob => {
       if (!blob || !navigator.canShare) return;
       const file = new File([blob], name, { type: 'image/png' });
-      if (navigator.canShare({ files: [file] })) btn('分享给朋友', '#4a88e0', () => { navigator.share({ files: [file], title: '猫猫温泉旅馆', text: msg + SHARE_URL }).catch(() => {}); });
+      if (navigator.canShare({ files: [file] })) btn('分享给朋友', '#4a88e0', () => { navigator.share({ files: [file], title: tr('猫猫温泉旅馆'), text: msg + SHARE_URL }).catch(() => {}); });
     });
   } catch (e) {}
   btn('关闭', '#8a8a9a', () => { el.remove(); shareEl = null; });

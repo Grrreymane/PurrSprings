@@ -13,7 +13,10 @@ const pick = a => a[Math.floor(Math.random() * a.length)];
 const R = Math.round;
 const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
 // 8520 / 1.2万 / 25万 / 100万 (SPEC_v2 4.8)
-const fmt = n => n >= 1e5 ? Math.floor(n / 1e4) + '万' : n >= 1e4 ? (Math.floor(n / 1e3) / 10).toFixed(1) + '万' : String(n);
+// i18n.js: 万 in Chinese / Japanese, 만 in Korean, K / M elsewhere (the same few characters wide)
+const fmt = n => { const w = LANG === 'ko' ? '만' : LANG === 'zh' || LANG === 'ja' ? '万' : null;
+  if (!w) return n >= 1e6 ? (Math.floor(n / 1e5) / 10) + 'M' : n >= 1e4 ? Math.floor(n / 1e3) + 'K' : String(n);
+  return n >= 1e5 ? Math.floor(n / 1e4) + w : n >= 1e4 ? (Math.floor(n / 1e3) / 10).toFixed(1) + w : String(n); };
 function mk(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
 function load(k, d) { try { const v = localStorage.getItem(SAVE + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
 function save(k, v) { try { localStorage.setItem(SAVE + k, JSON.stringify(v)); } catch (e) {} }

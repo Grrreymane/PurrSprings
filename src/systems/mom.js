@@ -76,6 +76,6 @@ function drawFamilyCard(m) {
   txt('全家福', 90, 84, 13, '#8a3a1a', 'center', null);
   g.fillStyle = OUT; g.fillRect(24, 95, 132, 96); g.fillStyle = '#fbfbf6'; g.fillRect(25, 96, 130, 94);
   g.drawImage(familyPhoto(), 28, 99);
-  txt('第' + m.y + '年 · 春', 90, 200, 7, '#8a5a34', 'center', null);
+  txt(L('第{0}年 · 春', m.y), 90, 200, 7, '#8a5a34', 'center', null);
   txt(LINES.E10.text('go'), 90, 222, 9, '#c0392b', 'center', null);
 }

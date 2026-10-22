@@ -102,7 +102,7 @@ SEEN_KEYS.push('w_tea', 'w_kai', 'w_milk', 'w_rice', 'w_bath', 'w_photo');
 const vipCardFace = () => faceOf(VIPG ? VIPG.look : VIP_LOOK.kawa);
 function wishCardParts(k) {
   if (k === 'photo') return [{ img: faceOf(PLAYER_LOOK) }, { img: menuIcon('camera') }, { img: ARROW_R }, { img: vipCardFace() }, WISH_VERB.photo];
-  if (k === 'bath') return [{ img: stationIcon('tub') }, { img: ARROW_R }, { img: vipCardFace() }, '站着' + WISH_VERB.bath];
+  if (k === 'bath') return [{ img: stationIcon('tub') }, { img: ARROW_R }, { img: vipCardFace() }, '站着放水'];
   const ids = wishStations(k), id = ids.length ? nearStation(ids) : k === 'milk' ? 'milk' : k === 'tea' ? 'urn1' : 'stove';
   return [{ img: stationIcon(STATION_ICON[id]) }, { img: ARROW_R }, { img: itemIcon(k), s: 2 }, { img: ARROW_R }, { img: vipCardFace() }, wishVerb(k, id)];
 }

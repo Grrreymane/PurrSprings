@@ -2,7 +2,8 @@
 const cloudy = cloudWanted();   // cloud.js: in the platform's player the SDK restores the save (from the default here)
 S = loadState(cloudy ? {} : undefined);
 resetWorld();
-if (cloudy) cloudStart();
+if (cloudy) { cloudStart(); langFetch(); boardBoot(); }   // i18n.js: the author's newest translations; board.js: the 1GP ranking
+try { document.documentElement.lang = LANG; if (LANG !== 'zh') document.title = tr('猫猫温泉旅馆'); } catch (e) {}
 // Test hook (see tools/make_test_page.py): _test.html replaces the line below to expose eval + bots.
 /*TEST_HOOK*/
 if (location.hash === '#cover') { (document.fonts ? document.fonts.ready : Promise.resolve()).then(renderCover); window.__gameBooted = true; return; }
