@@ -16112,9 +16112,9 @@ function drawPreview(u) {
 function bannerParts(b) {
   const u = UNLOCK[b.id], dk = '#5a3a1a', NEW = { t: '新！', c: '#e04a3a', z: 8, gap: 3 };
   switch (b.kind) {
-    case 'buy': return { rim: '#8a5a34', parts: [NEW, { img: unlockIcon(u), gap: 3 }, { t: u.name + ' · ' + u.card, c: dk }] };
-    case 'area': return { rim: '#ffc21f', parts: [NEW, { img: padIcon(u.icon), gap: 3 }, { t: u.name + ' · ' + u.card, c: dk }].concat(b.star ? [{ gap: 1 }, { img: starIcon(true) }] : []) };
-    case 'statue': return { rim: '#ffc21f', parts: [NEW, { img: padIcon('statue'), gap: 3 }, { t: u.name + ' · ' + u.card, c: dk }] };
+    case 'buy': return { rim: '#8a5a34', parts: [NEW, { img: unlockIcon(u), gap: 3 }, { t: L('{0} · {1}', u.name, u.card), c: dk }] };
+    case 'area': return { rim: '#ffc21f', parts: [NEW, { img: padIcon(u.icon), gap: 3 }, { t: L('{0} · {1}', u.name, u.card), c: dk }].concat(b.star ? [{ gap: 1 }, { img: starIcon(true) }] : []) };
+    case 'statue': return { rim: '#ffc21f', parts: [NEW, { img: padIcon('statue'), gap: 3 }, { t: L('{0} · {1}', u.name, u.card), c: dk }] };
     case 'hint': { const c = COMBO[b.id]; return { rim: '#a070e0', parts: [NEW, { img: decorIcon(c.a), gap: 1 }, { t: '+', c: '#8a5ac8', gap: 1 }, { img: decorIcon(c.b), gap: 2 }, { t: '?', c: '#c03a8a', z: 8 }] }; }
     case 'combo': { const c = COMBO[b.id]; return { rim: '#a070e0', rim2: '#ffc21f', parts: [{ img: decorIcon(c.a), gap: 1 }, { t: '+', c: '#8a5ac8', gap: 1 }, { img: decorIcon(c.b), gap: 4 }, { t: '组合！', c: '#c03a8a', z: 8, gap: 2 }, { t: c.name, c: dk }] }; }
     case 'rank': { const rv = RIVALS.find(r => r.id === b.id); return { rim: '#e0a030', parts: [{ img: rankBadge(b.id), gap: 3 }, { t: L('超过了 {0}！', rv ? rv.name : ''), c: dk, gap: 4 }, { t: '#' + b.rank, c: '#c0392b', z: 8 }] }; }

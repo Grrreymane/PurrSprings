@@ -16,6 +16,7 @@ function onScreen(tag) {
   for (const t of TQ) {
     const w = textW(t.s, t.size), x0 = t.align === 'left' ? t.x : t.align === 'right' ? t.x - w : t.x - w / 2;
     ok(x0 >= -1 && x0 + w <= W + 1, `${LANG} ${tag}: "${t.s}" runs off the screen (${x0.toFixed(0)}..${(x0 + w).toFixed(0)})`);
+    ok(LANG === 'ja' || !/[㐀-鿿]/.test(t.s), `${LANG} ${tag}: "${t.s}" is still Chinese (a sentence built from parts? use L())`);   // Japanese keeps kanji: tests/i18n_probe.js
   }
 }
 const langs = ARGS && ARGS[0] ? [ARGS[0]] : ['en', 'ja', 'ko', 'es'];
@@ -27,7 +28,8 @@ for (const l of langs) {
   ok(!/[\u4e00-\u9fff]/.test(L('{0} 鱼干', fmt(123456))) || l === 'ja', l + ': no Chinese left in ' + L('{0} 鱼干', fmt(123456)));
   // banners (the same rule as ui_check)
   setup(['room2', 'room3'], 60);
-  const fits = (b, tag) => { const st = bannerParts(b); if (st) { const w = partsW(st.parts); ok(w + 16 <= W - 8, `${l} ${tag}: banner ${w.toFixed(0)} px too wide`); } };
+  const fits = (b, tag) => { const st = bannerParts(b); if (st) { const w = partsW(st.parts); ok(w + 16 <= W - 8, `${l} ${tag}: banner ${w.toFixed(0)} px too wide`);
+    for (const p of st.parts) if (p && p.t !== undefined) ok(l === 'ja' || !/[㐀-鿿]/.test(tr(p.t)), `${l} ${tag}: banner text "${tr(p.t)}" is still Chinese`); } };
   for (const u of UNLOCKS) fits({ kind: u.gate ? 'area' : u.id === 'statue' ? 'statue' : 'buy', id: u.id, star: !!u.star }, 'banner ' + u.id);
   for (const c of COMBOS) fits({ kind: 'combo', id: c.id }, 'combo ' + c.id);
   for (const r of RIVALS) if (r.id) fits({ kind: 'rank', id: r.id, rank: 10 }, 'rank ' + r.id);
